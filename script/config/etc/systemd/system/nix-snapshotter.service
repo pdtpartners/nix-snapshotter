@@ -1,0 +1,15 @@
+[Unit]
+Description=nix snapshotter
+After=network.target
+Before=containerd.service
+
+[Service]
+Type=notify
+Environment=HOME=/root
+Environment=NIX_TOOL=/nix/var/nix/profiles/default/bin/nix
+ExecStart=/usr/local/bin/nix-snapshotter
+Restart=always
+RestartSec=1
+
+[Install]
+WantedBy=multi-user.target
