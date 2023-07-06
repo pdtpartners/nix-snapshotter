@@ -1,4 +1,4 @@
-module github.com/hinshun/nix-snapshotter
+module github.com/pdtpartners/nix-snapshotter
 
 go 1.18
 

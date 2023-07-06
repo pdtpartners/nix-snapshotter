@@ -8,7 +8,7 @@ import (
 	"os"
 	"runtime"
 
-	"github.com/hinshun/nix-snapshotter/types"
+	"github.com/pdtpartners/nix-snapshotter/types"
 )
 
 // BuildOpt applies changes to BuildOptions

@@ -31,7 +31,7 @@ import (
 	"github.com/containerd/containerd/snapshots/overlay/overlayutils"
 	"github.com/containerd/containerd/snapshots/storage"
 	"github.com/containerd/continuity/fs"
-	"github.com/hinshun/nix-snapshotter/pkg/nix2container"
+	"github.com/pdtpartners/nix-snapshotter/pkg/nix2container"
 	"github.com/sirupsen/logrus"
 )
 

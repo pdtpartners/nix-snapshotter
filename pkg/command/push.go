@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/hinshun/nix-snapshotter/pkg/nix2container"
-	"github.com/hinshun/nix-snapshotter/types"
+	"github.com/pdtpartners/nix-snapshotter//pkg/nix2container"
+	"github.com/pdtpartners/nix-snapshotter//types"
 	cli "github.com/urfave/cli/v2"
 )
 
