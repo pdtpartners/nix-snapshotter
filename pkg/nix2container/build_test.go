@@ -80,7 +80,6 @@ func TestBuild(t *testing.T) {
 			if diff != "" {
 				t.Fatalf(diff)
 			}
-			require.Equal(t, 1, 0)
 		})
 	}
 }
