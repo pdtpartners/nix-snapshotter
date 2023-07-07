@@ -44,14 +44,11 @@ func DetectImageType(imagePath string) (ImageType, error) {
 		return ImageTypeUnknown, err
 	}
 
-	// Check if you can load the json
 	var img types.Image
 	err = json.Unmarshal(b,&img)
 	if err == nil {
 		return ImageTypeNix, nil
 	}
 	
-	// If not json or tarbal
 	return ImageTypeUnknown, err
-	
 }
