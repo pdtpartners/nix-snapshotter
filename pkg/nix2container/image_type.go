@@ -2,8 +2,9 @@ package nix2container
 
 import (
 	"archive/tar"
-	"errors"
 	"os"
+	"encoding/json"
+	"github.com/pdtpartners/nix-snapshotter/types"
 )
 
 // ImageType defines the base image formats that nix2container supports.
@@ -33,13 +34,24 @@ func DetectImageType(imagePath string) (ImageType, error) {
 	// Peak ahead to see if the file is a tarball.
 	tr := tar.NewReader(f)
 	_, err = tr.Next()
+	// Assume the tarball is of an OCI archive layout.
+	if err == nil {
+		return ImageTypeOCITarball, nil
+	}
+	
+	b, err := os.ReadFile(imagePath) 
 	if err != nil {
-		if errors.Is(err, tar.ErrHeader) {
-			return ImageTypeNix, nil
-		}
 		return ImageTypeUnknown, err
 	}
 
-	// Assume the tarball is of an OCI archive layout.
-	return ImageTypeOCITarball, nil
+	// Check if you can load the json
+	var img types.Image
+	err = json.Unmarshal(b,&img)
+	if err == nil {
+		return ImageTypeNix, nil
+	}
+	
+	// If not json or tarbal
+	return ImageTypeUnknown, err
+	
 }

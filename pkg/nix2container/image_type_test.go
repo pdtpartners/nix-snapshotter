@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"fmt"
 	"github.com/pdtpartners/nix-snapshotter/types"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/stretchr/testify/require"
@@ -64,23 +63,10 @@ func TestDetectImageType(t *testing.T) {
 			outPath := filepath.Join(testDir, "out")
 			err = tc.setup(outPath)
 			require.NoError(t, err)
-			
-			f, err := os.Open(outPath)
-			files, err := f.Readdir(0)
-			if err != nil {
-				fmt.Println(err)
-				// return
-			}
-			
-			for _, v := range files {
-				fmt.Println(v.Name(), v.IsDir())
-			}
 
-			// Temporarily commented out to fix tests issue (with nixos)
-
-			// actual, err := DetectImageType(outPath)
-			// require.NoError(t, err)
-			// require.Equal(t, tc.expected, actual)
+			actual, err := DetectImageType(outPath)
+			require.NoError(t, err)
+			require.Equal(t, tc.expected, actual)
 		})
 	}
 }
