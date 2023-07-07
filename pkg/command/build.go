@@ -3,7 +3,7 @@ package command
 import (
 	"fmt"
 
-	"github.com/hinshun/nix-snapshotter/pkg/nix2container"
+	"github.com/pdtpartners/nix-snapshotter/pkg/nix2container"
 	cli "github.com/urfave/cli/v2"
 )
 

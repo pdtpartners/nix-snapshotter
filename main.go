@@ -15,7 +15,7 @@ import (
 	"github.com/containerd/containerd/contrib/snapshotservice"
 	"github.com/containerd/containerd/log"
 	"github.com/coreos/go-systemd/v22/daemon"
-	"github.com/hinshun/nix-snapshotter/pkg/nix"
+	"github.com/pdtpartners/nix-snapshotter/pkg/nix"
 )
 
 const (

@@ -44,8 +44,8 @@ ARG TARGETARCH
 ARG GOARM
 ARG SNAPSHOTTER_BUILD_FLAGS
 ARG CTR_REMOTE_BUILD_FLAGS
-COPY . $GOPATH/src/github.com/hinshun/nix-snapshotter
-RUN cd $GOPATH/src/github.com/hinshun/nix-snapshotter && \
+COPY . $GOPATH/src/github.com/pdtpartners/nix-snapshotter
+RUN cd $GOPATH/src/github.com/pdtpartners/nix-snapshotter && \
     PREFIX=/out/ GOARCH=${TARGETARCH:-amd64} GO_BUILD_FLAGS=${SNAPSHOTTER_BUILD_FLAGS} make nix-snapshotter
 
 # Build kind node with nix

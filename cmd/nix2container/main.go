@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/hinshun/nix-snapshotter/pkg/command"
+	"github.com/pdtpartners/nix-snapshotter/pkg/command"
 )
 
 func main() {
