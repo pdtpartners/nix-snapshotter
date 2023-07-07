@@ -2,7 +2,6 @@ package nix2container
 
 import (
 	"bufio"
-	"context"
 	"encoding/json"
 	"os"
 	"runtime"
@@ -25,7 +24,7 @@ func WithFromImage(fromImage string) BuildOpt {
 }
 
 // Build writes an image JSON to the nix out path.
-func Build(ctx context.Context, configPath, storePathsPath, copyToRootPath, outPath string, opts ...BuildOpt) error {
+func Build(configPath, storePathsPath, copyToRootPath, outPath string, opts ...BuildOpt) error {
 	var bOpts BuildOpts
 	for _, opt := range opts {
 		opt(&bOpts)

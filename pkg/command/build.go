@@ -2,7 +2,6 @@ package command
 
 import (
 	"fmt"
-
 	"github.com/pdtpartners/nix-snapshotter/pkg/nix2container"
 	cli "github.com/urfave/cli/v2"
 )
@@ -37,6 +36,6 @@ var buildCommand = &cli.Command{
 			copyToRootPath,
 			outPath,
 		)
-		return nix2container.Build(c.Context, configPath, storePathsPath, copyToRootPath, outPath, opts...)
+		return nix2container.Build(configPath, storePathsPath, copyToRootPath, outPath, opts...)
 	},
 }
