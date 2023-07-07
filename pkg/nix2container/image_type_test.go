@@ -6,8 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-
-	"github.com/hinshun/nix-snapshotter/types"
+	"github.com/pdtpartners/nix-snapshotter/types"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/stretchr/testify/require"
 )

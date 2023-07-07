@@ -2,7 +2,7 @@
   description = "Containerd snapshotter using nix store directly";
 
   inputs = {
-    nixpkgs.url = "nixpkgs/nixos-22.11";
+    nixpkgs.url = "nixpkgs/nixos-unstable";
   };
 
   outputs = { self, nixpkgs }:
@@ -19,23 +19,9 @@
       # Helper function to generate an attrset '{ x86_64-linux = f "x86_64-linux"; ... }'.
       forAllSystems = nixpkgs.lib.genAttrs supportedSystems;
 
-      overlays = [
-        (self: super: {
-          # Containerd needs a patch for nix-snapshotter to work. Remove this
-          # overlay when upstream PR has been merged.
-          # See: https://github.com/containerd/containerd/pull/7840
-          containerd = super.containerd.overrideAttrs(o: {
-            src = builtins.fetchTarball {
-              url = "https://github.com/hinshun/containerd/archive/0ab5f5392b488ccf5a59e6b4e297077fcca46639.tar.gz";
-              sha256 = "sha256-vOKAqC9zaP/cP8SP8+3xv33hXT7UAjl7qRZzOEKj2ls=";
-            };
-          });
-        })
-      ];
-
       # Nixpkgs instantiated for supported system types.
-      nixpkgsFor = forAllSystems (system: import nixpkgs { inherit system overlays; });
-
+      nixpkgsFor = forAllSystems (system: import nixpkgs { inherit system; });
+      
     in
     rec {
       # Provide some binary packages for selected system types.
