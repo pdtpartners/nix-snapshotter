@@ -4,10 +4,8 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
-	"io/ioutil"
 	"os"
 	"runtime"
-
 	"github.com/pdtpartners/nix-snapshotter/types"
 )
 
@@ -39,7 +37,7 @@ func Build(ctx context.Context, configPath, storePathsPath, copyToRootPath, outP
 		BaseImage:    bOpts.FromImage,
 	}
 
-	dt, err := ioutil.ReadFile(configPath)
+	dt, err := os.ReadFile(configPath)
 	if err != nil {
 		return err
 	}
@@ -54,7 +52,7 @@ func Build(ctx context.Context, configPath, storePathsPath, copyToRootPath, outP
 		return err
 	}
 
-	dt, err = ioutil.ReadFile(copyToRootPath)
+	dt, err = os.ReadFile(copyToRootPath)
 	if err != nil {
 		return err
 	}
@@ -69,7 +67,7 @@ func Build(ctx context.Context, configPath, storePathsPath, copyToRootPath, outP
 		return err
 	}
 
-	return ioutil.WriteFile(outPath, dt, 0o644)
+	return os.WriteFile(outPath, dt, 0o644)
 }
 
 func readStorePaths(configPath, storePathsPath string) ([]string, error) {
