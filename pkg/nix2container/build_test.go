@@ -1,82 +1,115 @@
 package nix2container
 
 import (
-	"os"
-	"testing"
-	"github.com/google/go-cmp/cmp"
-	"runtime"
 	"bufio"
 	"encoding/json"
+	"os"
 	"path/filepath"
-	"github.com/stretchr/testify/require"
-	"github.com/pdtpartners/nix-snapshotter/types"
+	"runtime"
+	"testing"
+
+	"github.com/google/go-cmp/cmp"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
+	"github.com/pdtpartners/nix-snapshotter/types"
+	"github.com/stretchr/testify/require"
 )
 
 func TestBuild(t *testing.T) {
 	type testCase struct {
-		name     string
-		setup    func(outPath string) (types.Image, error) 
-		expected int
+		name  string
+		image types.Image
 	}
 
 	for _, tc := range []testCase{{
-		"placeholder",
-		func(outPath string) (types.Image, error) {
-			image := types.Image{
-				Config: ocispec.ImageConfig{},
+		"empty",
+		types.Image{
+			Architecture: runtime.GOARCH,
+			OS:           runtime.GOOS,
+		},
+	},
+		{
+			"config",
+			types.Image{
+				Config: ocispec.ImageConfig{
+					Entrypoint: []string{
+						"/some/file/location",
+					},
+				},
 				Architecture: runtime.GOARCH,
 				OS:           runtime.GOOS,
-				StorePaths: []string{"store_test1","store_test2"},
-				CopyToRoots: []string{"copy_test1","copy_test2"},
-			}
-			return image, nil
+			},
 		},
-		1,
-	}}{
+		{
+			"store_paths",
+			types.Image{
+				Architecture: runtime.GOARCH,
+				OS:           runtime.GOOS,
+				StorePaths:   []string{"/some/file/location1", "/some/file/location2"},
+			},
+		},
+		{
+			"copy_to_roots",
+			types.Image{
+				Architecture: runtime.GOARCH,
+				OS:           runtime.GOOS,
+				CopyToRoots:  []string{"/some/file/location1", "/some/file/location2"},
+			},
+		},
+		{
+			"full_image",
+			types.Image{
+				Config: ocispec.ImageConfig{
+					Entrypoint: []string{
+						"/some/file/location1",
+					},
+				},
+				Architecture: runtime.GOARCH,
+				OS:           runtime.GOOS,
+				StorePaths:   []string{"/some/file/location2", "/some/file/location3"},
+				CopyToRoots:  []string{"/some/file/location4", "/some/file/location5"},
+			},
+		},
+	} {
 		t.Run("test", func(t *testing.T) {
 			testDir, err := os.MkdirTemp(getTempDir(), "nix2container-test")
 			require.NoError(t, err)
-			// defer os.RemoveAll(testDir)
+			defer os.RemoveAll(testDir)
 
-			image, err := tc.setup(testDir)
 			require.NoError(t, err)
 
-			//Write out imageConfig
-			dt, err := json.MarshalIndent(&image.Config, "", "  ")
-			require.NoError(t, err)
-			configPath := filepath.Join(testDir, "imageConfig")
-			os.WriteFile(configPath, dt, 0o644)
-			
-			//Write out dummy files representing nix stores
+			writeOut := func(name string, data interface{}) string {
+				dt, err := json.MarshalIndent(data, "", "  ")
+				require.NoError(t, err)
+				filePath := filepath.Join(testDir, name)
+				os.WriteFile(filePath, dt, 0o644)
+				return filePath
+			}
+
+			configPath := writeOut("imageConfig", &tc.image.Config)
+			copyToRootsPath := writeOut("copyToRoots", &tc.image.CopyToRoots)
+
 			storePaths := filepath.Join(testDir, "storePaths")
 			f, err := os.Create(storePaths)
 			require.NoError(t, err)
 			writer := bufio.NewWriter(f)
-			for _, path := range image.StorePaths {
+			for _, path := range tc.image.StorePaths {
 				_, err = writer.WriteString(path + "\n")
 				require.NoError(t, err)
 			}
 			writer.Flush()
 
-			//Write out copyToRoots
-			dt, err = json.MarshalIndent(&image.CopyToRoots, "", "  ")
-			require.NoError(t, err)
-			copyToRootsPath := filepath.Join(testDir,"copyToRoots")
-			os.WriteFile(copyToRootsPath, dt, 0o644)
-
 			//Use build
 			buildImagePath := filepath.Join(testDir, "buildImage")
-			err = Build(configPath,storePaths,copyToRootsPath,buildImagePath)
+			err = Build(configPath, storePaths, copyToRootsPath, buildImagePath)
 			require.NoError(t, err)
 
-			var regeneratedImage types.Image 
-			dt, err = os.ReadFile(buildImagePath)
+			var regeneratedImage types.Image
+			dt, err := os.ReadFile(buildImagePath)
 			require.NoError(t, err)
 			err = json.Unmarshal(dt, &regeneratedImage)
 			require.NoError(t, err)
 
-			diff := cmp.Diff(image,regeneratedImage)
+			diff := cmp.Diff(tc.image, regeneratedImage)
 			if diff != "" {
 				t.Fatalf(diff)
 			}

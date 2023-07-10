@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"runtime"
+
 	"github.com/pdtpartners/nix-snapshotter/types"
 )
 
