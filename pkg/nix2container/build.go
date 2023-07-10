@@ -2,9 +2,7 @@ package nix2container
 
 import (
 	"bufio"
-	"context"
 	"encoding/json"
-	"io/ioutil"
 	"os"
 	"runtime"
 
@@ -27,7 +25,7 @@ func WithFromImage(fromImage string) BuildOpt {
 }
 
 // Build writes an image JSON to the nix out path.
-func Build(ctx context.Context, configPath, storePathsPath, copyToRootPath, outPath string, opts ...BuildOpt) error {
+func Build(configPath, storePathsPath, copyToRootPath, outPath string, opts ...BuildOpt) error {
 	var bOpts BuildOpts
 	for _, opt := range opts {
 		opt(&bOpts)
@@ -39,7 +37,7 @@ func Build(ctx context.Context, configPath, storePathsPath, copyToRootPath, outP
 		BaseImage:    bOpts.FromImage,
 	}
 
-	dt, err := ioutil.ReadFile(configPath)
+	dt, err := os.ReadFile(configPath)
 	if err != nil {
 		return err
 	}
@@ -54,7 +52,7 @@ func Build(ctx context.Context, configPath, storePathsPath, copyToRootPath, outP
 		return err
 	}
 
-	dt, err = ioutil.ReadFile(copyToRootPath)
+	dt, err = os.ReadFile(copyToRootPath)
 	if err != nil {
 		return err
 	}
@@ -69,7 +67,7 @@ func Build(ctx context.Context, configPath, storePathsPath, copyToRootPath, outP
 		return err
 	}
 
-	return ioutil.WriteFile(outPath, dt, 0o644)
+	return os.WriteFile(outPath, dt, 0o644)
 }
 
 func readStorePaths(configPath, storePathsPath string) ([]string, error) {

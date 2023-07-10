@@ -5,9 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
-
 	"github.com/containerd/containerd/pkg/cri/config"
 	"github.com/containerd/containerd/pkg/cri/server"
 	"github.com/containerd/containerd/remotes"
@@ -36,7 +34,7 @@ func defaultPusher(ctx context.Context, ref string) (remotes.Pusher, error) {
 // defaultAuthorizerOpts returns docker authorizer options to authenticate
 // using docker login credentials.
 func defaultAuthorizerOpts() ([]docker.AuthorizerOpt, error) {
-	dt, err := ioutil.ReadFile(os.Getenv("HOME") + "/.docker/config.json")
+	dt, err := os.ReadFile(os.Getenv("HOME") + "/.docker/config.json")
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, err
 	}

@@ -76,6 +76,7 @@
           default = pkgs.stdenv.mkDerivation {
             name = "nix-snapshotter";
             buildInputs = [
+              pkgs.gopls
               pkgs.containerd
               pkgs.cri-tools
               pkgs.delve

@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -185,7 +184,7 @@ func parseOCITarball(ctx context.Context, provider *InmemoryProvider, tarballPat
 
 	// Unmarshal manifest.
 	manifestPath := filepath.Join(root, "manifest.json")
-	dt, err := ioutil.ReadFile(manifestPath)
+	dt, err := os.ReadFile(manifestPath)
 	if err != nil {
 		return
 	}
@@ -202,7 +201,7 @@ func parseOCITarball(ctx context.Context, provider *InmemoryProvider, tarballPat
 
 	// Unmarshal manifest config.
 	configPath := filepath.Join(root, ociMfst.Config)
-	dt, err = ioutil.ReadFile(configPath)
+	dt, err = os.ReadFile(configPath)
 	if err != nil {
 		return
 	}
@@ -220,7 +219,7 @@ func parseOCITarball(ctx context.Context, provider *InmemoryProvider, tarballPat
 	// Load layers into provider.
 	for _, layer := range ociMfst.Layers {
 		layerPath := filepath.Join(root, layer)
-		dt, err = ioutil.ReadFile(layerPath)
+		dt, err = os.ReadFile(layerPath)
 		if err != nil {
 			return
 		}
@@ -241,7 +240,7 @@ func parseOCITarball(ctx context.Context, provider *InmemoryProvider, tarballPat
 // packaged into docker layers, so this is cheap and avoids writing to the nix
 // store.
 func parseNixImageJSON(ctx context.Context, provider *InmemoryProvider, imagePath string) (mfst ocispec.Manifest, cfg ocispec.Image, err error) {
-	dt, err := ioutil.ReadFile(imagePath)
+	dt, err := os.ReadFile(imagePath)
 	if err != nil {
 		return
 	}
