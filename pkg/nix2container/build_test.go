@@ -16,17 +16,18 @@ import (
 
 func TestBuild(t *testing.T) {
 	type testCase struct {
-		name  string
-		image types.Image
+		name        string
+		sourceImage types.Image
 	}
 
-	for _, tc := range []testCase{{
-		"empty",
-		types.Image{
-			Architecture: runtime.GOARCH,
-			OS:           runtime.GOOS,
+	for _, tc := range []testCase{
+		{
+			"empty",
+			types.Image{
+				Architecture: runtime.GOARCH,
+				OS:           runtime.GOOS,
+			},
 		},
-	},
 		{
 			"config",
 			types.Image{
@@ -70,12 +71,10 @@ func TestBuild(t *testing.T) {
 			},
 		},
 	} {
-		t.Run("test", func(t *testing.T) {
+		t.Run(tc.name, func(t *testing.T) {
 			testDir, err := os.MkdirTemp(getTempDir(), "nix2container-test")
 			require.NoError(t, err)
 			defer os.RemoveAll(testDir)
-
-			require.NoError(t, err)
 
 			writeOut := func(name string, data interface{}) string {
 				dt, err := json.MarshalIndent(data, "", "  ")
@@ -85,14 +84,15 @@ func TestBuild(t *testing.T) {
 				return filePath
 			}
 
-			configPath := writeOut("imageConfig", &tc.image.Config)
-			copyToRootsPath := writeOut("copyToRoots", &tc.image.CopyToRoots)
+			configPath := writeOut("imageConfig", &tc.sourceImage.Config)
+			copyToRootsPath := writeOut("copyToRoots", &tc.sourceImage.CopyToRoots)
 
-			storePaths := filepath.Join(testDir, "storePaths")
-			f, err := os.Create(storePaths)
+			//Is read in a different format to imageConfig and copyToRoots
+			storePathsPath := filepath.Join(testDir, "storePaths")
+			f, err := os.Create(storePathsPath)
 			require.NoError(t, err)
 			writer := bufio.NewWriter(f)
-			for _, path := range tc.image.StorePaths {
+			for _, path := range tc.sourceImage.StorePaths {
 				_, err = writer.WriteString(path + "\n")
 				require.NoError(t, err)
 			}
@@ -100,16 +100,17 @@ func TestBuild(t *testing.T) {
 
 			//Use build
 			buildImagePath := filepath.Join(testDir, "buildImage")
-			err = Build(configPath, storePaths, copyToRootsPath, buildImagePath)
+			err = Build(configPath, storePathsPath, copyToRootsPath, buildImagePath)
 			require.NoError(t, err)
 
+			//Load back in sourceImage and compare to source
 			var regeneratedImage types.Image
 			dt, err := os.ReadFile(buildImagePath)
 			require.NoError(t, err)
 			err = json.Unmarshal(dt, &regeneratedImage)
 			require.NoError(t, err)
 
-			diff := cmp.Diff(tc.image, regeneratedImage)
+			diff := cmp.Diff(tc.sourceImage, regeneratedImage)
 			if diff != "" {
 				t.Fatalf(diff)
 			}
