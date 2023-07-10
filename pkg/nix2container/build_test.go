@@ -57,6 +57,14 @@ func TestBuild(t *testing.T) {
 			},
 		},
 		{
+			"base_image",
+			types.Image{
+				Architecture: runtime.GOARCH,
+				OS:           runtime.GOOS,
+				BaseImage:    "someImage",
+			},
+		},
+		{
 			"full_image",
 			types.Image{
 				Config: ocispec.ImageConfig{
@@ -68,6 +76,7 @@ func TestBuild(t *testing.T) {
 				OS:           runtime.GOOS,
 				StorePaths:   []string{"/some/file/location2", "/some/file/location3"},
 				CopyToRoots:  []string{"/some/file/location4", "/some/file/location5"},
+				BaseImage:    "someImage",
 			},
 		},
 	} {
@@ -80,30 +89,33 @@ func TestBuild(t *testing.T) {
 				dt, err := json.MarshalIndent(data, "", "  ")
 				require.NoError(t, err)
 				filePath := filepath.Join(testDir, name)
-				os.WriteFile(filePath, dt, 0o644)
+				err = os.WriteFile(filePath, dt, 0o644)
+				require.NoError(t, err)
 				return filePath
 			}
 
 			configPath := writeOut("imageConfig", &tc.sourceImage.Config)
 			copyToRootsPath := writeOut("copyToRoots", &tc.sourceImage.CopyToRoots)
 
-			//Is read in a different format to imageConfig and copyToRoots
+			// Is read in a different format to imageConfig and copyToRoots
 			storePathsPath := filepath.Join(testDir, "storePaths")
 			f, err := os.Create(storePathsPath)
 			require.NoError(t, err)
+			defer f.Close()
+
 			writer := bufio.NewWriter(f)
 			for _, path := range tc.sourceImage.StorePaths {
 				_, err = writer.WriteString(path + "\n")
 				require.NoError(t, err)
 			}
-			writer.Flush()
-
-			//Use build
-			buildImagePath := filepath.Join(testDir, "buildImage")
-			err = Build(configPath, storePathsPath, copyToRootsPath, buildImagePath)
+			err = writer.Flush()
 			require.NoError(t, err)
 
-			//Load back in sourceImage and compare to source
+			buildImagePath := filepath.Join(testDir, "buildImage")
+			err = Build(configPath, storePathsPath, copyToRootsPath, buildImagePath, WithFromImage(tc.sourceImage.BaseImage))
+			require.NoError(t, err)
+
+			// Load back in sourceImage and compare to source
 			var regeneratedImage types.Image
 			dt, err := os.ReadFile(buildImagePath)
 			require.NoError(t, err)
