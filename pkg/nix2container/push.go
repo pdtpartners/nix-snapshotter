@@ -18,6 +18,8 @@ import (
 
 	"github.com/containerd/containerd/archive"
 	"github.com/containerd/containerd/archive/compression"
+	"github.com/containerd/containerd/content"
+	"github.com/containerd/containerd/images"
 	"github.com/containerd/containerd/platforms"
 	"github.com/containerd/containerd/remotes"
 	cfs "github.com/containerd/continuity/fs"
@@ -25,6 +27,7 @@ import (
 	specs "github.com/opencontainers/image-spec/specs-go"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/pdtpartners/nix-snapshotter/types"
+	"golang.org/x/sync/semaphore"
 )
 
 const (
@@ -40,31 +43,37 @@ const (
 type PushOpt func(*PushOpts)
 
 type PushOpts struct {
-	Pusher remotes.Pusher
+	GetPusher           func(context.Context, string) (remotes.Pusher, error)
+	GetPushContent      func(context.Context, remotes.Pusher, ocispec.Descriptor, content.Provider, *semaphore.Weighted, platforms.MatchComparer, func(h images.Handler) images.Handler) error
+	GetInmemoryProvider func() *InmemoryProvider
 }
 
 // Push generates a nix-snapshotter image and pushes it to a remote.
 func Push(ctx context.Context, image types.Image, ref string, opts ...PushOpt) error {
 	var pOpts PushOpts
-
-	provider := NewInmemoryProvider()
-	desc, err := generateImage(ctx, image, provider)
-	if err != nil {
-		return err
-	}
-
-	pOpts.Pusher, err = defaultPusher(ctx, ref)
-	if err != nil {
-		return err
-	}
+	pOpts.GetPusher = defaultPusher
+	pOpts.GetPushContent = remotes.PushContent
+	pOpts.GetInmemoryProvider = NewInmemoryProvider
 
 	// Replaces pOpts with mock objects if testing
 	for _, opt := range opts {
 		opt(&pOpts)
 	}
 
+	provider := pOpts.GetInmemoryProvider()
+	desc, err := generateImage(ctx, image, provider)
+
+	if err != nil {
+		return err
+	}
+
+	pusher, err := pOpts.GetPusher(ctx, ref)
+	if err != nil {
+		return err
+	}
+
 	// Push image and its blobs to a registry.
-	return remotes.PushContent(ctx, pOpts.Pusher, desc, provider, nil, platforms.All, nil)
+	return pOpts.GetPushContent(ctx, pusher, desc, provider, nil, platforms.All, nil)
 }
 
 // generateImage adds a nix-snapshotter container image to provider and returns
@@ -86,6 +95,7 @@ func generateImage(ctx context.Context, image types.Image, provider *InmemoryPro
 	if err != nil {
 		return
 	}
+
 	cfg.RootFS.DiffIDs = append(cfg.RootFS.DiffIDs, diffID)
 
 	layerDesc, err := provider.AddBlob(ocispec.MediaTypeImageLayerGzip, buf.Bytes())
@@ -104,9 +114,11 @@ func generateImage(ctx context.Context, image types.Image, provider *InmemoryPro
 
 	// Add manifest config to provider.
 	configDesc, err := provider.AddBlob(ocispec.MediaTypeImageConfig, &cfg)
+	fmt.Println("here")
 	if err != nil {
 		return
 	}
+
 	mfst.Config = configDesc
 
 	// Add manifest to provider.
