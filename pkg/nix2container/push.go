@@ -21,10 +21,10 @@ import (
 	"github.com/containerd/containerd/platforms"
 	"github.com/containerd/containerd/remotes"
 	cfs "github.com/containerd/continuity/fs"
-	"github.com/pdtpartners/nix-snapshotter/types"
 	digest "github.com/opencontainers/go-digest"
 	specs "github.com/opencontainers/image-spec/specs-go"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
+	"github.com/pdtpartners/nix-snapshotter/types"
 )
 
 const (
@@ -37,21 +37,34 @@ const (
 	NixStorePrefixAnnotation = "containerd.io/snapshot/nix/store."
 )
 
+type PushOpt func(*PushOpts)
+
+type PushOpts struct {
+	Pusher remotes.Pusher
+}
+
 // Push generates a nix-snapshotter image and pushes it to a remote.
-func Push(ctx context.Context, image types.Image, ref string) error {
+func Push(ctx context.Context, image types.Image, ref string, opts ...PushOpt) error {
+	var pOpts PushOpts
+
 	provider := NewInmemoryProvider()
 	desc, err := generateImage(ctx, image, provider)
 	if err != nil {
 		return err
 	}
 
-	pusher, err := defaultPusher(ctx, ref)
+	pOpts.Pusher, err = defaultPusher(ctx, ref)
 	if err != nil {
 		return err
 	}
 
+	// Replaces pOpts with mock objects if testing
+	for _, opt := range opts {
+		opt(&pOpts)
+	}
+
 	// Push image and its blobs to a registry.
-	return remotes.PushContent(ctx, pusher, desc, provider, nil, platforms.All, nil)
+	return remotes.PushContent(ctx, pOpts.Pusher, desc, provider, nil, platforms.All, nil)
 }
 
 // generateImage adds a nix-snapshotter container image to provider and returns
