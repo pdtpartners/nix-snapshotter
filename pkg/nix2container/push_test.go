@@ -26,26 +26,39 @@ func TestPush(t *testing.T) {
 	type testCase struct {
 		name           string
 		setUpImg       func(dirPath string) types.Image
-		getPusher      func(context.Context, string) (remotes.Pusher, error)
-		getPushContent func(context.Context, remotes.Pusher, ocispec.Descriptor, content.Provider, *semaphore.Weighted, platforms.MatchComparer, func(h images.Handler) images.Handler) error
+		getPusher      func(o *PushOpts)
+		getPushContent func(o *PushOpts)
 		ref            string
 	}
 
-	getMockPushWithExpected := func(expectedRef string) func(ctx context.Context, ref string) (remotes.Pusher, error) {
-		return func(ctx context.Context, ref string) (remotes.Pusher, error) {
-			require.Equal(t, expectedRef, ref)
-			return &MockPusher{}, nil
+	getMockPushWithExpected := func(expectedRef string) func(o *PushOpts) {
+		return func(o *PushOpts) {
+			o.GetPusher = func(ctx context.Context, ref string) (remotes.Pusher, error) {
+				require.Equal(t, expectedRef, ref)
+				return &MockPusher{}, nil
+			}
 		}
 	}
 
-	//To fill out
-	getMockPushContentWithExpected := func() func(ctx context.Context, pusher remotes.Pusher, desc ocispec.Descriptor, store content.Provider, limiter *semaphore.Weighted, platform platforms.MatchComparer, wrapper func(h images.Handler) images.Handler) error {
-		return func(ctx context.Context, pusher remotes.Pusher, desc ocispec.Descriptor, store content.Provider, limiter *semaphore.Weighted, platform platforms.MatchComparer, wrapper func(h images.Handler) images.Handler) error {
-			return nil
+	getMockPushContentWithExpected := func() func(o *PushOpts) {
+		return func(o *PushOpts) {
+			o.GetPushContent = func(ctx context.Context, pusher remotes.Pusher, desc ocispec.Descriptor, store content.Provider, limiter *semaphore.Weighted, platform platforms.MatchComparer, wrapper func(h images.Handler) images.Handler) error {
+				//  some require equal TODO
+				return nil
+			}
 		}
 	}
 
 	for _, tc := range []testCase{
+		{
+			"reference",
+			func(dirPath string) types.Image {
+				return types.Image{}
+			},
+			getMockPushWithExpected("ref"),
+			getMockPushContentWithExpected(),
+			"ref",
+		},
 		{
 			"placeholder",
 			func(dirPath string) types.Image {
@@ -55,9 +68,9 @@ func TestPush(t *testing.T) {
 					CopyToRoots: []string{dirPath},
 				}
 			},
-			getMockPushWithExpected("temp1"),
+			getMockPushWithExpected(""),
 			getMockPushContentWithExpected(),
-			"temp1",
+			"",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -68,14 +81,8 @@ func TestPush(t *testing.T) {
 			defer os.RemoveAll(testDir)
 
 			image := tc.setUpImg(testDir)
-			setPusher := func(o *PushOpts) {
-				o.GetPusher = tc.getPusher
-			}
-			setPushContent := func(o *PushOpts) {
-				o.GetPushContent = tc.getPushContent
-			}
 
-			err = Push(ctx, image, tc.ref, setPusher, setPushContent)
+			err = Push(ctx, image, tc.ref, tc.getPusher, tc.getPushContent)
 			require.Equal(t, err, nil)
 		})
 	}

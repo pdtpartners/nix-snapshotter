@@ -43,9 +43,8 @@ const (
 type PushOpt func(*PushOpts)
 
 type PushOpts struct {
-	GetPusher           func(context.Context, string) (remotes.Pusher, error)
-	GetPushContent      func(context.Context, remotes.Pusher, ocispec.Descriptor, content.Provider, *semaphore.Weighted, platforms.MatchComparer, func(h images.Handler) images.Handler) error
-	GetInmemoryProvider func() *InmemoryProvider
+	GetPusher      func(context.Context, string) (remotes.Pusher, error)
+	GetPushContent func(context.Context, remotes.Pusher, ocispec.Descriptor, content.Provider, *semaphore.Weighted, platforms.MatchComparer, func(h images.Handler) images.Handler) error
 }
 
 // Push generates a nix-snapshotter image and pushes it to a remote.
@@ -53,14 +52,13 @@ func Push(ctx context.Context, image types.Image, ref string, opts ...PushOpt) e
 	var pOpts PushOpts
 	pOpts.GetPusher = defaultPusher
 	pOpts.GetPushContent = remotes.PushContent
-	pOpts.GetInmemoryProvider = NewInmemoryProvider
 
 	// Replaces pOpts with mock objects if testing
 	for _, opt := range opts {
 		opt(&pOpts)
 	}
 
-	provider := pOpts.GetInmemoryProvider()
+	provider := NewInmemoryProvider()
 	desc, err := generateImage(ctx, image, provider)
 
 	if err != nil {
@@ -114,7 +112,6 @@ func generateImage(ctx context.Context, image types.Image, provider *InmemoryPro
 
 	// Add manifest config to provider.
 	configDesc, err := provider.AddBlob(ocispec.MediaTypeImageConfig, &cfg)
-	fmt.Println("here")
 	if err != nil {
 		return
 	}
