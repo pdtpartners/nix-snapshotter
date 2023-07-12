@@ -21,10 +21,10 @@ import (
 	"github.com/containerd/containerd/platforms"
 	"github.com/containerd/containerd/remotes"
 	cfs "github.com/containerd/continuity/fs"
-	"github.com/pdtpartners/nix-snapshotter/types"
 	digest "github.com/opencontainers/go-digest"
 	specs "github.com/opencontainers/image-spec/specs-go"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
+	"github.com/pdtpartners/nix-snapshotter/types"
 )
 
 const (
@@ -73,6 +73,7 @@ func generateImage(ctx context.Context, image types.Image, provider *InmemoryPro
 	if err != nil {
 		return
 	}
+
 	cfg.RootFS.DiffIDs = append(cfg.RootFS.DiffIDs, diffID)
 
 	layerDesc, err := provider.AddBlob(ocispec.MediaTypeImageLayerGzip, buf.Bytes())
@@ -95,7 +96,6 @@ func generateImage(ctx context.Context, image types.Image, provider *InmemoryPro
 		return
 	}
 	mfst.Config = configDesc
-
 	// Add manifest to provider.
 	return provider.AddBlob(mfst.MediaType, &mfst)
 }
@@ -278,7 +278,7 @@ func writeNixClosureLayer(ctx context.Context, w io.Writer, storePaths, copyToRo
 	if err != nil {
 		return "", fmt.Errorf("failed to create temp dir: %w", err)
 	}
-	defer os.RemoveAll(root)
+	// defer os.RemoveAll(root)
 
 	for _, storePath := range storePaths {
 		fi, err := os.Stat(storePath)
@@ -342,9 +342,12 @@ func tarDir(ctx context.Context, w io.Writer, root string, gzip bool) (digest.Di
 
 	dgstr := digest.SHA256.Digester()
 	cw := archive.NewChangeWriter(io.MultiWriter(w, dgstr.Hash()), root, opts...)
+	fmt.Printf("%v\n\n", w)
 	err := cfs.Changes(ctx, "", root, rootUidGidChangeFunc(cw.HandleChange))
+	fmt.Printf("%v\n\n", w)
 	// Finish archiving data before completing compression.
 	cwErr := cw.Close()
+	fmt.Printf("%v\n\n", w)
 	if err != nil {
 		return "", fmt.Errorf("failed to create diff tar stream: %w", err)
 	}
