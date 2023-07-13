@@ -278,7 +278,7 @@ func writeNixClosureLayer(ctx context.Context, w io.Writer, storePaths, copyToRo
 	if err != nil {
 		return "", fmt.Errorf("failed to create temp dir: %w", err)
 	}
-	// defer os.RemoveAll(root)
+	defer os.RemoveAll(root)
 
 	for _, storePath := range storePaths {
 		fi, err := os.Stat(storePath)
@@ -321,7 +321,6 @@ func writeNixClosureLayer(ctx context.Context, w io.Writer, storePaths, copyToRo
 			return "", err
 		}
 	}
-
 	return tarDir(ctx, w, root, true)
 }
 
@@ -334,20 +333,17 @@ func tarDir(ctx context.Context, w io.Writer, root string, gzip bool) (digest.Di
 		defer compressed.Close()
 		w = compressed
 	}
-
 	// Set upper bound for timestamps to be epoch 0 for reproducibility.
+
 	opts := []archive.ChangeWriterOpt{
 		archive.WithModTimeUpperBound(time.Time{}),
 	}
-
 	dgstr := digest.SHA256.Digester()
 	cw := archive.NewChangeWriter(io.MultiWriter(w, dgstr.Hash()), root, opts...)
-	fmt.Printf("%v\n\n", w)
 	err := cfs.Changes(ctx, "", root, rootUidGidChangeFunc(cw.HandleChange))
-	fmt.Printf("%v\n\n", w)
 	// Finish archiving data before completing compression.
 	cwErr := cw.Close()
-	fmt.Printf("%v\n\n", w)
+
 	if err != nil {
 		return "", fmt.Errorf("failed to create diff tar stream: %w", err)
 	}

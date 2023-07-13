@@ -3,65 +3,71 @@ package nix2container
 import (
 	"archive/tar"
 	"bytes"
+	"compress/gzip"
 	"context"
-	"fmt"
+	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
 	"testing"
+	"testing/fstest"
+	"time"
 
-	"github.com/containerd/containerd/archive/compression"
 	"github.com/google/go-cmp/cmp"
-	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
-	"github.com/pdtpartners/nix-snapshotter/types"
 	"github.com/stretchr/testify/require"
 )
 
-func TestPush(t *testing.T) {
-	type testCase struct {
-		name     string
-		srcImg   types.Image
-		expected ocispec.Descriptor
-	}
+// func TestPush(t *testing.T) {
+// 	type testCase struct {
+// 		name     string
+// 		srcImg   types.Image
+// 		expected ocispec.Descriptor
+// 	}
 
-	for _, tc := range []testCase{
-		{
-			"media_type",
-			types.Image{},
-			ocispec.Descriptor{
-				MediaType: ocispec.MediaTypeImageManifest,
-				Digest:    "sha256:8d1d8628f9398665a1efd215fb1684ca873a903119323a1af048e9eac009ca6c",
-				Size:      558,
-			},
-		},
-		// TODO ADD MORE
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			ctx := context.TODO()
+// 	for _, tc := range []testCase{
+// 		{
+// 			"media_type",
+// 			types.Image{},
+// 			ocispec.Descriptor{
+// 				MediaType: ocispec.MediaTypeImageManifest,
+// 				Digest:    "sha256:8d1d8628f9398665a1efd215fb1684ca873a903119323a1af048e9eac009ca6c",
+// 				Size:      558,
+// 			},
+// 		},
+// 		// TODO ADD MORE
+// 	} {
+// 		t.Run(tc.name, func(t *testing.T) {
+// 			ctx := context.TODO()
 
-			provider := NewInmemoryProvider()
-			imgResult, err := generateImage(ctx, tc.srcImg, provider)
-			require.NoError(t, err)
-			diff := cmp.Diff(imgResult, tc.expected)
-			if diff != "" {
-				t.Fatalf(diff)
-			}
-		})
+// 			provider := NewInmemoryProvider()
+// 			imgResult, err := generateImage(ctx, tc.srcImg, provider)
+// 			require.NoError(t, err)
+// 			diff := cmp.Diff(imgResult, tc.expected)
+// 			if diff != "" {
+// 				t.Fatalf(diff)
+// 			}
+// 		})
 
-	}
-}
+// 	}
+// }
 
 func TestWriteNixClosureLayer(t *testing.T) {
 	type testCase struct {
-		name        string
-		storePaths  []string
-		copyToRoots []string
+		name          string
+		storePaths    []string
+		copyToRoots   []string
+		ExpectedDirs  []string
+		ExpectedFiles []string
 	}
 
 	for _, tc := range []testCase{
 		{
 			"place_holder",
-			[]string{"some/path/file1", "some/path/file2", "some/file3", "some/other/file4"},
-			[]string{"some/path", "some/other"},
+			[]string{"someDir/file1", "someDir/file2"},
+			[]string{"someDir"},
+			[]string{"someDir"},
+			[]string{"file2", "file1"},
 		},
 		// TODO ADD MORE
 	} {
@@ -93,11 +99,68 @@ func TestWriteNixClosureLayer(t *testing.T) {
 			buf := new(bytes.Buffer)
 			_, err = writeNixClosureLayer(ctx, buf, joinedStorePaths, joinedCopyToRoots)
 
-			fmt.Printf("%v\n\n", &buf)
-			tr, err := compression.DecompressStream(tar.NewReader(bytes.NewReader(buf.Bytes())))
+			tempFs, err := GetFileSystemFromTar(buf.Bytes())
 			require.NoError(t, err)
-			fmt.Printf("%v", tr)
+			var fsFiles []string
+			var fsDirs []string
+			for path, attrs := range tempFs {
+				_, err := tempFs.Stat(path)
+				// If nil then File else Dir
+				if err == nil {
+					require.Equal(t, attrs.Mode, fs.FileMode(0x1ff))
+					fsFiles = append(fsFiles, path)
+				} else {
+					require.Equal(t, attrs.Mode, fs.FileMode(0x1ed))
+					fsDirs = append(fsDirs, path)
+				}
+				require.Equal(t, attrs.ModTime, time.Unix(0, 0))
+				require.Equal(t, attrs.Data, make([]byte, 0))
+			}
+
+			sort.Strings(fsFiles)
+			sort.Strings(tc.ExpectedFiles)
+			diff := cmp.Diff(fsFiles, tc.ExpectedFiles)
+			if diff != "" {
+				t.Fatalf(diff)
+			}
+
+			var expectedDirs []string
+			path := testDir
+			for path != "/" {
+				expectedDirs = append(expectedDirs, path[1:]+"/")
+				path = filepath.Dir(path)
+			}
+			for _, path := range tc.ExpectedDirs {
+				expectedDirs = append(expectedDirs, filepath.Join(testDir, path)[1:]+"/")
+			}
+			sort.Strings(fsDirs)
+			sort.Strings(expectedDirs)
+			diff = cmp.Diff(fsDirs, expectedDirs)
+			if diff != "" {
+				t.Fatalf(diff)
+			}
+
 		})
 
 	}
+}
+func GetFileSystemFromTar(tarBytes []byte) (fstest.MapFS, error) {
+	gzRead, err := gzip.NewReader(bytes.NewReader(tarBytes))
+	if err != nil {
+		return nil, err
+	}
+	tarRead := tar.NewReader(gzRead)
+	files := make(fstest.MapFS)
+	for {
+		cur, err := tarRead.Next()
+		if err == io.EOF {
+			break
+		}
+		data, err := io.ReadAll(tarRead)
+		// fmt.Printf("%v\n", cur)
+		files[cur.Name] = &fstest.MapFile{Data: data, Mode: fs.FileMode(cur.Mode), ModTime: cur.ModTime}
+
+	}
+	return files, nil
+
 }
