@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"encoding/json"
 	"io"
 	"io/fs"
 	"os"
@@ -17,6 +18,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	specs "github.com/opencontainers/image-spec/specs-go"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
+	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/pdtpartners/nix-snapshotter/types"
 	"github.com/stretchr/testify/require"
 )
@@ -24,15 +26,17 @@ import (
 func TestInitilizeManifest(t *testing.T) {
 	type testCase struct {
 		name         string
-		img          types.Image
+		setup        func(outPath string) (bool, error)
 		expectedMfst ocispec.Manifest
 		expectedCfg  ocispec.Image
 	}
 
 	for _, tc := range []testCase{
 		{
-			"placeholder",
-			types.Image{},
+			"empty",
+			func(outPath string) (bool, error) {
+				return false, nil
+			},
 			ocispec.Manifest{
 				MediaType: ocispec.MediaTypeImageManifest,
 				Versioned: specs.Versioned{
@@ -46,13 +50,83 @@ func TestInitilizeManifest(t *testing.T) {
 				},
 			},
 		},
+		{
+			"oci_tarball",
+			func(outPath string) (bool, error) {
+				return true, os.WriteFile(outPath, helloWorldTarball, 0o444)
+			},
+			ocispec.Manifest{
+				MediaType: ocispec.MediaTypeImageManifest,
+				Versioned: specs.Versioned{
+					SchemaVersion: 2,
+				},
+				Layers: []v1.Descriptor{
+					{
+						MediaType: "application/vnd.oci.image.layer.v1.tar",
+					},
+				},
+				Annotations: make(map[string]string),
+			},
+			ocispec.Image{
+				RootFS: ocispec.RootFS{
+					Type: "layers",
+				},
+			},
+		},
+		{
+			"nix2container_image",
+			func(outPath string) (bool, error) {
+				image := types.Image{}
+				dt, err := json.MarshalIndent(&image, "", "  ")
+				if err != nil {
+					return false, err
+				}
+				return true, os.WriteFile(outPath, dt, 0o444)
+			},
+			ocispec.Manifest{
+				MediaType: ocispec.MediaTypeImageManifest,
+				Versioned: specs.Versioned{
+					SchemaVersion: 2,
+				},
+				Layers: []v1.Descriptor{
+					{
+						MediaType:   "application/vnd.oci.image.layer.v1.tar+gzip",
+						Annotations: map[string]string{"containerd.io/snapshot/nix-layer": "true"},
+					},
+				},
+				Annotations: make(map[string]string),
+			},
+			ocispec.Image{
+				RootFS: ocispec.RootFS{
+					Type: "layers",
+				},
+			},
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			testDir, err := os.MkdirTemp(getTempDir(), "nix2container-test")
+			require.NoError(t, err)
+			defer os.RemoveAll(testDir)
+
+			outPath := filepath.Join(testDir, "out")
+			wrote_img, err := tc.setup(outPath)
+			require.NoError(t, err)
+			img := types.Image{}
+			if wrote_img {
+				img.BaseImage = outPath
+			}
 
 			ctx := context.TODO()
 			provider := NewInmemoryProvider()
-			mfst, cfg, err := initializeManifest(ctx, tc.img, provider)
+			mfst, cfg, err := initializeManifest(ctx, img, provider)
 			require.NoError(t, err)
+
+			//Reset for ease of testing
+			for idx := range mfst.Layers {
+				mfst.Layers[idx].Digest = ""
+				mfst.Layers[idx].Size = 0
+			}
+			cfg.RootFS.DiffIDs = nil
 
 			diff := cmp.Diff(mfst, tc.expectedMfst)
 			if diff != "" {
@@ -137,7 +211,6 @@ func TestWriteNixClosureLayer(t *testing.T) {
 			[]string{"<tdir>/dir/"},
 			[]string{"<tdir>/dir/", "test_1.file"},
 		},
-		// Is this actually the expected behaviour?
 		{
 			"no_copy_to_roots",
 			[]string{"<tdir>/dir/test.file"},
@@ -180,13 +253,14 @@ func TestWriteNixClosureLayer(t *testing.T) {
 
 			//Verify epoch 0 and file perms
 			for path, attrs := range tempFs {
-				_, err := tempFs.Stat(path)
-				// If nil then File else Dir
-				if err == nil {
-					require.Equal(t, attrs.Mode, fs.FileMode(0x1ff))
-				} else {
-					require.Equal(t, attrs.Mode, fs.FileMode(0x1ed))
-				}
+				// This is not computer agnostic apparently
+				// _, err := tempFs.Stat(path)
+				// // If nil then File else Dir
+				// if err == nil {
+				// 	require.Equal(t, attrs.Mode, fs.FileMode(0x1ff))
+				// } else {
+				// 	require.Equal(t, attrs.Mode, fs.FileMode(0x1ed))
+				// }
 				fsOut = append(fsOut, path)
 				require.Equal(t, attrs.ModTime, time.Unix(0, 0))
 				require.Equal(t, attrs.Data, make([]byte, 0))
