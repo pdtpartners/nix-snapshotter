@@ -18,132 +18,164 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// func TestPush(t *testing.T) {
-// 	type testCase struct {
-// 		name     string
-// 		srcImg   types.Image
-// 		expected ocispec.Descriptor
-// 	}
-
-// 	for _, tc := range []testCase{
-// 		{
-// 			"media_type",
-// 			types.Image{},
-// 			ocispec.Descriptor{
-// 				MediaType: ocispec.MediaTypeImageManifest,
-// 				Digest:    "sha256:8d1d8628f9398665a1efd215fb1684ca873a903119323a1af048e9eac009ca6c",
-// 				Size:      558,
-// 			},
-// 		},
-// 		// TODO ADD MORE
-// 	} {
-// 		t.Run(tc.name, func(t *testing.T) {
-// 			ctx := context.TODO()
-
-// 			provider := NewInmemoryProvider()
-// 			imgResult, err := generateImage(ctx, tc.srcImg, provider)
-// 			require.NoError(t, err)
-// 			diff := cmp.Diff(imgResult, tc.expected)
-// 			if diff != "" {
-// 				t.Fatalf(diff)
-// 			}
-// 		})
-
-// 	}
-// }
-
 func TestWriteNixClosureLayer(t *testing.T) {
 	type testCase struct {
-		name          string
-		storePaths    []string
-		copyToRoots   []string
-		ExpectedDirs  []string
-		ExpectedFiles []string
+		name        string
+		storePaths  []string
+		copyToRoots []string
+		ExpectedFs  []string
 	}
 
 	for _, tc := range []testCase{
 		{
-			"place_holder",
-			[]string{"someDir/file1", "someDir/file2"},
-			[]string{"someDir"},
-			[]string{"someDir"},
-			[]string{"file2", "file1"},
+			"empty",
+			[]string{},
+			[]string{},
+			[]string{},
 		},
-		// TODO ADD MORE
+		{
+			"file",
+			[]string{"<tdir>/test.file"},
+			[]string{"<tdir>/"},
+			[]string{"test.file"},
+		},
+		{
+			"file_with_dir",
+			[]string{"<tdir>/dir/test.file"},
+			[]string{"<tdir>/"},
+			[]string{"<tdir>/dir/", "dir/", "dir/test.file"},
+		},
+		{
+			"file_with_long_dir",
+			[]string{"<tdir>/dir/that/is/long/test.file"},
+			[]string{"<tdir>/"},
+			[]string{"<tdir>/dir/", "<tdir>/dir/that/", "<tdir>/dir/that/is/", "<tdir>/dir/that/is/long/", "dir/", "dir/that/", "dir/that/is/", "dir/that/is/long/", "dir/that/is/long/test.file"},
+		},
+		{
+			"file_with_copy_to_root",
+			[]string{"<tdir>/dir/test.file"},
+			[]string{"<tdir>/dir/"},
+			[]string{"<tdir>/dir/", "test.file"},
+		},
+		{
+			"file_with_copy_to_root_and_no_trailing_slash",
+			[]string{"<tdir>/dir/test.file"},
+			[]string{"<tdir>/dir"},
+			[]string{"<tdir>/dir/", "test.file"},
+		},
+		{
+			"multiple_files",
+			[]string{"<tdir>/dir/test_1.file", "<tdir>/dir/test_2.file"},
+			[]string{"<tdir>/dir/"},
+			[]string{"<tdir>/dir/", "test_1.file", "test_2.file"},
+		},
+		{
+			"multiple_files_on_different_levels",
+			[]string{"<tdir>/dir/test_1.file", "<tdir>/test_2.file"},
+			[]string{"<tdir>/"},
+			[]string{"<tdir>/dir/", "dir/", "dir/test_1.file", "test_2.file"},
+		},
+		{
+			"multiple_copy_to_roots",
+			[]string{"<tdir>/dir/test.file"},
+			[]string{"<tdir>/", "<tdir>/dir/"},
+			[]string{"<tdir>/dir/", "dir/", "dir/test.file", "test.file"},
+		},
+		{
+			"ignore_file_below_copy_to_root",
+			[]string{"<tdir>/dir/test_1.file", "<tdir>/test_2.file"},
+			[]string{"<tdir>/dir/"},
+			[]string{"<tdir>/dir/", "test_1.file"},
+		},
+		// Is this actually the expected behaviour?
+		{
+			"no_copy_to_roots",
+			[]string{"<tdir>/dir/test.file"},
+			[]string{},
+			[]string{"<tdir>/dir/"},
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			testDir, err := os.MkdirTemp(getTempDir(), "nix2container-test")
 			require.NoError(t, err)
 			defer os.RemoveAll(testDir)
 
-			// Generate Store Paths and files and append test dir to paths
-			var joinedStorePaths []string
-			for _, path := range tc.storePaths {
-				joinedPath := filepath.Join(testDir, path)
-				joinedStorePaths = append(joinedStorePaths, joinedPath)
-				_, err := os.Stat(filepath.Dir(joinedPath))
+			// Generate files for the store paths and append the test dir we are working in to the paths
+			for idx, path := range tc.storePaths {
+				path := "/" + addTestDirIfNeeded(path, testDir)
+				_, err := os.Stat(filepath.Dir(path))
 				if os.IsNotExist(err) {
-					err = os.MkdirAll(filepath.Dir(joinedPath), 0o755)
+					err = os.MkdirAll(filepath.Dir(path), 0o755)
 				}
 				require.NoError(t, err)
-				_, err = os.Create(joinedPath)
+				f, err := os.Create(path)
 				require.NoError(t, err)
+				f.Close()
+				tc.storePaths[idx] = path
 			}
 
-			var joinedCopyToRoots []string
-			for _, path := range tc.copyToRoots {
-				joinedCopyToRoots = append(joinedCopyToRoots, filepath.Join(testDir, path))
+			for idx, path := range tc.copyToRoots {
+				tc.copyToRoots[idx] = "/" + addTestDirIfNeeded(path, testDir)
 			}
 
 			ctx := context.TODO()
 			buf := new(bytes.Buffer)
-			_, err = writeNixClosureLayer(ctx, buf, joinedStorePaths, joinedCopyToRoots)
+			_, err = writeNixClosureLayer(ctx, buf, tc.storePaths, tc.copyToRoots)
+			require.NoError(t, err)
 
+			// Convert Tar to file system
 			tempFs, err := GetFileSystemFromTar(buf.Bytes())
 			require.NoError(t, err)
-			var fsFiles []string
-			var fsDirs []string
+			fsOut := []string{}
+
+			//Verify epoch 0 and file perms
 			for path, attrs := range tempFs {
 				_, err := tempFs.Stat(path)
 				// If nil then File else Dir
 				if err == nil {
 					require.Equal(t, attrs.Mode, fs.FileMode(0x1ff))
-					fsFiles = append(fsFiles, path)
 				} else {
 					require.Equal(t, attrs.Mode, fs.FileMode(0x1ed))
-					fsDirs = append(fsDirs, path)
 				}
+				fsOut = append(fsOut, path)
 				require.Equal(t, attrs.ModTime, time.Unix(0, 0))
 				require.Equal(t, attrs.Data, make([]byte, 0))
 			}
 
-			sort.Strings(fsFiles)
-			sort.Strings(tc.ExpectedFiles)
-			diff := cmp.Diff(fsFiles, tc.ExpectedFiles)
-			if diff != "" {
-				t.Fatalf(diff)
+			for idx, path := range tc.ExpectedFs {
+				tc.ExpectedFs[idx] = addTestDirIfNeeded(path, testDir)
 			}
 
-			var expectedDirs []string
-			path := testDir
-			for path != "/" {
-				expectedDirs = append(expectedDirs, path[1:]+"/")
-				path = filepath.Dir(path)
+			// Fills in test folder dirs if any output is expected
+			if len(tc.ExpectedFs) > 0 {
+				path := testDir
+				for path != "/" {
+					tc.ExpectedFs = append(tc.ExpectedFs, path[1:]+"/")
+					path = filepath.Dir(path)
+				}
 			}
-			for _, path := range tc.ExpectedDirs {
-				expectedDirs = append(expectedDirs, filepath.Join(testDir, path)[1:]+"/")
-			}
-			sort.Strings(fsDirs)
-			sort.Strings(expectedDirs)
-			diff = cmp.Diff(fsDirs, expectedDirs)
-			if diff != "" {
-				t.Fatalf(diff)
-			}
-
+			SameStringSlice(fsOut, tc.ExpectedFs, t)
 		})
 
 	}
 }
+
+func addTestDirIfNeeded(path string, testDir string) string {
+	if len(path) >= 6 && path[:6] == "<tdir>" {
+		return testDir[1:] + (path[6:])
+	}
+	return path
+}
+
+func SameStringSlice(sliceA []string, sliceB []string, t *testing.T) {
+	sort.Strings(sliceA)
+	sort.Strings(sliceB)
+	diff := cmp.Diff(sliceA, sliceB)
+	if diff != "" {
+		t.Fatalf(diff)
+	}
+}
+
 func GetFileSystemFromTar(tarBytes []byte) (fstest.MapFS, error) {
 	gzRead, err := gzip.NewReader(bytes.NewReader(tarBytes))
 	if err != nil {
@@ -157,7 +189,9 @@ func GetFileSystemFromTar(tarBytes []byte) (fstest.MapFS, error) {
 			break
 		}
 		data, err := io.ReadAll(tarRead)
-		// fmt.Printf("%v\n", cur)
+		if err != nil {
+			return nil, err
+		}
 		files[cur.Name] = &fstest.MapFile{Data: data, Mode: fs.FileMode(cur.Mode), ModTime: cur.ModTime}
 
 	}
