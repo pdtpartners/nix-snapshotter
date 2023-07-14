@@ -90,8 +90,9 @@ func TestInitilizeManifest(t *testing.T) {
 				},
 				Layers: []v1.Descriptor{
 					{
-						MediaType:   "application/vnd.oci.image.layer.v1.tar+gzip",
-						Annotations: map[string]string{"containerd.io/snapshot/nix-layer": "true"},
+						MediaType: "application/vnd.oci.image.layer.v1.tar+gzip",
+						Annotations: map[string]string{
+							"containerd.io/snapshot/nix-layer": "true"},
 					},
 				},
 				Annotations: make(map[string]string),
@@ -150,6 +151,11 @@ func TestWriteNixClosureLayer(t *testing.T) {
 		ExpectedFs  []string
 	}
 
+	// $tdir is the directory the test is run in and every parent directory
+	// <tdir> inserts the test directory
+	// e.g
+	// ["$tdir"] -> ["user/1001/test4205/", "user/1001/","user/"]
+	// ["<tdir>/dir/"] -> ["run/user/1001/nix2container-test4205847812/dir/"]
 	for _, tc := range []testCase{
 		{
 			"empty",
@@ -161,61 +167,81 @@ func TestWriteNixClosureLayer(t *testing.T) {
 			"file",
 			[]string{"<tdir>/test.file"},
 			[]string{"<tdir>/"},
-			[]string{"test.file"},
+			[]string{"$tdir", "test.file"},
 		},
 		{
 			"file_with_dir",
 			[]string{"<tdir>/dir/test.file"},
 			[]string{"<tdir>/"},
-			[]string{"<tdir>/dir/", "dir/", "dir/test.file"},
+			[]string{"$tdir", "<tdir>/dir/", "dir/", "dir/test.file"},
 		},
 		{
 			"file_with_long_dir",
 			[]string{"<tdir>/dir/that/is/long/test.file"},
 			[]string{"<tdir>/"},
-			[]string{"<tdir>/dir/", "<tdir>/dir/that/", "<tdir>/dir/that/is/", "<tdir>/dir/that/is/long/", "dir/", "dir/that/", "dir/that/is/", "dir/that/is/long/", "dir/that/is/long/test.file"},
+			[]string{
+				"$tdir",
+				"<tdir>/dir/",
+				"<tdir>/dir/that/",
+				"<tdir>/dir/that/is/",
+				"<tdir>/dir/that/is/long/",
+				"dir/",
+				"dir/that/",
+				"dir/that/is/",
+				"dir/that/is/long/",
+				"dir/that/is/long/test.file"},
 		},
 		{
 			"file_with_copy_to_root",
 			[]string{"<tdir>/dir/test.file"},
 			[]string{"<tdir>/dir/"},
-			[]string{"<tdir>/dir/", "test.file"},
+			[]string{"$tdir", "<tdir>/dir/", "test.file"},
 		},
 		{
 			"file_with_copy_to_root_and_no_trailing_slash",
 			[]string{"<tdir>/dir/test.file"},
 			[]string{"<tdir>/dir"},
-			[]string{"<tdir>/dir/", "test.file"},
+			[]string{"$tdir", "<tdir>/dir/", "test.file"},
 		},
 		{
 			"multiple_files",
 			[]string{"<tdir>/dir/test_1.file", "<tdir>/dir/test_2.file"},
 			[]string{"<tdir>/dir/"},
-			[]string{"<tdir>/dir/", "test_1.file", "test_2.file"},
+			[]string{"$tdir", "<tdir>/dir/", "test_1.file", "test_2.file"},
 		},
 		{
 			"multiple_files_on_different_levels",
 			[]string{"<tdir>/dir/test_1.file", "<tdir>/test_2.file"},
 			[]string{"<tdir>/"},
-			[]string{"<tdir>/dir/", "dir/", "dir/test_1.file", "test_2.file"},
+			[]string{
+				"$tdir",
+				"<tdir>/dir/",
+				"dir/",
+				"dir/test_1.file",
+				"test_2.file"},
 		},
 		{
 			"multiple_copy_to_roots",
 			[]string{"<tdir>/dir/test.file"},
 			[]string{"<tdir>/", "<tdir>/dir/"},
-			[]string{"<tdir>/dir/", "dir/", "dir/test.file", "test.file"},
+			[]string{
+				"$tdir",
+				"<tdir>/dir/",
+				"dir/",
+				"dir/test.file",
+				"test.file"},
 		},
 		{
 			"ignore_file_below_copy_to_root",
 			[]string{"<tdir>/dir/test_1.file", "<tdir>/test_2.file"},
 			[]string{"<tdir>/dir/"},
-			[]string{"<tdir>/dir/", "test_1.file"},
+			[]string{"$tdir", "<tdir>/dir/", "test_1.file"},
 		},
 		{
 			"no_copy_to_roots",
 			[]string{"<tdir>/dir/test.file"},
 			[]string{},
-			[]string{"<tdir>/dir/"},
+			[]string{"$tdir", "<tdir>/dir/"},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -223,7 +249,8 @@ func TestWriteNixClosureLayer(t *testing.T) {
 			require.NoError(t, err)
 			defer os.RemoveAll(testDir)
 
-			// Generate files for the store paths and append the test dir we are working in to the paths
+			// Generate files for the store paths and append the test dir we
+			// are working in to the paths
 			for idx, path := range tc.storePaths {
 				path := "/" + addTestDirIfNeeded(path, testDir)
 				_, err := os.Stat(filepath.Dir(path))
@@ -253,32 +280,30 @@ func TestWriteNixClosureLayer(t *testing.T) {
 
 			//Verify epoch 0 and file perms
 			for path, attrs := range tempFs {
-				// This is not computer agnostic apparently
-				// _, err := tempFs.Stat(path)
-				// // If nil then File else Dir
-				// if err == nil {
-				// 	require.Equal(t, attrs.Mode, fs.FileMode(0x1ff))
-				// } else {
-				// 	require.Equal(t, attrs.Mode, fs.FileMode(0x1ed))
-				// }
 				fsOut = append(fsOut, path)
 				require.Equal(t, attrs.ModTime, time.Unix(0, 0))
 				require.Equal(t, attrs.Data, make([]byte, 0))
 			}
 
 			for idx, path := range tc.ExpectedFs {
-				tc.ExpectedFs[idx] = addTestDirIfNeeded(path, testDir)
-			}
-
-			// Fills in test folder dirs if any output is expected
-			if len(tc.ExpectedFs) > 0 {
-				path := testDir
-				for path != "/" {
-					tc.ExpectedFs = append(tc.ExpectedFs, path[1:]+"/")
-					path = filepath.Dir(path)
+				if path == "$tdir" {
+					tc.ExpectedFs[idx] = testDir[1:] + "/"
+					subTestPath := filepath.Dir(testDir)
+					for subTestPath != "/" {
+						tc.ExpectedFs = append(tc.ExpectedFs, subTestPath[1:]+"/")
+						subTestPath = filepath.Dir(subTestPath)
+					}
+				} else {
+					tc.ExpectedFs[idx] = addTestDirIfNeeded(path, testDir)
 				}
 			}
-			SameStringSlice(fsOut, tc.ExpectedFs, t)
+
+			sort.Strings(fsOut)
+			sort.Strings(tc.ExpectedFs)
+			diff := cmp.Diff(fsOut, tc.ExpectedFs)
+			if diff != "" {
+				t.Fatalf(diff)
+			}
 		})
 
 	}
@@ -289,15 +314,6 @@ func addTestDirIfNeeded(path string, testDir string) string {
 		return testDir[1:] + (path[6:])
 	}
 	return path
-}
-
-func SameStringSlice(sliceA []string, sliceB []string, t *testing.T) {
-	sort.Strings(sliceA)
-	sort.Strings(sliceB)
-	diff := cmp.Diff(sliceA, sliceB)
-	if diff != "" {
-		t.Fatalf(diff)
-	}
 }
 
 func GetFileSystemFromTar(tarBytes []byte) (fstest.MapFS, error) {
@@ -316,7 +332,10 @@ func GetFileSystemFromTar(tarBytes []byte) (fstest.MapFS, error) {
 		if err != nil {
 			return nil, err
 		}
-		files[cur.Name] = &fstest.MapFile{Data: data, Mode: fs.FileMode(cur.Mode), ModTime: cur.ModTime}
+		files[cur.Name] = &fstest.MapFile{
+			Data:    data,
+			Mode:    fs.FileMode(cur.Mode),
+			ModTime: cur.ModTime}
 
 	}
 	return files, nil
