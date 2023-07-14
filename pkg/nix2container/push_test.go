@@ -15,8 +15,58 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	specs "github.com/opencontainers/image-spec/specs-go"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
+	"github.com/pdtpartners/nix-snapshotter/types"
 	"github.com/stretchr/testify/require"
 )
+
+func TestInitilizeManifest(t *testing.T) {
+	type testCase struct {
+		name         string
+		img          types.Image
+		expectedMfst ocispec.Manifest
+		expectedCfg  ocispec.Image
+	}
+
+	for _, tc := range []testCase{
+		{
+			"placeholder",
+			types.Image{},
+			ocispec.Manifest{
+				MediaType: ocispec.MediaTypeImageManifest,
+				Versioned: specs.Versioned{
+					SchemaVersion: 2,
+				},
+				Annotations: make(map[string]string),
+			},
+			ocispec.Image{
+				RootFS: ocispec.RootFS{
+					Type: "layers",
+				},
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+
+			ctx := context.TODO()
+			provider := NewInmemoryProvider()
+			mfst, cfg, err := initializeManifest(ctx, tc.img, provider)
+			require.NoError(t, err)
+
+			diff := cmp.Diff(mfst, tc.expectedMfst)
+			if diff != "" {
+				t.Fatalf(diff)
+			}
+
+			diff = cmp.Diff(cfg, tc.expectedCfg)
+			if diff != "" {
+				t.Fatalf(diff)
+			}
+
+		})
+	}
+}
 
 func TestWriteNixClosureLayer(t *testing.T) {
 	type testCase struct {
