@@ -1,3 +1,5 @@
+![example workflow](https://github.com/pdtpartners/nix-snapshotter/actions/workflows/ci.yml/badge.svg)
+
 # nix-snapshotter
 
 Containerd remote snapshotter that prepares container rootfs from nix store directly.
