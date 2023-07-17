@@ -15,15 +15,15 @@ import (
 	"testing/fstest"
 	"time"
 
-	"github.com/google/go-cmp/cmp"
 	specs "github.com/opencontainers/image-spec/specs-go"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
+	"github.com/pdtpartners/nix-snapshotter/pkg/testutil"
 	"github.com/pdtpartners/nix-snapshotter/types"
 	"github.com/stretchr/testify/require"
 )
 
-func TestInitilizeManifest(t *testing.T) {
+func TestInitializeManifest(t *testing.T) {
 	type testCase struct {
 		name         string
 		setup        func(outPath string) (bool, error)
@@ -110,10 +110,10 @@ func TestInitilizeManifest(t *testing.T) {
 			defer os.RemoveAll(testDir)
 
 			outPath := filepath.Join(testDir, "out")
-			wrote_img, err := tc.setup(outPath)
+			wroteImg, err := tc.setup(outPath)
 			require.NoError(t, err)
 			img := types.Image{}
-			if wrote_img {
+			if wroteImg {
 				img.BaseImage = outPath
 			}
 
@@ -129,33 +129,25 @@ func TestInitilizeManifest(t *testing.T) {
 			}
 			cfg.RootFS.DiffIDs = nil
 
-			diff := cmp.Diff(mfst, tc.expectedMfst)
-			if diff != "" {
-				t.Fatalf(diff)
-			}
-
-			diff = cmp.Diff(cfg, tc.expectedCfg)
-			if diff != "" {
-				t.Fatalf(diff)
-			}
-
+			testutil.IsIdentical(mfst, tc.expectedMfst, t)
+			testutil.IsIdentical(cfg, tc.expectedCfg, t)
 		})
 	}
 }
 
 func TestWriteNixClosureLayer(t *testing.T) {
 	type testCase struct {
-		name        string
-		storePaths  []string
-		copyToRoots []string
-		ExpectedFs  []string
+		name                 string
+		storePaths           []string
+		copyToRoots          []string
+		expectedTarballPaths []string
 	}
 
-	// $tdir is the directory the test is run in and every parent directory
-	// <tdir> inserts the test directory
+	// $TEST_DIR_EXPAND is the dir the test is run in and every parent directory
+	// $TEST_DIR inserts the test directory
 	// e.g
-	// ["$tdir"] -> ["user/1001/test4205/", "user/1001/","user/"]
-	// ["<tdir>/dir/"] -> ["run/user/1001/nix2container-test4205847812/dir/"]
+	// ["$TEST_DIR_EXPAND"] -> ["user/1001/test4205/", "user/1001/","user/"]
+	// ["$TEST_DIR/dir/"] -> ["run/user/1001/nix2container-test4205847812/dir/"]
 	for _, tc := range []testCase{
 		{
 			"empty",
@@ -165,83 +157,91 @@ func TestWriteNixClosureLayer(t *testing.T) {
 		},
 		{
 			"file",
-			[]string{"<tdir>/test.file"},
-			[]string{"<tdir>/"},
-			[]string{"$tdir", "test.file"},
+			[]string{"$TEST_DIR/test.file"},
+			[]string{"$TEST_DIR/"},
+			[]string{"$TEST_DIR_EXPAND", "/test.file"},
 		},
 		{
 			"file_with_dir",
-			[]string{"<tdir>/dir/test.file"},
-			[]string{"<tdir>/"},
-			[]string{"$tdir", "<tdir>/dir/", "dir/", "dir/test.file"},
+			[]string{"$TEST_DIR/dir/test.file"},
+			[]string{"$TEST_DIR/"},
+			[]string{
+				"$TEST_DIR_EXPAND",
+				"$TEST_DIR/dir/",
+				"/dir/",
+				"/dir/test.file"},
 		},
 		{
 			"file_with_long_dir",
-			[]string{"<tdir>/dir/that/is/long/test.file"},
-			[]string{"<tdir>/"},
+			[]string{"$TEST_DIR/dir/that/is/long/test.file"},
+			[]string{"$TEST_DIR/"},
 			[]string{
-				"$tdir",
-				"<tdir>/dir/",
-				"<tdir>/dir/that/",
-				"<tdir>/dir/that/is/",
-				"<tdir>/dir/that/is/long/",
-				"dir/",
-				"dir/that/",
-				"dir/that/is/",
-				"dir/that/is/long/",
-				"dir/that/is/long/test.file"},
+				"$TEST_DIR_EXPAND",
+				"$TEST_DIR/dir/",
+				"$TEST_DIR/dir/that/",
+				"$TEST_DIR/dir/that/is/",
+				"$TEST_DIR/dir/that/is/long/",
+				"/dir/",
+				"/dir/that/",
+				"/dir/that/is/",
+				"/dir/that/is/long/",
+				"/dir/that/is/long/test.file"},
 		},
 		{
 			"file_with_copy_to_root",
-			[]string{"<tdir>/dir/test.file"},
-			[]string{"<tdir>/dir/"},
-			[]string{"$tdir", "<tdir>/dir/", "test.file"},
+			[]string{"$TEST_DIR/dir/test.file"},
+			[]string{"$TEST_DIR/dir/"},
+			[]string{"$TEST_DIR_EXPAND", "$TEST_DIR/dir/", "/test.file"},
 		},
 		{
 			"file_with_copy_to_root_and_no_trailing_slash",
-			[]string{"<tdir>/dir/test.file"},
-			[]string{"<tdir>/dir"},
-			[]string{"$tdir", "<tdir>/dir/", "test.file"},
+			[]string{"$TEST_DIR/dir/test.file"},
+			[]string{"$TEST_DIR/dir"},
+			[]string{"$TEST_DIR_EXPAND", "$TEST_DIR/dir/", "/test.file"},
 		},
 		{
 			"multiple_files",
-			[]string{"<tdir>/dir/test_1.file", "<tdir>/dir/test_2.file"},
-			[]string{"<tdir>/dir/"},
-			[]string{"$tdir", "<tdir>/dir/", "test_1.file", "test_2.file"},
+			[]string{"$TEST_DIR/dir/test_1.file", "$TEST_DIR/dir/test_2.file"},
+			[]string{"$TEST_DIR/dir/"},
+			[]string{
+				"$TEST_DIR_EXPAND",
+				"$TEST_DIR/dir/",
+				"/test_1.file",
+				"/test_2.file"},
 		},
 		{
 			"multiple_files_on_different_levels",
-			[]string{"<tdir>/dir/test_1.file", "<tdir>/test_2.file"},
-			[]string{"<tdir>/"},
+			[]string{"$TEST_DIR/dir/test_1.file", "$TEST_DIR/test_2.file"},
+			[]string{"$TEST_DIR/"},
 			[]string{
-				"$tdir",
-				"<tdir>/dir/",
-				"dir/",
-				"dir/test_1.file",
-				"test_2.file"},
+				"$TEST_DIR_EXPAND",
+				"$TEST_DIR/dir/",
+				"/dir/",
+				"/dir/test_1.file",
+				"/test_2.file"},
 		},
 		{
 			"multiple_copy_to_roots",
-			[]string{"<tdir>/dir/test.file"},
-			[]string{"<tdir>/", "<tdir>/dir/"},
+			[]string{"$TEST_DIR/dir/test.file"},
+			[]string{"$TEST_DIR/", "$TEST_DIR/dir/"},
 			[]string{
-				"$tdir",
-				"<tdir>/dir/",
-				"dir/",
-				"dir/test.file",
-				"test.file"},
+				"$TEST_DIR_EXPAND",
+				"$TEST_DIR/dir/",
+				"/dir/",
+				"/dir/test.file",
+				"/test.file"},
 		},
 		{
 			"ignore_file_below_copy_to_root",
-			[]string{"<tdir>/dir/test_1.file", "<tdir>/test_2.file"},
-			[]string{"<tdir>/dir/"},
-			[]string{"$tdir", "<tdir>/dir/", "test_1.file"},
+			[]string{"$TEST_DIR/dir/test_1.file", "$TEST_DIR/test_2.file"},
+			[]string{"$TEST_DIR/dir/"},
+			[]string{"$TEST_DIR_EXPAND", "$TEST_DIR/dir/", "/test_1.file"},
 		},
 		{
 			"no_copy_to_roots",
-			[]string{"<tdir>/dir/test.file"},
+			[]string{"$TEST_DIR/dir/test.file"},
 			[]string{},
-			[]string{"$tdir", "<tdir>/dir/"},
+			[]string{"$TEST_DIR_EXPAND", "$TEST_DIR/dir/"},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -249,10 +249,18 @@ func TestWriteNixClosureLayer(t *testing.T) {
 			require.NoError(t, err)
 			defer os.RemoveAll(testDir)
 
+			dirMapper := func(placeholderName string) string {
+				if placeholderName == "TEST_DIR" {
+					return string(testDir)
+				} else {
+					return ""
+				}
+			}
+
 			// Generate files for the store paths and append the test dir we
 			// are working in to the paths
 			for idx, path := range tc.storePaths {
-				path := "/" + addTestDirIfNeeded(path, testDir)
+				path := os.Expand(path, dirMapper)
 				_, err := os.Stat(filepath.Dir(path))
 				if os.IsNotExist(err) {
 					err = os.MkdirAll(filepath.Dir(path), 0o755)
@@ -265,58 +273,50 @@ func TestWriteNixClosureLayer(t *testing.T) {
 			}
 
 			for idx, path := range tc.copyToRoots {
-				tc.copyToRoots[idx] = "/" + addTestDirIfNeeded(path, testDir)
+				tc.copyToRoots[idx] = os.Expand(path, dirMapper)
 			}
 
-			ctx := context.TODO()
+			ctx := context.Background()
 			buf := new(bytes.Buffer)
-			_, err = writeNixClosureLayer(ctx, buf, tc.storePaths, tc.copyToRoots)
+			_, err = writeNixClosureLayer(
+				ctx, buf, tc.storePaths, tc.copyToRoots)
 			require.NoError(t, err)
 
 			// Convert Tar to file system
-			tempFs, err := GetFileSystemFromTar(buf.Bytes())
+			tempFs, err := getFileSystemFromTar(buf.Bytes())
 			require.NoError(t, err)
 			fsOut := []string{}
 
 			//Verify epoch 0 and file perms
 			for path, attrs := range tempFs {
-				fsOut = append(fsOut, path)
+				fsOut = append(fsOut, "/"+path)
 				require.Equal(t, attrs.ModTime, time.Unix(0, 0))
 				require.Equal(t, attrs.Data, make([]byte, 0))
 			}
 
-			for idx, path := range tc.ExpectedFs {
-				if path == "$tdir" {
-					tc.ExpectedFs[idx] = testDir[1:] + "/"
+			for idx, path := range tc.expectedTarballPaths {
+				if path == "$TEST_DIR_EXPAND" {
+					tc.expectedTarballPaths[idx] = testDir + "/"
 					subTestPath := filepath.Dir(testDir)
 					for subTestPath != "/" {
-						tc.ExpectedFs = append(tc.ExpectedFs, subTestPath[1:]+"/")
+						tc.expectedTarballPaths = append(
+							tc.expectedTarballPaths, subTestPath+"/")
 						subTestPath = filepath.Dir(subTestPath)
 					}
 				} else {
-					tc.ExpectedFs[idx] = addTestDirIfNeeded(path, testDir)
+					tc.expectedTarballPaths[idx] = os.Expand(path, dirMapper)
 				}
 			}
 
 			sort.Strings(fsOut)
-			sort.Strings(tc.ExpectedFs)
-			diff := cmp.Diff(fsOut, tc.ExpectedFs)
-			if diff != "" {
-				t.Fatalf(diff)
-			}
+			sort.Strings(tc.expectedTarballPaths)
+			testutil.IsIdentical(fsOut, tc.expectedTarballPaths, t)
 		})
 
 	}
 }
 
-func addTestDirIfNeeded(path string, testDir string) string {
-	if len(path) >= 6 && path[:6] == "<tdir>" {
-		return testDir[1:] + (path[6:])
-	}
-	return path
-}
-
-func GetFileSystemFromTar(tarBytes []byte) (fstest.MapFS, error) {
+func getFileSystemFromTar(tarBytes []byte) (fstest.MapFS, error) {
 	gzRead, err := gzip.NewReader(bytes.NewReader(tarBytes))
 	if err != nil {
 		return nil, err
@@ -327,6 +327,8 @@ func GetFileSystemFromTar(tarBytes []byte) (fstest.MapFS, error) {
 		cur, err := tarRead.Next()
 		if err == io.EOF {
 			break
+		} else if err != nil {
+			return nil, err
 		}
 		data, err := io.ReadAll(tarRead)
 		if err != nil {
