@@ -283,7 +283,7 @@ func TestWriteNixClosureLayer(t *testing.T) {
 			require.NoError(t, err)
 
 			// Convert Tar to file system
-			tempFs, err := getFileSystemFromTar(buf.Bytes())
+			tempFs, err := newMapFSFromTar(buf.Bytes())
 			require.NoError(t, err)
 			fsOut := []string{}
 
@@ -316,7 +316,7 @@ func TestWriteNixClosureLayer(t *testing.T) {
 	}
 }
 
-func getFileSystemFromTar(tarBytes []byte) (fstest.MapFS, error) {
+func newMapFSFromTar(tarBytes []byte) (fstest.MapFS, error) {
 	gzRead, err := gzip.NewReader(bytes.NewReader(tarBytes))
 	if err != nil {
 		return nil, err
