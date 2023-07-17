@@ -268,7 +268,8 @@ func TestWriteNixClosureLayer(t *testing.T) {
 				require.NoError(t, err)
 				f, err := os.Create(path)
 				require.NoError(t, err)
-				f.Close()
+				err = f.Close()
+				require.NoError(t, err)
 				tc.storePaths[idx] = path
 			}
 
