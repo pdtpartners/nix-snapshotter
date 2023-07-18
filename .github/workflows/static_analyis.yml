@@ -13,6 +13,6 @@ jobs:
         uses: DeterminateSystems/nix-installer-action@main
       - name: Run the Magic Nix Cache
         uses: DeterminateSystems/magic-nix-cache-action@main
-      - run: export GO111MODULE=on
+      - run: export GO111MODULE=off
       - name: Run Linter
         run: nix develop --command golangci-lint run
