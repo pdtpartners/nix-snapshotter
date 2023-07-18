@@ -8,8 +8,8 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
+	"github.com/pdtpartners/nix-snapshotter/pkg/testutil"
 	"github.com/pdtpartners/nix-snapshotter/types"
 	"github.com/stretchr/testify/require"
 )
@@ -122,10 +122,7 @@ func TestBuild(t *testing.T) {
 			err = json.Unmarshal(dt, &regeneratedImage)
 			require.NoError(t, err)
 
-			diff := cmp.Diff(tc.sourceImage, regeneratedImage)
-			if diff != "" {
-				t.Fatalf(diff)
-			}
+			testutil.IsIdentical(tc.sourceImage, regeneratedImage, t)
 		})
 	}
 }
