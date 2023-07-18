@@ -5,7 +5,7 @@ on:
   pull_request:
 
 jobs:
-  nix_build:
+  nix-build:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
@@ -17,8 +17,8 @@ jobs:
         run: nix flake check
       - name: Build package
         run: nix build
-        
-  go_lint_check:
+
+  go-lint-check:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
