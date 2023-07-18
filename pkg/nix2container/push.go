@@ -73,6 +73,7 @@ func generateImage(ctx context.Context, image types.Image, provider *InmemoryPro
 	if err != nil {
 		return
 	}
+
 	cfg.RootFS.DiffIDs = append(cfg.RootFS.DiffIDs, diffID)
 
 	layerDesc, err := provider.AddBlob(ocispec.MediaTypeImageLayerGzip, buf.Bytes())
@@ -95,7 +96,6 @@ func generateImage(ctx context.Context, image types.Image, provider *InmemoryPro
 		return
 	}
 	mfst.Config = configDesc
-
 	// Add manifest to provider.
 	return provider.AddBlob(mfst.MediaType, &mfst)
 }
@@ -323,7 +323,6 @@ func writeNixClosureLayer(ctx context.Context, w io.Writer, storePaths, copyToRo
 			return "", err
 		}
 	}
-
 	return tarDir(ctx, w, root, true)
 }
 
@@ -336,17 +335,17 @@ func tarDir(ctx context.Context, w io.Writer, root string, gzip bool) (digest.Di
 		defer compressed.Close()
 		w = compressed
 	}
-
 	// Set upper bound for timestamps to be epoch 0 for reproducibility.
+
 	opts := []archive.ChangeWriterOpt{
 		archive.WithModTimeUpperBound(time.Time{}),
 	}
-
 	dgstr := digest.SHA256.Digester()
 	cw := archive.NewChangeWriter(io.MultiWriter(w, dgstr.Hash()), root, opts...)
 	err := cfs.Changes(ctx, "", root, rootUidGidChangeFunc(cw.HandleChange))
 	// Finish archiving data before completing compression.
 	cwErr := cw.Close()
+
 	if err != nil {
 		return "", fmt.Errorf("failed to create diff tar stream: %w", err)
 	}

@@ -44,6 +44,7 @@ func (ip *InmemoryProvider) AddBlob(mediaType string, v interface{}) (desc ocisp
 	}
 	ip.mu.Lock()
 	ip.content[desc.Digest] = dt
+	ip.mu.Unlock()
 	return
 }
 
