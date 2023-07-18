@@ -19,7 +19,7 @@ func verifyProviderData(t *testing.T, providerContent []byte, sourceData interfa
 		data, err = json.MarshalIndent(sourceData, "", "  ")
 		require.NoError(t, err)
 	}
-	testutil.IsIdentical(data, providerContent, t)
+	testutil.IsIdentical(t, data, providerContent)
 }
 
 func TestAddBlob(t *testing.T) {
@@ -126,7 +126,7 @@ func TestAddBlob(t *testing.T) {
 				for _, desc := range descs {
 					providerBytes = append(providerBytes, provider.content[desc.Digest])
 				}
-				testutil.IsIdentical(testBytes, providerBytes, t)
+				testutil.IsIdentical(t, testBytes, providerBytes)
 				return descs
 			},
 			[]ocispec.Descriptor{
@@ -156,7 +156,7 @@ func TestAddBlob(t *testing.T) {
 			// Reset the digest for ease of testing
 			for idx, desc := range descs {
 				desc.Digest = ""
-				testutil.IsIdentical(desc, tc.expectedDescs[idx], t)
+				testutil.IsIdentical(t, desc, tc.expectedDescs[idx])
 			}
 
 		})
@@ -198,7 +198,7 @@ func TestUnmarshalFromProvider(t *testing.T) {
 				unmarshalFromProvider(ctx, provider, desc, &outputItem)
 				output = append(output, outputItem)
 			}
-			testutil.IsIdentical(tc.input, output, t)
+			testutil.IsIdentical(t, tc.input, output)
 		})
 	}
 }
