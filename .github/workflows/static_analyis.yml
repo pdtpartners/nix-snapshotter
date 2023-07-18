@@ -14,4 +14,4 @@ jobs:
       - name: Run the Magic Nix Cache
         uses: DeterminateSystems/magic-nix-cache-action@main
       - name: Run Go Linter
-        run: nix develop --command golangci-lint run -v
+        run: nix develop --command golangci-lint run --modules-download-mode vendor
