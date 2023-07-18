@@ -131,6 +131,7 @@ func TestInitializeManifest(t *testing.T) {
 
 			testutil.IsIdentical(t, mfst, tc.expectedMfst)
 			testutil.IsIdentical(t, cfg, tc.expectedCfg)
+
 		})
 	}
 }
@@ -312,7 +313,9 @@ func TestWriteNixClosureLayer(t *testing.T) {
 
 			sort.Strings(fsOut)
 			sort.Strings(tc.expectedTarballPaths)
+
 			testutil.IsIdentical(t, fsOut, tc.expectedTarballPaths)
+
 		})
 
 	}
