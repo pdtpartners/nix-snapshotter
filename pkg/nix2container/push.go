@@ -21,10 +21,10 @@ import (
 	"github.com/containerd/containerd/platforms"
 	"github.com/containerd/containerd/remotes"
 	cfs "github.com/containerd/continuity/fs"
-	"github.com/pdtpartners/nix-snapshotter/types"
 	digest "github.com/opencontainers/go-digest"
 	specs "github.com/opencontainers/image-spec/specs-go"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
+	"github.com/pdtpartners/nix-snapshotter/types"
 )
 
 const (
@@ -112,9 +112,11 @@ func initializeManifest(ctx context.Context, image types.Image, provider *Inmemo
 	}
 
 	cfg := ocispec.Image{
-		Config:       image.Config,
-		Architecture: image.Architecture,
-		OS:           image.OS,
+		Config: image.Config,
+		Platform: platforms.Platform{
+			Architecture: image.Architecture,
+			OS:           image.OS,
+		},
 		RootFS: ocispec.RootFS{
 			Type: "layers",
 		},
