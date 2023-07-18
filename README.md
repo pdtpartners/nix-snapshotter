@@ -1,4 +1,4 @@
-![example workflow](https://github.com/pdtpartners/nix-snapshotter/actions/workflows/ci.yml/badge.svg)
+![ci workflow](https://github.com/pdtpartners/nix-snapshotter/actions/workflows/ci.yml/badge.svg)
 
 # nix-snapshotter
 
