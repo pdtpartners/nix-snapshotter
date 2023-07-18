@@ -6,7 +6,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
-func IsIdentical(x interface{}, y interface{}, t *testing.T) {
+func IsIdentical(t *testing.T, x interface{}, y interface{}) {
 	diff := cmp.Diff(x, y)
 	if diff != "" {
 		t.Fatalf(diff)
