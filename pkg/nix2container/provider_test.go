@@ -12,27 +12,27 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func verifyProviderData(t *testing.T, providerContent []byte, sourceData interface{}) {
+	data, ok := sourceData.([]byte)
+	if !ok {
+		var err error
+		data, err = json.MarshalIndent(sourceData, "", "  ")
+		require.NoError(t, err)
+	}
+	testutil.IsIdentical(data, providerContent, t)
+}
+
 func TestAddBlob(t *testing.T) {
 	type testCase struct {
 		name          string
-		setUp         func(provider *InmemoryProvider, t *testing.T) []ocispec.Descriptor
+		setUp         func(t *testing.T, provider *InmemoryProvider) []ocispec.Descriptor
 		expectedDescs []ocispec.Descriptor
-	}
-
-	verifyData := func(providerContent []byte, sourceData interface{}) {
-		data, ok := sourceData.([]byte)
-		if !ok {
-			var err error
-			data, err = json.MarshalIndent(sourceData, "", "  ")
-			require.NoError(t, err)
-		}
-		testutil.IsIdentical(data, providerContent, t)
 	}
 
 	for _, tc := range []testCase{
 		{
 			"empty",
-			func(provider *InmemoryProvider, t *testing.T) []ocispec.Descriptor {
+			func(t *testing.T, provider *InmemoryProvider) []ocispec.Descriptor {
 				desc, err := provider.AddBlob("", nil)
 				require.NoError(t, err)
 				return []ocispec.Descriptor{desc}
@@ -44,11 +44,11 @@ func TestAddBlob(t *testing.T) {
 		},
 		{
 			"ints",
-			func(provider *InmemoryProvider, t *testing.T) []ocispec.Descriptor {
+			func(t *testing.T, provider *InmemoryProvider) []ocispec.Descriptor {
 				testInts := []int{1, 2, 3, 4, 5}
 				desc, err := provider.AddBlob("ints", testInts)
 				require.NoError(t, err)
-				verifyData(provider.content[desc.Digest], testInts)
+				verifyProviderData(t, provider.content[desc.Digest], testInts)
 				return []ocispec.Descriptor{desc}
 			},
 			[]ocispec.Descriptor{
@@ -60,13 +60,13 @@ func TestAddBlob(t *testing.T) {
 		},
 		{
 			"string",
-			func(provider *InmemoryProvider, t *testing.T) []ocispec.Descriptor {
+			func(t *testing.T, provider *InmemoryProvider) []ocispec.Descriptor {
 				testString := `When I was back there in seminary school,
 				there was a person there who put forth the proposition that you
 				can petition the Lord with prayer`
 				desc, err := provider.AddBlob("string", testString)
 				require.NoError(t, err)
-				verifyData(provider.content[desc.Digest], testString)
+				verifyProviderData(t, provider.content[desc.Digest], testString)
 				return []ocispec.Descriptor{desc}
 			},
 			[]ocispec.Descriptor{
@@ -78,7 +78,7 @@ func TestAddBlob(t *testing.T) {
 		},
 		{
 			"image",
-			func(provider *InmemoryProvider, t *testing.T) []ocispec.Descriptor {
+			func(t *testing.T, provider *InmemoryProvider) []ocispec.Descriptor {
 				testImage := types.Image{
 					Config: ocispec.ImageConfig{
 						Entrypoint: []string{
@@ -93,7 +93,7 @@ func TestAddBlob(t *testing.T) {
 				}
 				desc, err := provider.AddBlob("image", testImage)
 				require.NoError(t, err)
-				verifyData(provider.content[desc.Digest], testImage)
+				verifyProviderData(t, provider.content[desc.Digest], testImage)
 				return []ocispec.Descriptor{desc}
 			},
 			[]ocispec.Descriptor{
@@ -105,17 +105,18 @@ func TestAddBlob(t *testing.T) {
 		},
 		{
 			"multiple_blobs",
-			func(provider *InmemoryProvider, t *testing.T) []ocispec.Descriptor {
+			func(t *testing.T, provider *InmemoryProvider) []ocispec.Descriptor {
 				testBytes := [][]byte{
 					{'A', 'B', 'C'},
 					{'D', 'E', 'F'},
 					{'G', 'H', 'I'},
 					{'J', 'K', 'L'}}
 
-				var desc ocispec.Descriptor
-				var err error
-
-				var descs []ocispec.Descriptor
+				var (
+					desc  ocispec.Descriptor
+					err   error
+					descs []ocispec.Descriptor
+				)
 				for _, bytes := range testBytes {
 					desc, err = provider.AddBlob("bytes"+string(bytes), bytes)
 					require.NoError(t, err)
@@ -150,9 +151,9 @@ func TestAddBlob(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			provider := NewInmemoryProvider()
-			descs := tc.setUp(provider, t)
+			descs := tc.setUp(t, provider)
 
-			//Reset the digest for ease of testing
+			// Reset the digest for ease of testing
 			for idx, desc := range descs {
 				desc.Digest = ""
 				testutil.IsIdentical(desc, tc.expectedDescs[idx], t)
@@ -167,7 +168,7 @@ func TestUnmarshalFromProvider(t *testing.T) {
 		name  string
 		input []any
 	}
-
+	ctx := context.Background()
 	for _, tc := range []testCase{
 		{
 			"strings",
@@ -184,7 +185,6 @@ func TestUnmarshalFromProvider(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			ctx := context.Background()
 			provider := NewInmemoryProvider()
 			var descs []ocispec.Descriptor
 			for _, testString := range tc.input {
