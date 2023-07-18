@@ -82,6 +82,7 @@
               pkgs.delve
               pkgs.gdb
               pkgs.gotools
+              pkgs.golangci-lint
               pkgs.kind
               pkgs.kubectl
               pkgs.runc
