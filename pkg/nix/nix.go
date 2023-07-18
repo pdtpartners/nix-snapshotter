@@ -41,8 +41,6 @@ const (
 	// the change set between this snapshot and its parent is stored.
 	upperdirKey = "containerd.io/snapshot/overlay.upperdir"
 
-	labelSnapshotRef = "containerd.io/snapshot.ref"
-
 	defaultNixTool = "nix"
 )
 
@@ -146,12 +144,15 @@ func NewSnapshotter(root, nixStoreDir string, opts ...Opt) (snapshots.Snapshotte
 //
 // Should be used for parent resolution, existence checks and to discern
 // the kind of snapshot.
-func (o *snapshotter) Stat(ctx context.Context, key string) (snapshots.Info, error) {
+func (o *snapshotter) Stat(ctx context.Context, key string) (info snapshots.Info, err error) {
 	ctx, t, err := o.ms.TransactionContext(ctx, false)
 	if err != nil {
 		return snapshots.Info{}, err
 	}
-	defer t.Rollback()
+	defer func() {
+		err = t.Rollback()
+	}()
+
 	id, info, _, err := storage.GetInfo(ctx, key)
 	if err != nil {
 		return snapshots.Info{}, err
@@ -218,8 +219,10 @@ func (o *snapshotter) Usage(ctx context.Context, key string) (snapshots.Usage, e
 		return snapshots.Usage{}, err
 	}
 	id, info, usage, err := storage.GetInfo(ctx, key)
-	t.Rollback() // transaction no longer needed at this point.
-
+	if err != nil {
+		return snapshots.Usage{}, err
+	}
+	err = t.Rollback() // transaction no longer needed at this point.
 	if err != nil {
 		return snapshots.Usage{}, err
 	}
@@ -268,12 +271,14 @@ func (o *snapshotter) Prepare(ctx context.Context, key, parent string, opts ...s
 	return o.withNixBindMounts(ctx, key, mounts)
 }
 
-func (o *snapshotter) prepareNixGCRoots(ctx context.Context, key string, labels map[string]string) error {
+func (o *snapshotter) prepareNixGCRoots(ctx context.Context, key string, labels map[string]string) (err error) {
 	ctx, t, err := o.ms.TransactionContext(ctx, false)
 	if err != nil {
 		return err
 	}
-	defer t.Rollback()
+	defer func() {
+		err = t.Rollback()
+	}()
 	id, _, _, err := storage.GetInfo(ctx, key)
 	if err != nil {
 		return err
@@ -329,9 +334,13 @@ func (o *snapshotter) Mounts(ctx context.Context, key string) ([]mount.Mount, er
 		return nil, err
 	}
 	s, err := storage.GetSnapshot(ctx, key)
-	t.Rollback()
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to get active mount: %w", err)
+	}
+	err = t.Rollback()
+	if err != nil {
+		return nil, err
 	}
 
 	return o.withNixBindMounts(ctx, key, o.mounts(s))
@@ -415,12 +424,14 @@ func (o *snapshotter) Remove(ctx context.Context, key string) (err error) {
 }
 
 // Walk the snapshots.
-func (o *snapshotter) Walk(ctx context.Context, fn snapshots.WalkFunc, fs ...string) error {
+func (o *snapshotter) Walk(ctx context.Context, fn snapshots.WalkFunc, fs ...string) (err error) {
 	ctx, t, err := o.ms.TransactionContext(ctx, false)
 	if err != nil {
 		return err
 	}
-	defer t.Rollback()
+	defer func() {
+		err = t.Rollback()
+	}()
 	if o.upperdirLabel {
 		return storage.WalkInfo(ctx, func(ctx context.Context, info snapshots.Info) error {
 			id, _, _, err := storage.GetInfo(ctx, info.Name)
@@ -453,7 +464,7 @@ func (o *snapshotter) Cleanup(ctx context.Context) error {
 	return nil
 }
 
-func (o *snapshotter) cleanupDirectories(ctx context.Context) ([]string, error) {
+func (o *snapshotter) cleanupDirectories(ctx context.Context) (cleanUpDirs []string, err error) {
 	// Get a write transaction to ensure no other write transaction can be entered
 	// while the cleanup is scanning.
 	ctx, t, err := o.ms.TransactionContext(ctx, true)
@@ -461,7 +472,9 @@ func (o *snapshotter) cleanupDirectories(ctx context.Context) ([]string, error) 
 		return nil, err
 	}
 
-	defer t.Rollback()
+	defer func() {
+		err = t.Rollback()
+	}()
 	return o.getCleanupDirectories(ctx)
 }
 
@@ -672,12 +685,14 @@ func (o *snapshotter) Close() error {
 	return o.ms.Close()
 }
 
-func (o *snapshotter) withNixBindMounts(ctx context.Context, key string, mounts []mount.Mount) ([]mount.Mount, error) {
+func (o *snapshotter) withNixBindMounts(ctx context.Context, key string, mounts []mount.Mount) (nixBindMounts []mount.Mount, err error) {
 	ctx, t, err := o.ms.TransactionContext(ctx, false)
 	if err != nil {
 		return nil, err
 	}
-	defer t.Rollback()
+	defer func() {
+		err = t.Rollback()
+	}()
 
 	// Add a read only bind mount for every nix path required for the current
 	// snapshot and all its parents.
