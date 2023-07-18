@@ -122,7 +122,7 @@ func TestBuild(t *testing.T) {
 			err = json.Unmarshal(dt, &regeneratedImage)
 			require.NoError(t, err)
 
-			testutil.IsIdentical(tc.sourceImage, regeneratedImage, t)
+			testutil.IsIdentical(t, tc.sourceImage, regeneratedImage)
 		})
 	}
 }

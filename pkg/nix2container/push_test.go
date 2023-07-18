@@ -129,8 +129,9 @@ func TestInitializeManifest(t *testing.T) {
 			}
 			cfg.RootFS.DiffIDs = nil
 
-			testutil.IsIdentical(mfst, tc.expectedMfst, t)
-			testutil.IsIdentical(cfg, tc.expectedCfg, t)
+			testutil.IsIdentical(t, mfst, tc.expectedMfst)
+			testutil.IsIdentical(t, cfg, tc.expectedCfg)
+
 		})
 	}
 }
@@ -142,6 +143,8 @@ func TestWriteNixClosureLayer(t *testing.T) {
 		copyToRoots          []string
 		expectedTarballPaths []string
 	}
+
+	ctx := context.Background()
 
 	// $TEST_DIR_EXPAND is the dir the test is run in and every parent directory
 	// $TEST_DIR inserts the test directory
@@ -277,7 +280,6 @@ func TestWriteNixClosureLayer(t *testing.T) {
 				tc.copyToRoots[idx] = os.Expand(path, dirMapper)
 			}
 
-			ctx := context.Background()
 			buf := new(bytes.Buffer)
 			_, err = writeNixClosureLayer(
 				ctx, buf, tc.storePaths, tc.copyToRoots)
@@ -311,7 +313,9 @@ func TestWriteNixClosureLayer(t *testing.T) {
 
 			sort.Strings(fsOut)
 			sort.Strings(tc.expectedTarballPaths)
-			testutil.IsIdentical(fsOut, tc.expectedTarballPaths, t)
+
+			testutil.IsIdentical(t, fsOut, tc.expectedTarballPaths)
+
 		})
 
 	}
