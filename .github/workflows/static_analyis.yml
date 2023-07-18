@@ -15,5 +15,6 @@ jobs:
         uses: DeterminateSystems/magic-nix-cache-action@main
       - name: Enter nix environment
         run: nix develop
-      - name: Run linter
+      - name: Run Linter
         run: go get -u
+      - run: golangci-lint run
