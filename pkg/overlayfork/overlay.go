@@ -70,28 +70,20 @@ func WithUpperdirLabel(config *SnapshotterConfig) error {
 
 type Snapshotter struct {
 	root          string
-	Ms            *storage.MetaStore
+	ms            *storage.MetaStore
 	asyncRemove   bool
 	upperdirLabel bool
 	indexOff      bool
 	userxattr     bool // whether to enable "userxattr" mount option
 }
 
-// Temp Funcs
+// Access Functions
 func (o *Snapshotter) GetMs() *storage.MetaStore {
-	return o.Ms
+	return o.ms
 }
 
 func (o *Snapshotter) GetRoot() string {
 	return o.root
-}
-
-func (o *Snapshotter) GetIndexOff() bool {
-	return o.indexOff
-}
-
-func (o *Snapshotter) GetUserXattr() bool {
-	return o.userxattr
 }
 
 func (o *Snapshotter) GetAsyncRemove() bool {
@@ -135,7 +127,7 @@ func NewSnapshotter(root string, opts ...Opt) (snapshots.Snapshotter, error) {
 
 	return &Snapshotter{
 		root:          root,
-		Ms:            ms,
+		ms:            ms,
 		asyncRemove:   config.asyncRemove,
 		upperdirLabel: config.upperdirLabel,
 		indexOff:      supportsIndex(),
@@ -149,7 +141,7 @@ func NewSnapshotter(root string, opts ...Opt) (snapshots.Snapshotter, error) {
 // Should be used for parent resolution, existence checks and to discern
 // the kind of snapshot.
 func (o *Snapshotter) Stat(ctx context.Context, key string) (snapshots.Info, error) {
-	ctx, t, err := o.Ms.TransactionContext(ctx, false)
+	ctx, t, err := o.ms.TransactionContext(ctx, false)
 	if err != nil {
 		return snapshots.Info{}, err
 	}
@@ -170,7 +162,7 @@ func (o *Snapshotter) Stat(ctx context.Context, key string) (snapshots.Info, err
 }
 
 func (o *Snapshotter) Update(ctx context.Context, info snapshots.Info, fieldpaths ...string) (snapshots.Info, error) {
-	ctx, t, err := o.Ms.TransactionContext(ctx, true)
+	ctx, t, err := o.ms.TransactionContext(ctx, true)
 	if err != nil {
 		return snapshots.Info{}, err
 	}
@@ -215,7 +207,7 @@ func (o *Snapshotter) Update(ctx context.Context, info snapshots.Info, fieldpath
 //
 // For committed snapshots, the value is returned from the metadata database.
 func (o *Snapshotter) Usage(ctx context.Context, key string) (snapshots.Usage, error) {
-	ctx, t, err := o.Ms.TransactionContext(ctx, false)
+	ctx, t, err := o.ms.TransactionContext(ctx, false)
 	if err != nil {
 		return snapshots.Usage{}, err
 	}
@@ -253,7 +245,7 @@ func (o *Snapshotter) View(ctx context.Context, key, parent string, opts ...snap
 //
 // This can be used to recover mounts after calling View or Prepare.
 func (o *Snapshotter) Mounts(ctx context.Context, key string) ([]mount.Mount, error) {
-	ctx, t, err := o.Ms.TransactionContext(ctx, false)
+	ctx, t, err := o.ms.TransactionContext(ctx, false)
 	if err != nil {
 		return nil, err
 	}
@@ -266,7 +258,7 @@ func (o *Snapshotter) Mounts(ctx context.Context, key string) ([]mount.Mount, er
 }
 
 func (o *Snapshotter) Commit(ctx context.Context, name, key string, opts ...snapshots.Opt) error {
-	ctx, t, err := o.Ms.TransactionContext(ctx, true)
+	ctx, t, err := o.ms.TransactionContext(ctx, true)
 	if err != nil {
 		return err
 	}
@@ -300,7 +292,7 @@ func (o *Snapshotter) Commit(ctx context.Context, name, key string, opts ...snap
 // immediately become unavailable and unrecoverable. Disk space will
 // be freed up on the next call to `Cleanup`.
 func (o *Snapshotter) Remove(ctx context.Context, key string) (err error) {
-	ctx, t, err := o.Ms.TransactionContext(ctx, true)
+	ctx, t, err := o.ms.TransactionContext(ctx, true)
 	if err != nil {
 		return err
 	}
@@ -344,7 +336,7 @@ func (o *Snapshotter) Remove(ctx context.Context, key string) (err error) {
 
 // Walk the snapshots.
 func (o *Snapshotter) Walk(ctx context.Context, fn snapshots.WalkFunc, fs ...string) error {
-	ctx, t, err := o.Ms.TransactionContext(ctx, false)
+	ctx, t, err := o.ms.TransactionContext(ctx, false)
 	if err != nil {
 		return err
 	}
@@ -384,7 +376,7 @@ func (o *Snapshotter) Cleanup(ctx context.Context) error {
 func (o *Snapshotter) cleanupDirectories(ctx context.Context) ([]string, error) {
 	// Get a write transaction to ensure no other write transaction can be entered
 	// while the cleanup is scanning.
-	ctx, t, err := o.Ms.TransactionContext(ctx, true)
+	ctx, t, err := o.ms.TransactionContext(ctx, true)
 	if err != nil {
 		return nil, err
 	}
@@ -423,7 +415,7 @@ func (o *Snapshotter) getCleanupDirectories(ctx context.Context) ([]string, erro
 }
 
 func (o *Snapshotter) createSnapshot(ctx context.Context, kind snapshots.Kind, key, parent string, opts []snapshots.Opt) (_ []mount.Mount, err error) {
-	ctx, t, err := o.Ms.TransactionContext(ctx, true)
+	ctx, t, err := o.ms.TransactionContext(ctx, true)
 	if err != nil {
 		return nil, err
 	}
@@ -588,7 +580,7 @@ func (o *Snapshotter) workPath(id string) string {
 
 // Close closes the Snapshotter
 func (o *Snapshotter) Close() error {
-	return o.Ms.Close()
+	return o.ms.Close()
 }
 
 // supportsIndex checks whether the "index=off" option is supported by the kernel.
