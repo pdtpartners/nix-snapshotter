@@ -28,11 +28,9 @@ import (
 	"github.com/containerd/containerd/log"
 	"github.com/containerd/containerd/mount"
 	"github.com/containerd/containerd/snapshots"
-	"github.com/containerd/containerd/snapshots/overlay/overlayutils"
 	"github.com/containerd/containerd/snapshots/storage"
-	"github.com/containerd/continuity/fs"
 	"github.com/pdtpartners/nix-snapshotter/pkg/nix2container"
-	"github.com/sirupsen/logrus"
+	"github.com/pdtpartners/nix-snapshotter/pkg/overlayfork"
 )
 
 const (
@@ -83,15 +81,10 @@ func WithFuseOverlayfs(config *SnapshotterConfig) error {
 	return nil
 }
 
-type snapshotter struct {
-	root          string
-	nixStoreDir   string
-	ms            *storage.MetaStore
-	asyncRemove   bool
-	upperdirLabel bool
-	indexOff      bool
-	userxattr     bool // whether to enable "userxattr" mount option
-	fuse          bool
+type nixSnapshotter struct {
+	overlayfork.Snapshotter
+	fuse        bool
+	nixStoreDir string
 }
 
 // NewSnapshotter returns a Snapshotter which uses overlayfs. The overlayfs
@@ -105,140 +98,16 @@ func NewSnapshotter(root, nixStoreDir string, opts ...Opt) (snapshots.Snapshotte
 		}
 	}
 
-	if err := os.MkdirAll(root, 0700); err != nil {
-		return nil, err
-	}
-	supportsDType, err := fs.SupportsDType(root)
-	if err != nil {
-		return nil, err
-	}
-	if !supportsDType {
-		return nil, fmt.Errorf("%s does not support d_type. If the backing filesystem is xfs, please reformat with ftype=1 to enable d_type support", root)
-	}
-	ms, err := storage.NewMetaStore(filepath.Join(root, "metadata.db"))
-	if err != nil {
-		return nil, err
-	}
-
-	if err := os.Mkdir(filepath.Join(root, "snapshots"), 0700); err != nil && !os.IsExist(err) {
-		return nil, err
-	}
-	// figure out whether "userxattr" option is recognized by the kernel && needed
-	userxattr, err := overlayutils.NeedsUserXAttr(root)
-	if err != nil {
-		logrus.WithError(err).Warnf("cannot detect whether \"userxattr\" option needs to be used, assuming to be %v", userxattr)
-	}
-
-	return &snapshotter{
-		root:          root,
-		nixStoreDir:   nixStoreDir,
-		ms:            ms,
-		asyncRemove:   config.asyncRemove,
-		upperdirLabel: config.upperdirLabel,
-		indexOff:      supportsIndex(),
-		userxattr:     userxattr,
-		fuse:          config.fuse,
+	generalSnapshotter, _ := overlayfork.NewSnapshotter(root)
+	overlaySnapshotter := generalSnapshotter.(*overlayfork.Snapshotter)
+	return &nixSnapshotter{
+		Snapshotter: overlayfork.Snapshotter(*overlaySnapshotter),
+		nixStoreDir: nixStoreDir,
+		fuse:        config.fuse,
 	}, nil
 }
 
-// Stat returns the info for an active or committed snapshot by name or
-// key.
-//
-// Should be used for parent resolution, existence checks and to discern
-// the kind of snapshot.
-func (o *snapshotter) Stat(ctx context.Context, key string) (snapshots.Info, error) {
-	ctx, t, err := o.ms.TransactionContext(ctx, false)
-	if err != nil {
-		return snapshots.Info{}, err
-	}
-	defer t.Rollback()
-	id, info, _, err := storage.GetInfo(ctx, key)
-	if err != nil {
-		return snapshots.Info{}, err
-	}
-
-	if o.upperdirLabel {
-		if info.Labels == nil {
-			info.Labels = make(map[string]string)
-		}
-		info.Labels[upperdirKey] = o.upperPath(id)
-	}
-
-	return info, nil
-}
-
-func (o *snapshotter) Update(ctx context.Context, info snapshots.Info, fieldpaths ...string) (snapshots.Info, error) {
-	ctx, t, err := o.ms.TransactionContext(ctx, true)
-	if err != nil {
-		return snapshots.Info{}, err
-	}
-
-	rollback := true
-	defer func() {
-		if rollback {
-			if rerr := t.Rollback(); rerr != nil {
-				log.G(ctx).WithError(rerr).Warn("failed to rollback transaction")
-			}
-		}
-	}()
-
-	info, err = storage.UpdateInfo(ctx, info, fieldpaths...)
-	if err != nil {
-		return snapshots.Info{}, err
-	}
-
-	if o.upperdirLabel {
-		id, _, _, err := storage.GetInfo(ctx, info.Name)
-		if err != nil {
-			return snapshots.Info{}, err
-		}
-		if info.Labels == nil {
-			info.Labels = make(map[string]string)
-		}
-		info.Labels[upperdirKey] = o.upperPath(id)
-	}
-
-	rollback = false
-	if err := t.Commit(); err != nil {
-		return snapshots.Info{}, err
-	}
-
-	return info, nil
-}
-
-// Usage returns the resources taken by the snapshot identified by key.
-//
-// For active snapshots, this will scan the usage of the overlay "diff" (aka
-// "upper") directory and may take some time.
-//
-// For committed snapshots, the value is returned from the metadata database.
-func (o *snapshotter) Usage(ctx context.Context, key string) (snapshots.Usage, error) {
-	ctx, t, err := o.ms.TransactionContext(ctx, false)
-	if err != nil {
-		return snapshots.Usage{}, err
-	}
-	id, info, usage, err := storage.GetInfo(ctx, key)
-	t.Rollback() // transaction no longer needed at this point.
-
-	if err != nil {
-		return snapshots.Usage{}, err
-	}
-
-	if info.Kind == snapshots.KindActive {
-		upperPath := o.upperPath(id)
-		du, err := fs.DiskUsage(ctx, upperPath)
-		if err != nil {
-			// TODO(stevvooe): Consider not reporting an error in this case.
-			return snapshots.Usage{}, err
-		}
-
-		usage = snapshots.Usage(du)
-	}
-
-	return usage, nil
-}
-
-func (o *snapshotter) Prepare(ctx context.Context, key, parent string, opts ...snapshots.Opt) ([]mount.Mount, error) {
+func (o *nixSnapshotter) Prepare(ctx context.Context, key, parent string, opts ...snapshots.Opt) ([]mount.Mount, error) {
 	var base snapshots.Info
 	for _, opt := range opts {
 		if err := opt(&base); err != nil {
@@ -268,8 +137,8 @@ func (o *snapshotter) Prepare(ctx context.Context, key, parent string, opts ...s
 	return o.withNixBindMounts(ctx, key, mounts)
 }
 
-func (o *snapshotter) prepareNixGCRoots(ctx context.Context, key string, labels map[string]string) error {
-	ctx, t, err := o.ms.TransactionContext(ctx, false)
+func (o *nixSnapshotter) prepareNixGCRoots(ctx context.Context, key string, labels map[string]string) error {
+	ctx, t, err := o.GetMs().TransactionContext(ctx, false)
 	if err != nil {
 		return err
 	}
@@ -286,7 +155,7 @@ func (o *snapshotter) prepareNixGCRoots(ctx context.Context, key string, labels 
 		nixTool = defaultNixTool
 	}
 
-	gcRootsDir := filepath.Join(o.root, "gcroots", id)
+	gcRootsDir := filepath.Join(o.GetRoot(), "gcroots", id)
 	log.G(ctx).Infof("Preparing nix gc roots at %s", gcRootsDir)
 	for label, nixHash := range labels {
 		if !strings.HasPrefix(label, nix2container.NixStorePrefixAnnotation) {
@@ -311,7 +180,7 @@ func (o *snapshotter) prepareNixGCRoots(ctx context.Context, key string, labels 
 	return nil
 }
 
-func (o *snapshotter) View(ctx context.Context, key, parent string, opts ...snapshots.Opt) ([]mount.Mount, error) {
+func (o *nixSnapshotter) View(ctx context.Context, key, parent string, opts ...snapshots.Opt) ([]mount.Mount, error) {
 	mounts, err := o.createSnapshot(ctx, snapshots.KindView, key, parent, opts)
 	if err != nil {
 		return nil, err
@@ -323,8 +192,8 @@ func (o *snapshotter) View(ctx context.Context, key, parent string, opts ...snap
 // called on an read-write or readonly transaction.
 //
 // This can be used to recover mounts after calling View or Prepare.
-func (o *snapshotter) Mounts(ctx context.Context, key string) ([]mount.Mount, error) {
-	ctx, t, err := o.ms.TransactionContext(ctx, false)
+func (o *nixSnapshotter) Mounts(ctx context.Context, key string) ([]mount.Mount, error) {
+	ctx, t, err := o.GetMs().TransactionContext(ctx, false)
 	if err != nil {
 		return nil, err
 	}
@@ -337,42 +206,11 @@ func (o *snapshotter) Mounts(ctx context.Context, key string) ([]mount.Mount, er
 	return o.withNixBindMounts(ctx, key, o.mounts(s))
 }
 
-func (o *snapshotter) Commit(ctx context.Context, name, key string, opts ...snapshots.Opt) error {
-	ctx, t, err := o.ms.TransactionContext(ctx, true)
-	if err != nil {
-		return err
-	}
-
-	defer func() {
-		if err != nil {
-			if rerr := t.Rollback(); rerr != nil {
-				log.G(ctx).WithError(rerr).Warn("failed to rollback transaction")
-			}
-		}
-	}()
-
-	// grab the existing id
-	id, _, _, err := storage.GetInfo(ctx, key)
-	if err != nil {
-		return err
-	}
-
-	usage, err := fs.DiskUsage(ctx, o.upperPath(id))
-	if err != nil {
-		return err
-	}
-
-	if _, err = storage.CommitActive(ctx, key, name, snapshots.Usage(usage), opts...); err != nil {
-		return fmt.Errorf("failed to commit snapshot: %w", err)
-	}
-	return t.Commit()
-}
-
 // Remove abandons the snapshot identified by key. The snapshot will
 // immediately become unavailable and unrecoverable. Disk space will
 // be freed up on the next call to `Cleanup`.
-func (o *snapshotter) Remove(ctx context.Context, key string) (err error) {
-	ctx, t, err := o.ms.TransactionContext(ctx, true)
+func (o *nixSnapshotter) Remove(ctx context.Context, key string) (err error) {
+	ctx, t, err := o.GetMs().TransactionContext(ctx, true)
 	if err != nil {
 		return err
 	}
@@ -389,7 +227,7 @@ func (o *snapshotter) Remove(ctx context.Context, key string) (err error) {
 		return fmt.Errorf("failed to remove: %w", err)
 	}
 
-	if !o.asyncRemove {
+	if !o.GetAsyncRemove() {
 		var removals []string
 		removals, err = o.getCleanupDirectories(ctx)
 		if err != nil {
@@ -414,64 +252,13 @@ func (o *snapshotter) Remove(ctx context.Context, key string) (err error) {
 	return t.Commit()
 }
 
-// Walk the snapshots.
-func (o *snapshotter) Walk(ctx context.Context, fn snapshots.WalkFunc, fs ...string) error {
-	ctx, t, err := o.ms.TransactionContext(ctx, false)
-	if err != nil {
-		return err
-	}
-	defer t.Rollback()
-	if o.upperdirLabel {
-		return storage.WalkInfo(ctx, func(ctx context.Context, info snapshots.Info) error {
-			id, _, _, err := storage.GetInfo(ctx, info.Name)
-			if err != nil {
-				return err
-			}
-			if info.Labels == nil {
-				info.Labels = make(map[string]string)
-			}
-			info.Labels[upperdirKey] = o.upperPath(id)
-			return fn(ctx, info)
-		}, fs...)
-	}
-	return storage.WalkInfo(ctx, fn, fs...)
-}
-
-// Cleanup cleans up disk resources from removed or abandoned snapshots
-func (o *snapshotter) Cleanup(ctx context.Context) error {
-	cleanup, err := o.cleanupDirectories(ctx)
-	if err != nil {
-		return err
-	}
-
-	for _, dir := range cleanup {
-		if err := os.RemoveAll(dir); err != nil {
-			log.G(ctx).WithError(err).WithField("path", dir).Warn("failed to remove directory")
-		}
-	}
-
-	return nil
-}
-
-func (o *snapshotter) cleanupDirectories(ctx context.Context) ([]string, error) {
-	// Get a write transaction to ensure no other write transaction can be entered
-	// while the cleanup is scanning.
-	ctx, t, err := o.ms.TransactionContext(ctx, true)
-	if err != nil {
-		return nil, err
-	}
-
-	defer t.Rollback()
-	return o.getCleanupDirectories(ctx)
-}
-
-func (o *snapshotter) getCleanupDirectories(ctx context.Context) ([]string, error) {
+func (o *nixSnapshotter) getCleanupDirectories(ctx context.Context) ([]string, error) {
 	ids, err := storage.IDMap(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	snapshotDir := filepath.Join(o.root, "snapshots")
+	snapshotDir := filepath.Join(o.GetRoot(), "snapshots")
 	fd, err := os.Open(snapshotDir)
 	if err != nil {
 		return nil, err
@@ -484,7 +271,7 @@ func (o *snapshotter) getCleanupDirectories(ctx context.Context) ([]string, erro
 	}
 
 	cleanup := []string{}
-	gcRootsDir := filepath.Join(o.root, "gcroots")
+	gcRootsDir := filepath.Join(o.GetRoot(), "gcroots")
 	for _, d := range dirs {
 		if _, ok := ids[d]; ok {
 			continue
@@ -497,8 +284,8 @@ func (o *snapshotter) getCleanupDirectories(ctx context.Context) ([]string, erro
 	return cleanup, nil
 }
 
-func (o *snapshotter) createSnapshot(ctx context.Context, kind snapshots.Kind, key, parent string, opts []snapshots.Opt) (_ []mount.Mount, err error) {
-	ctx, t, err := o.ms.TransactionContext(ctx, true)
+func (o *nixSnapshotter) createSnapshot(ctx context.Context, kind snapshots.Kind, key, parent string, opts []snapshots.Opt) (_ []mount.Mount, err error) {
+	ctx, t, err := o.GetMs().TransactionContext(ctx, true)
 	if err != nil {
 		return nil, err
 	}
@@ -520,7 +307,7 @@ func (o *snapshotter) createSnapshot(ctx context.Context, kind snapshots.Kind, k
 		}
 	}()
 
-	snapshotDir := filepath.Join(o.root, "snapshots")
+	snapshotDir := filepath.Join(o.GetRoot(), "snapshots")
 	td, err = o.prepareDirectory(ctx, snapshotDir, kind)
 	if err != nil {
 		if rerr := t.Rollback(); rerr != nil {
@@ -569,7 +356,7 @@ func (o *snapshotter) createSnapshot(ctx context.Context, kind snapshots.Kind, k
 	return o.mounts(s), nil
 }
 
-func (o *snapshotter) prepareDirectory(ctx context.Context, snapshotDir string, kind snapshots.Kind) (string, error) {
+func (o *nixSnapshotter) prepareDirectory(ctx context.Context, snapshotDir string, kind snapshots.Kind) (string, error) {
 	td, err := os.MkdirTemp(snapshotDir, "new-")
 	if err != nil {
 		return "", fmt.Errorf("failed to create temp dir: %w", err)
@@ -588,7 +375,7 @@ func (o *snapshotter) prepareDirectory(ctx context.Context, snapshotDir string, 
 	return td, nil
 }
 
-func (o *snapshotter) mounts(s storage.Snapshot) []mount.Mount {
+func (o *nixSnapshotter) mounts(s storage.Snapshot) []mount.Mount {
 	if len(s.ParentIDs) == 0 {
 		// if we only have one layer/no parents then just return a bind mount as overlay
 		// will not work
@@ -611,11 +398,11 @@ func (o *snapshotter) mounts(s storage.Snapshot) []mount.Mount {
 	var options []string
 
 	// set index=off when mount overlayfs
-	if o.indexOff {
+	if o.GetIndexOff() {
 		options = append(options, "index=off")
 	}
 
-	if o.userxattr {
+	if o.GetUserXattr() {
 		options = append(options, "userxattr")
 	}
 
@@ -652,28 +439,23 @@ func (o *snapshotter) mounts(s storage.Snapshot) []mount.Mount {
 	}
 }
 
-func (o *snapshotter) upperPath(id string) string {
-	return filepath.Join(o.root, "snapshots", id, "fs")
+func (o *nixSnapshotter) upperPath(id string) string {
+	return filepath.Join(o.GetRoot(), "snapshots", id, "fs")
 }
 
-func (o *snapshotter) workPath(id string) string {
-	return filepath.Join(o.root, "snapshots", id, "work")
+func (o *nixSnapshotter) workPath(id string) string {
+	return filepath.Join(o.GetRoot(), "snapshots", id, "work")
 }
 
-func (o *snapshotter) overlayMountType() string {
+func (o *nixSnapshotter) overlayMountType() string {
 	if o.fuse {
 		return "fuse3.fuse-overlayfs"
 	}
 	return "overlay"
 }
 
-// Close closes the snapshotter
-func (o *snapshotter) Close() error {
-	return o.ms.Close()
-}
-
-func (o *snapshotter) withNixBindMounts(ctx context.Context, key string, mounts []mount.Mount) ([]mount.Mount, error) {
-	ctx, t, err := o.ms.TransactionContext(ctx, false)
+func (o *nixSnapshotter) withNixBindMounts(ctx context.Context, key string, mounts []mount.Mount) ([]mount.Mount, error) {
+	ctx, t, err := o.GetMs().TransactionContext(ctx, false)
 	if err != nil {
 		return nil, err
 	}
@@ -715,12 +497,4 @@ func (o *snapshotter) withNixBindMounts(ctx context.Context, key string, mounts 
 		currentKey = info.Parent
 	}
 	return mounts, nil
-}
-
-// supportsIndex checks whether the "index=off" option is supported by the kernel.
-func supportsIndex() bool {
-	if _, err := os.Stat("/sys/module/overlay/parameters/index"); err == nil {
-		return true
-	}
-	return false
 }
