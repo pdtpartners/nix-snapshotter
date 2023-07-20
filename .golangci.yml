@@ -1,0 +1,7 @@
+# Options for analysis running.
+run:
+
+  timeout: 10m
+
+  skip-files:
+    - pkg/nix/nix.go

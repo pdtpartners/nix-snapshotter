@@ -195,7 +195,8 @@ func TestUnmarshalFromProvider(t *testing.T) {
 			var outputItem any
 			var output []any
 			for _, desc := range descs {
-				unmarshalFromProvider(ctx, provider, desc, &outputItem)
+				err := unmarshalFromProvider(ctx, provider, desc, &outputItem)
+				require.NoError(t, err)
 				output = append(output, outputItem)
 			}
 			testutil.IsIdentical(t, tc.input, output)
