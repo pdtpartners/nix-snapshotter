@@ -27,4 +27,4 @@ jobs:
       - name: Run the Magic Nix Cache
         uses: DeterminateSystems/magic-nix-cache-action@main
       - name: Run Linter
-        run: nix develop --command golangci-lint -v --timeout 10m run
+        run: nix develop --command golangci-lint run
