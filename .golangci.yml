@@ -4,4 +4,4 @@ run:
   timeout: 10m
 
   skip-files:
-    - pkg/nix/nix.go
+    - pkg/overlayfork/overlay.go

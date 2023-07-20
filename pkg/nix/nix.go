@@ -126,12 +126,14 @@ func (o *nixSnapshotter) Prepare(ctx context.Context, key, parent string, opts .
 	return o.withNixBindMounts(ctx, key, mounts)
 }
 
-func (o *nixSnapshotter) prepareNixGCRoots(ctx context.Context, key string, labels map[string]string) error {
+func (o *nixSnapshotter) prepareNixGCRoots(ctx context.Context, key string, labels map[string]string) (err error) {
 	ctx, t, err := o.GetMs().TransactionContext(ctx, false)
 	if err != nil {
 		return err
 	}
-	defer t.Rollback()
+	defer func() {
+		err = t.Rollback()
+	}()
 	id, _, _, err := storage.GetInfo(ctx, key)
 	if err != nil {
 		return err
@@ -264,7 +266,9 @@ func (o *nixSnapshotter) withNixBindMounts(ctx context.Context, key string, moun
 	if err != nil {
 		return nil, err
 	}
-	defer t.Rollback()
+	defer func() {
+		err = t.Rollback()
+	}()
 
 	// Add a read only bind mount for every nix path required for the current
 	// snapshot and all its parents.
