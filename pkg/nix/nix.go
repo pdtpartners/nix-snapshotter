@@ -55,6 +55,7 @@ func WithFuseOverlayfs(config *NixSnapshotterConfig) error {
 
 type nixSnapshotter struct {
 	overlayfork.Snapshotter
+	root        string
 	fuse        bool
 	nixStoreDir string
 }
@@ -82,6 +83,7 @@ func NewSnapshotter(root, nixStoreDir string, opts ...Opt) (snapshots.Snapshotte
 	if ok {
 		return &nixSnapshotter{
 			Snapshotter: *overlaySnapshotter,
+			root:        root,
 			nixStoreDir: nixStoreDir,
 			fuse:        config.fuse,
 		}, nil
@@ -141,7 +143,7 @@ func (o *nixSnapshotter) prepareNixGCRoots(ctx context.Context, key string, labe
 		nixTool = defaultNixTool
 	}
 
-	gcRootsDir := filepath.Join(o.GetRoot(), "gcroots", id)
+	gcRootsDir := filepath.Join(o.root, "gcroots", id)
 	log.G(ctx).Infof("Preparing nix gc roots at %s", gcRootsDir)
 	for label, nixHash := range labels {
 		if !strings.HasPrefix(label, nix2container.NixStorePrefixAnnotation) {
@@ -224,7 +226,7 @@ func (o *nixSnapshotter) getCleanupNixDirectories(ctx context.Context) ([]string
 		return nil, err
 	}
 
-	gcRootsDir := filepath.Join(o.GetRoot(), "gcroots")
+	gcRootsDir := filepath.Join(o.root, "gcroots")
 	fd, err := os.Open(gcRootsDir)
 	if err != nil {
 		return nil, err
@@ -249,11 +251,11 @@ func (o *nixSnapshotter) getCleanupNixDirectories(ctx context.Context) ([]string
 }
 
 func (o *nixSnapshotter) upperPath(id string) string {
-	return filepath.Join(o.GetRoot(), "snapshots", id, "fs")
+	return filepath.Join(o.root, "snapshots", id, "fs")
 }
 
 func (o *nixSnapshotter) workPath(id string) string {
-	return filepath.Join(o.GetRoot(), "snapshots", id, "work")
+	return filepath.Join(o.root, "snapshots", id, "work")
 }
 
 func (o *nixSnapshotter) convertToOverlayMountType(mounts []mount.Mount) []mount.Mount {
