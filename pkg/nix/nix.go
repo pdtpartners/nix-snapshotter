@@ -1,3 +1,4 @@
+//nolint
 /*
    Copyright The containerd Authors.
 

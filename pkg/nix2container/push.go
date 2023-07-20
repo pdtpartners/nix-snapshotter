@@ -112,9 +112,11 @@ func initializeManifest(ctx context.Context, image types.Image, provider *Inmemo
 	}
 
 	cfg := ocispec.Image{
-		Config:       image.Config,
-		Architecture: image.Architecture,
-		OS:           image.OS,
+		Config: image.Config,
+		Platform: platforms.Platform{
+			Architecture: image.Architecture,
+			OS:           image.OS,
+		},
 		RootFS: ocispec.RootFS{
 			Type: "layers",
 		},
