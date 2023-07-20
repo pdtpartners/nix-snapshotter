@@ -170,7 +170,6 @@ func (o *nixSnapshotter) prepareNixGCRoots(ctx context.Context, key string, labe
 
 func (o *nixSnapshotter) View(ctx context.Context, key, parent string, opts ...snapshots.Opt) ([]mount.Mount, error) {
 
-	//TODO CONVERT OPTS AND PASS IN
 	mounts, err := o.Snapshotter.View(ctx, key, parent, opts...)
 	if err != nil {
 		return nil, err
@@ -248,14 +247,6 @@ func (o *nixSnapshotter) getCleanupNixDirectories(ctx context.Context) ([]string
 	}
 
 	return cleanup, nil
-}
-
-func (o *nixSnapshotter) upperPath(id string) string {
-	return filepath.Join(o.root, "snapshots", id, "fs")
-}
-
-func (o *nixSnapshotter) workPath(id string) string {
-	return filepath.Join(o.root, "snapshots", id, "work")
 }
 
 func (o *nixSnapshotter) convertToOverlayMountType(mounts []mount.Mount) []mount.Mount {
