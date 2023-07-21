@@ -43,7 +43,7 @@ type NixSnapshotterConfig struct {
 }
 
 // Opt is an option to configure the nix snapshotter
-type Opt func(config *NixSnapshotterConfig) error
+type NixOpt func(config *NixSnapshotterConfig) error
 
 // WithFuseOverlayfs changes the overlay mount type used to fuse-overlayfs, an
 // FUSE implementation for overlayfs.
@@ -64,33 +64,35 @@ type nixSnapshotter struct {
 // NewSnapshotter returns a Snapshotter which uses overlayfs. The overlayfs
 // diffs are stored under the provided root. A metadata file is stored under
 // the root.
-func NewSnapshotter(root, nixStoreDir string, opts ...Opt) (snapshots.Snapshotter, error) {
+func NewSnapshotter(root, nixStoreDir string, opts ...interface{}) (snapshots.Snapshotter, error) {
 	var config NixSnapshotterConfig
+	snapshotterOpts := []overlayfork.Opt{}
 	for _, opt := range opts {
-		fmt.Printf("type: %+v\n", opt)
-		if err := opt(&config); err != nil {
-			return nil, err
+		switch safeOpt := opt.(type) {
+		// Checking the NixOpt here does not work but expanding it does
+		case func(config *NixSnapshotterConfig) error:
+			if err := safeOpt(&config); err != nil {
+				return nil, err
+			}
+		// Checking the overlayfork.Opt here does not work but expanding does
+		case func(config *overlayfork.SnapshotterConfig) error:
+			snapshotterOpts = append(snapshotterOpts, safeOpt)
+		default:
+			return nil, fmt.Errorf("Unexpected opt type")
 		}
 	}
 
-	//TODO Add support for ops to NewShapshotter
-
-	generalSnapshotter, err := overlayfork.NewSnapshotter(root)
+	generalSnapshotter, err := overlayfork.NewSnapshotter(root, snapshotterOpts...)
 	if err != nil {
 		return nil, err
 	}
 
-	overlaySnapshotter, ok := generalSnapshotter.(*overlayfork.Snapshotter)
-	if ok {
-		return &nixSnapshotter{
-			Snapshotter: *overlaySnapshotter,
-			root:        root,
-			nixStoreDir: nixStoreDir,
-			fuse:        config.fuse,
-		}, nil
-	} else {
-		return nil, fmt.Errorf("Failed to cast snapshotter")
-	}
+	return &nixSnapshotter{
+		Snapshotter: *generalSnapshotter.(*overlayfork.Snapshotter),
+		root:        root,
+		nixStoreDir: nixStoreDir,
+		fuse:        config.fuse,
+	}, nil
 
 }
 
@@ -101,8 +103,6 @@ func (o *nixSnapshotter) Prepare(ctx context.Context, key, parent string, opts .
 			return nil, err
 		}
 	}
-
-	//TODO pass config into overlayfork snapshotter
 
 	mounts, err := o.Snapshotter.Prepare(ctx, key, parent, opts...)
 	if err != nil {
