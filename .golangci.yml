@@ -3,5 +3,3 @@ run:
 
   timeout: 10m
 
-  skip-files:
-    - pkg/overlayfork/overlay.go
