@@ -17,7 +17,7 @@ let
         p == "default.nix"
       );
     };
-    vendorSha256 = "sha256-9zx0Md+dgOj3Kjx7wFG/jMCofdwRGZDPAecwSZXB8KU=";
+    vendorSha256 = "sha256-nio371J6r/aZIrMCcc0441fDgwS9LZgHL9k1cKGZgPY=";
   };
 
   buildImage = args@{

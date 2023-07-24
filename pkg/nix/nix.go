@@ -28,9 +28,9 @@ import (
 	"github.com/containerd/containerd/log"
 	"github.com/containerd/containerd/mount"
 	"github.com/containerd/containerd/snapshots"
+	"github.com/containerd/containerd/snapshots/overlay"
 	"github.com/containerd/containerd/snapshots/storage"
 	"github.com/pdtpartners/nix-snapshotter/pkg/nix2container"
-	"github.com/pdtpartners/nix-snapshotter/pkg/overlayfork"
 )
 
 const (
@@ -55,7 +55,7 @@ func WithFuseOverlayfs(config *NixSnapshotterConfig) error {
 }
 
 type nixSnapshotter struct {
-	overlayfork.Snapshotter
+	overlay.Snapshotter
 	root        string
 	fuse        bool
 	nixStoreDir string
@@ -66,7 +66,7 @@ type nixSnapshotter struct {
 // the root.
 func NewSnapshotter(root, nixStoreDir string, opts ...interface{}) (snapshots.Snapshotter, error) {
 	var config NixSnapshotterConfig
-	snapshotterOpts := []overlayfork.Opt{}
+	snapshotterOpts := []overlay.Opt{}
 	for _, opt := range opts {
 		switch safeOpt := opt.(type) {
 		// Checking the NixOpt here does not work but expanding it does
@@ -74,21 +74,21 @@ func NewSnapshotter(root, nixStoreDir string, opts ...interface{}) (snapshots.Sn
 			if err := safeOpt(&config); err != nil {
 				return nil, err
 			}
-		// Checking the overlayfork.Opt here does not work but expanding does
-		case func(config *overlayfork.SnapshotterConfig) error:
+		// Checking the overlay.Opt here does not work but expanding does
+		case func(config *overlay.SnapshotterConfig) error:
 			snapshotterOpts = append(snapshotterOpts, safeOpt)
 		default:
 			return nil, fmt.Errorf("Unexpected opt type")
 		}
 	}
 
-	generalSnapshotter, err := overlayfork.NewSnapshotter(root, snapshotterOpts...)
+	generalSnapshotter, err := overlay.NewSnapshotter(root, snapshotterOpts...)
 	if err != nil {
 		return nil, err
 	}
 
 	return &nixSnapshotter{
-		Snapshotter: *generalSnapshotter.(*overlayfork.Snapshotter),
+		Snapshotter: *generalSnapshotter.(*overlay.Snapshotter),
 		root:        root,
 		nixStoreDir: nixStoreDir,
 		fuse:        config.fuse,
