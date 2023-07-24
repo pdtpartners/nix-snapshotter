@@ -197,27 +197,27 @@ func (o *nixSnapshotter) Mounts(ctx context.Context, key string) ([]mount.Mount,
 // be freed up on the next call to `Cleanup`.
 func (o *nixSnapshotter) Remove(ctx context.Context, key string) (err error) {
 	err = o.Snapshotter.Remove(ctx, key)
-	if !o.GetAsyncRemove() {
-		var removals []string
-		removals, err = o.getCleanupNixDirectories(ctx)
-		if err != nil {
-			return fmt.Errorf("unable to get directories for removal: %w", err)
-		}
+	if err != nil {
+		return err
+	}
+	var removals []string
+	removals, err = o.getCleanupNixDirectories(ctx)
+	if err != nil {
+		return fmt.Errorf("unable to get directories for removal: %w", err)
+	}
 
-		// Remove directories after the transaction is closed, failures must not
-		// return error since the transaction is committed with the removal
-		// key no longer available.
-		defer func() {
-			if err == nil {
-				for _, dir := range removals {
-					if err := os.RemoveAll(dir); err != nil {
-						log.G(ctx).WithError(err).WithField("path", dir).Warn("failed to remove directory")
-					}
+	// Remove directories after the transaction is closed, failures must not
+	// return error since the transaction is committed with the removal
+	// key no longer available.
+	defer func() {
+		if err == nil {
+			for _, dir := range removals {
+				if err := os.RemoveAll(dir); err != nil {
+					log.G(ctx).WithError(err).WithField("path", dir).Warn("failed to remove directory")
 				}
 			}
-		}()
-
-	}
+		}
+	}()
 
 	return
 }

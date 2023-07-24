@@ -90,10 +90,6 @@ func (o *Snapshotter) GetMs() *storage.MetaStore {
 	return o.ms
 }
 
-func (o *Snapshotter) GetAsyncRemove() bool {
-	return o.asyncRemove
-}
-
 // NewSnapshotter returns a Snapshotter which uses overlayfs. The overlayfs
 // diffs are stored under the provided root. A metadata file is stored under
 // the root.
