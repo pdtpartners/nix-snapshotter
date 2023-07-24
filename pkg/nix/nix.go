@@ -56,6 +56,7 @@ func WithFuseOverlayfs(config *NixSnapshotterConfig) error {
 
 type nixSnapshotter struct {
 	overlay.Snapshotter
+	ms          *storage.MetaStore
 	root        string
 	fuse        bool
 	nixStoreDir string
@@ -82,6 +83,11 @@ func NewSnapshotter(root, nixStoreDir string, opts ...interface{}) (snapshots.Sn
 		}
 	}
 
+	ms, err := storage.NewMetaStore(filepath.Join(root, "metadata.db"))
+	if err != nil {
+		return nil, err
+	}
+	snapshotterOpts = append(snapshotterOpts, overlay.WithMetaStore(ms))
 	generalSnapshotter, err := overlay.NewSnapshotter(root, snapshotterOpts...)
 	if err != nil {
 		return nil, err
@@ -89,6 +95,7 @@ func NewSnapshotter(root, nixStoreDir string, opts ...interface{}) (snapshots.Sn
 
 	return &nixSnapshotter{
 		Snapshotter: *generalSnapshotter.(*overlay.Snapshotter),
+		ms:          ms,
 		root:        root,
 		nixStoreDir: nixStoreDir,
 		fuse:        config.fuse,
@@ -127,7 +134,7 @@ func (o *nixSnapshotter) Prepare(ctx context.Context, key, parent string, opts .
 }
 
 func (o *nixSnapshotter) prepareNixGCRoots(ctx context.Context, key string, labels map[string]string) (err error) {
-	ctx, t, err := o.GetMs().TransactionContext(ctx, false)
+	ctx, t, err := o.ms.TransactionContext(ctx, false)
 	if err != nil {
 		return err
 	}
@@ -262,7 +269,7 @@ func (o *nixSnapshotter) convertToOverlayMountType(mounts []mount.Mount) []mount
 }
 
 func (o *nixSnapshotter) withNixBindMounts(ctx context.Context, key string, mounts []mount.Mount) ([]mount.Mount, error) {
-	ctx, t, err := o.GetMs().TransactionContext(ctx, false)
+	ctx, t, err := o.ms.TransactionContext(ctx, false)
 	if err != nil {
 		return nil, err
 	}
