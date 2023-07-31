@@ -1,4 +1,4 @@
-![ci workflow](https://github.com/pdtpartners/nix-snapshotter/actions/workflows/ci.yml/badge.svg)
+[![ci workflow](https://github.com/pdtpartners/nix-snapshotter/actions/workflows/ci.yml/badge.svg)](https://github.com/pdtpartners/nix-snapshotter/actions?query=workflow%3ACI)
 # nix-snapshotter
 
 Containerd remote snapshotter that prepares container rootfs from nix store directly.
