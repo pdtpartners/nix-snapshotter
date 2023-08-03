@@ -19,6 +19,9 @@ nix-snapshotter: FORCE
 start-containerd:
 	sudo containerd --log-level debug --config ./script/config/etc/containerd/config.toml
 
+start-rootless-containerd:
+	rootlesskit --net=slirp4netns --disable-host-loopback --copy-up=/etc --copy-up=/run --state-dir=/run/user/1001/rootlesskit-containerd sh -c "rm -f /run/containerd; exec containerd --config ./script/config/rootless/config.toml" 
+
 start-nix-snapshotter: nix-snapshotter
 	mkdir -p root
 	sudo mkdir -p /run/containerd-nix

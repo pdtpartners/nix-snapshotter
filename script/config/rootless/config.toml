@@ -1,0 +1,27 @@
+
+version = 2
+root = "/home/buxton/.local/share/containerd"
+state = "/run/user/1001/containerd"
+
+[plugins."io.containerd.grpc.v1.cri"]
+  enable_cdi = true
+  cdi_spec_dirs = ["/etc/cdi", "/var/run/cdi23"]
+
+[plugins."io.containerd.grpc.v1.cri".containerd]
+  default_runtime_name = "runc"
+  snapshotter = "nix"
+  disable_snapshot_annotations = false
+
+[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+  runtime_type = "io.containerd.runc.v2"
+
+# Setup a runtime with the magic name ("test-handler") used for Kubernetes
+# runtime class tests ...
+[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.test-handler]
+  runtime_type = "io.containerd.runc.v2"
+
+# Use nix snapshotter
+[proxy_plugins]
+  [proxy_plugins.nix]
+    type = "snapshot"
+    address = "/run/user/1001/containerd/containerd.sock"
