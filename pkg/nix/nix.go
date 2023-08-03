@@ -55,8 +55,9 @@ func WithFuseOverlayfs(config *NixSnapshotterConfig) error {
 }
 
 type nixSnapshotter struct {
-	overlay.Snapshotter
+	snapshots.Snapshotter
 	ms          *storage.MetaStore
+	asyncRemove bool
 	root        string
 	fuse        bool
 	nixStoreDir string
@@ -94,8 +95,9 @@ func NewSnapshotter(root, nixStoreDir string, opts ...interface{}) (snapshots.Sn
 	}
 
 	return &nixSnapshotter{
-		Snapshotter: *generalSnapshotter.(*overlay.Snapshotter),
+		Snapshotter: generalSnapshotter,
 		ms:          ms,
+		asyncRemove: false,
 		root:        root,
 		nixStoreDir: nixStoreDir,
 		fuse:        config.fuse,
@@ -203,40 +205,84 @@ func (o *nixSnapshotter) Mounts(ctx context.Context, key string) ([]mount.Mount,
 // immediately become unavailable and unrecoverable. Disk space will
 // be freed up on the next call to `Cleanup`.
 func (o *nixSnapshotter) Remove(ctx context.Context, key string) (err error) {
-	err = o.Snapshotter.Remove(ctx, key)
+	ctx, t, err := o.ms.TransactionContext(ctx, true)
 	if err != nil {
 		return err
 	}
-	var removals []string
-	removals, err = o.getCleanupNixDirectories(ctx)
-	if err != nil {
-		return fmt.Errorf("unable to get directories for removal: %w", err)
-	}
-
-	// Remove directories after the transaction is closed, failures must not
-	// return error since the transaction is committed with the removal
-	// key no longer available.
 	defer func() {
-		if err == nil {
-			for _, dir := range removals {
-				if err := os.RemoveAll(dir); err != nil {
-					log.G(ctx).WithError(err).WithField("path", dir).Warn("failed to remove directory")
-				}
+		if err != nil {
+			if rerr := t.Rollback(); rerr != nil {
+				log.G(ctx).WithError(rerr).Warn("failed to rollback transaction")
 			}
 		}
 	}()
 
-	return
+	_, _, err = storage.Remove(ctx, key)
+	if err != nil {
+		return fmt.Errorf("failed to remove: %w", err)
+	}
+
+	if !o.asyncRemove {
+		var removals []string
+		removals, err = o.getCleanupDirectories(ctx)
+		if err != nil {
+			return fmt.Errorf("unable to get directories for removal: %w", err)
+		}
+
+		// Remove directories after the transaction is closed, failures must not
+		// return error since the transaction is committed with the removal
+		// key no longer available.
+		defer func() {
+			if err == nil {
+				for _, dir := range removals {
+					if err := os.RemoveAll(dir); err != nil {
+						log.G(ctx).WithError(err).WithField("path", dir).Warn("failed to remove directory")
+					}
+				}
+			}
+		}()
+
+	}
+
+	return t.Commit()
 }
 
-func (o *nixSnapshotter) getCleanupNixDirectories(ctx context.Context) ([]string, error) {
+// Cleanup cleans up disk resources from removed or abandoned snapshots
+func (o *nixSnapshotter) Cleanup(ctx context.Context) error {
+	cleanup, err := o.cleanupDirectories(ctx)
+	if err != nil {
+		return err
+	}
+
+	for _, dir := range cleanup {
+		if err := os.RemoveAll(dir); err != nil {
+			log.G(ctx).WithError(err).WithField("path", dir).Warn("failed to remove directory")
+		}
+	}
+
+	return nil
+}
+
+func (o *nixSnapshotter) cleanupDirectories(ctx context.Context) ([]string, error) {
+	// Get a write transaction to ensure no other write transaction can be entered
+	// while the cleanup is scanning.
+	ctx, t, err := o.ms.TransactionContext(ctx, true)
+	if err != nil {
+		return nil, err
+	}
+
+	defer t.Rollback()
+	return o.getCleanupDirectories(ctx)
+}
+
+func (o *nixSnapshotter) getCleanupDirectories(ctx context.Context) ([]string, error) {
 	ids, err := storage.IDMap(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	gcRootsDir := filepath.Join(o.root, "gcroots")
-	fd, err := os.Open(gcRootsDir)
+	snapshotDir := filepath.Join(o.root, "snapshots")
+	fd, err := os.Open(snapshotDir)
 	if err != nil {
 		return nil, err
 	}
@@ -248,11 +294,13 @@ func (o *nixSnapshotter) getCleanupNixDirectories(ctx context.Context) ([]string
 	}
 
 	cleanup := []string{}
+	gcRootsDir := filepath.Join(o.root, "gcroots")
 	for _, d := range dirs {
 		if _, ok := ids[d]; ok {
 			continue
 		}
 		// Cleanup the snapshot and its corresponding nix gc roots.
+		cleanup = append(cleanup, filepath.Join(snapshotDir, d))
 		cleanup = append(cleanup, filepath.Join(gcRootsDir, d))
 	}
 
