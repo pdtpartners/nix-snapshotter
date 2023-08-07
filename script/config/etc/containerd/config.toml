@@ -1,5 +1,5 @@
 # See also: https://github.com/kubernetes-sigs/kind/blob/fd64a56b0c3d5654eb6d22bce812e2a87eac5853/images/base/files/etc/containerd/config.toml
-
+# root = "/home/buxton/.local/share/containerd"
 # explicitly use v2 config format
 version = 2
 
