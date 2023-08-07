@@ -68,7 +68,7 @@ type nixSnapshotter struct {
 // the root.
 func NewSnapshotter(root, nixStoreDir string, opts ...interface{}) (snapshots.Snapshotter, error) {
 	var config NixSnapshotterConfig
-	snapshotterOpts := []overlay.Opt{}
+	overlayOpts := []overlay.Opt{}
 	for _, opt := range opts {
 		switch safeOpt := opt.(type) {
 		// Checking the NixOpt here does not work but expanding it does
@@ -78,7 +78,7 @@ func NewSnapshotter(root, nixStoreDir string, opts ...interface{}) (snapshots.Sn
 			}
 		// Checking the overlay.Opt here does not work but expanding does
 		case func(config *overlay.SnapshotterConfig) error:
-			snapshotterOpts = append(snapshotterOpts, safeOpt)
+			overlayOpts = append(overlayOpts, safeOpt)
 		default:
 			return nil, fmt.Errorf("Unexpected opt type")
 		}
@@ -88,14 +88,14 @@ func NewSnapshotter(root, nixStoreDir string, opts ...interface{}) (snapshots.Sn
 	if err != nil {
 		return nil, err
 	}
-	snapshotterOpts = append(snapshotterOpts, overlay.WithMetaStore(ms))
-	generalSnapshotter, err := overlay.NewSnapshotter(root, snapshotterOpts...)
+	overlayOpts = append(overlayOpts, overlay.WithMetaStore(ms))
+	overlaySnapshotter, err := overlay.NewSnapshotter(root, overlayOpts...)
 	if err != nil {
 		return nil, err
 	}
 
 	return &nixSnapshotter{
-		Snapshotter: generalSnapshotter,
+		Snapshotter: overlaySnapshotter,
 		ms:          ms,
 		asyncRemove: false,
 		root:        root,
@@ -271,7 +271,7 @@ func (o *nixSnapshotter) cleanupDirectories(ctx context.Context) ([]string, erro
 		return nil, err
 	}
 
-	defer t.Rollback()
+	defer t.Rollback() //nolint
 	return o.getCleanupDirectories(ctx)
 }
 
