@@ -127,4 +127,4 @@ require (
 
 replace github.com/opencontainers/runtime-tools => github.com/opencontainers/runtime-tools v0.0.0-20221026201742-946c877fa809
 
-replace github.com/containerd/containerd => github.com/pdtpartners/containerd v1.0.3
+replace github.com/containerd/containerd => github.com/pdtpartners/containerd v1.7.2-nix

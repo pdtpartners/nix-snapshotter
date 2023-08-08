@@ -42,7 +42,7 @@ type NixSnapshotterConfig struct {
 	fuse bool
 }
 
-// Opt is an option to configure the nix snapshotter
+// NixOpt is an option to configure the nix snapshotter
 type NixOpt func(config *NixSnapshotterConfig) error
 
 // WithFuseOverlayfs changes the overlay mount type used to fuse-overlayfs, an
@@ -271,7 +271,10 @@ func (o *nixSnapshotter) cleanupDirectories(ctx context.Context) ([]string, erro
 		return nil, err
 	}
 
-	defer t.Rollback() //nolint
+	defer func() {
+		err = t.Rollback()
+	}()
+
 	return o.getCleanupDirectories(ctx)
 }
 
