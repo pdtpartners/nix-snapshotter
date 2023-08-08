@@ -8,8 +8,12 @@ state = "/run/user/1001/containerd"
 
 # - Set default runtime handler to v2, which has a per-pod shim
 # - Enable to use nix snapshotter
+[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+  systemdCgroup = true
+
 [plugins."io.containerd.grpc.v1.cri"]
-  disable_apparmor = true
+  # disable_apparmor = true
+  # disable_cgroup = true
 [plugins."io.containerd.grpc.v1.cri".containerd]
   default_runtime_name = "runc"
   snapshotter = "nix"

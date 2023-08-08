@@ -28,9 +28,9 @@ start-nix-snapshotter: nix-snapshotter
 	sudo ./out/nix-snapshotter /run/containerd-nix/containerd-nix.sock $$(pwd)/root
 
 start-rootless-nix-snapshotter: nix-snapshotter
-	mkdir -p root
+	mkdir -p /home/buxton/.local/share/containerd/
 	mkdir -p /run/user/1001/containerd-nix/
-	./out/nix-snapshotter /run/user/1001/containerd-nix/containerd-nix.sock $$(pwd)/root
+	./out/nix-snapshotter /run/user/1001/containerd-nix/containerd-nix.sock /home/buxton/.local/share/containerd
 
 
 run: set-crictl-config
@@ -42,6 +42,7 @@ run-redis: set-crictl-config
 	sudo ctr --namespace k8s.io run --snapshotter nix --rm docker.io/library/redis:alpine redis
 
 clean:
+	sudo rm -rf ./home/buxton/.local/share/containerd/
 	sudo rm -rf ./root
 	sudo rm -rf /run/containerd
 	sudo rm -rf /run/containerd-nix
