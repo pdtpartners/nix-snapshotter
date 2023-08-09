@@ -8,22 +8,12 @@ state = "/run/user/1001/containerd"
 
 # - Set default runtime handler to v2, which has a per-pod shim
 # - Enable to use nix snapshotter
-[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
-  systemdCgroup = true
-
-[plugins."io.containerd.grpc.v1.cri"]
-  # disable_apparmor = true
-  # disable_cgroup = true
 [plugins."io.containerd.grpc.v1.cri".containerd]
   default_runtime_name = "runc"
   snapshotter = "nix"
   disable_snapshot_annotations = false
 [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
-  cni_conf_dir = "/home/buxton/Documents/pdtpartners/nix-snapshotter/script/config/etc/cni/net.d"
   runtime_type = "io.containerd.runc.v2"
-
-[plugins."io.containerd.grpc.v1.cri".cni]
-  conf_dir = "/home/buxton/Documents/pdtpartners/nix-snapshotter/script/config/etc/cni/net.d"
 
 # Setup a runtime with the magic name ("test-handler") used for Kubernetes
 # runtime class tests ...
