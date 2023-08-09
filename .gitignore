@@ -24,3 +24,4 @@ nixos.qcow2
 # nix-snapshotter
 root/
 out/
+script/rootless/config.toml

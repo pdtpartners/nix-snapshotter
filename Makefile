@@ -19,20 +19,6 @@ nix-snapshotter: FORCE
 start-containerd:
 	sudo containerd --log-level debug --config ./script/config/etc/containerd/config.toml
 
-start-rootless-containerd:
-	rootlesskit --net=slirp4netns --disable-host-loopback --copy-up=/etc --copy-up=/run --state-dir=/run/user/1001/rootlesskit-containerd sh -c "rm -f /run/containerd; exec containerd --config ./script/config/rootless/config.toml" 
-
-start-nix-snapshotter: nix-snapshotter
-	mkdir -p root
-	sudo mkdir -p /run/containerd-nix
-	sudo ./out/nix-snapshotter /run/containerd-nix/containerd-nix.sock $$(pwd)/root
-
-start-rootless-nix-snapshotter: nix-snapshotter
-	mkdir -p /home/buxton/.local/share/containerd/
-	mkdir -p /run/user/1001/containerd-nix/
-	./out/nix-snapshotter /run/user/1001/containerd-nix/containerd-nix.sock /home/buxton/.local/share/containerd
-
-
 run: set-crictl-config
 	sudo crictl pull docker.io/hinshun/hello:nix
 	sudo ctr --namespace k8s.io run --rm --snapshotter nix docker.io/hinshun/hello:nix example
@@ -41,8 +27,31 @@ run-redis: set-crictl-config
 	sudo crictl pull docker.io/library/redis:alpine
 	sudo ctr --namespace k8s.io run --snapshotter nix --rm docker.io/library/redis:alpine redis
 
+start-nix-snapshotter: nix-snapshotter
+	mkdir -p root
+	sudo mkdir -p /run/containerd-nix
+	sudo ./out/nix-snapshotter /run/containerd-nix/containerd-nix.sock $$(pwd)/root
+
+create-rootless-config:
+	bash ./script/rootless/create-config.sh
+
+start-rootless-containerd: create-rootless-config
+	bash ./script/rootless/containerd.sh
+
+start-rootless-nix-snapshotter: nix-snapshotter
+	bash ./script/rootless/nix-snapshotter.sh
+
+run-rootless-example:
+	bash ./script/rootless/run-example.sh
+
+run-rootless-redis:
+	bash ./script/rootless/run-redis.sh
+
+rootless-clean:
+	rm -rf $(HOME)/.local/share/containerd/
+	rm -rf ./root
+
 clean:
-	sudo rm -rf ./home/buxton/.local/share/containerd/
 	sudo rm -rf ./root
 	sudo rm -rf /run/containerd
 	sudo rm -rf /run/containerd-nix

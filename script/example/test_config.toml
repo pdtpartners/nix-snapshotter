@@ -1,6 +1,0 @@
-version = 2
-root = "/home/buxton/.local/share/containerd"
-state = "/run/user/1001/containerd"
-
-[grpc]
-  address = "/run/user/1001/containerd/containerd.sock"

@@ -1,4 +1,6 @@
-(cd ../../ && make nix-snapshotter)
-mkdir -p /home/buxton/.local/share/containerd/
-mkdir -p /run/user/1001/containerd-nix/
-../../out/nix-snapshotter /run/user/1001/containerd-nix/containerd-nix.sock /home/buxton/.local/share/containerd
+#!/bin/bash
+UID=$(id -u) 
+
+mkdir -p $HOME/.local/share/containerd/
+mkdir -p /run/user/$UID/containerd-nix/
+./out/nix-snapshotter /run/user/$UID/containerd-nix/containerd-nix.sock ~/.local/share/containerd

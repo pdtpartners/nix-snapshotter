@@ -1,1 +1,0 @@
-rootlesskit --net=slirp4netns --copy-up=/etc --copy-up=/run --state-dir=/run/user/1001/rootlesskit-containerd sh -c "rm -f /run/containerd; exec containerd -c test_config.toml"
