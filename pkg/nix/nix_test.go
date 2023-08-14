@@ -2,17 +2,20 @@ package nix
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/containerd/containerd/snapshots"
+	"github.com/containerd/containerd/snapshots/overlay"
 	"github.com/containerd/containerd/snapshots/storage"
 	"github.com/containerd/containerd/snapshots/testsuite"
+	"github.com/docker/docker/daemon/graphdriver/overlayutils"
 	"github.com/stretchr/testify/require"
 )
 
-func newSnapshotterWithOpts(nixStore string, opts ...Opt) testsuite.SnapshotterFunc {
+func newSnapshotterWithOpts(nixStore string, opts ...interface{}) testsuite.SnapshotterFunc {
 	return func(ctx context.Context, root string) (snapshots.Snapshotter, func() error, error) {
 		snapshotter, err := NewSnapshotter(root, nixStore, opts...)
 		if err != nil {
@@ -27,10 +30,10 @@ func newSnapshotterWithOpts(nixStore string, opts ...Opt) testsuite.SnapshotterF
 
 // func TestNixWithSnaphotterSuite(t *testing.T) {
 // 	testutil.RequiresRoot(t)
-// 	optTestCases := map[string][]Opt{
+// 	optTestCases := map[string][]interface{}{
 // 		"no opt": nil,
 // 		// default in init()
-// 		"AsynchronousRemove": {AsynchronousRemove},
+// 		"AsynchronousRemove": {overlay.AsynchronousRemove},
 // 	}
 // 	for optsName, opts := range optTestCases {
 // 		t.Run(optsName, func(t *testing.T) {
@@ -42,10 +45,10 @@ func newSnapshotterWithOpts(nixStore string, opts ...Opt) testsuite.SnapshotterF
 // }
 
 func TestNix(t *testing.T) {
-	optTestCases := map[string][]Opt{
+	optTestCases := map[string][]interface{}{
 		"no opt": nil,
 		// default in init()
-		"AsynchronousRemove": {AsynchronousRemove},
+		"AsynchronousRemove": {overlay.AsynchronousRemove},
 	}
 	for optsName, opts := range optTestCases {
 		t.Run(optsName, func(t *testing.T) {
@@ -56,16 +59,8 @@ func TestNix(t *testing.T) {
 			t.Run("TestOverlayCommit", func(t *testing.T) {
 				testNixCommit(t, newSnapshotter)
 			})
-			// t.Run("TestOverlayOverlayMount", func(t *testing.T) {
-			// 	testOverlayOverlayMount(t, newSnapshotter)
-			// })
-			// t.Run("TestOverlayOverlayRead", func(t *testing.T) {
-			// 	testOverlayOverlayRead(t, newSnapshotter)
-			// })
 			t.Run("TestOverlayView", func(t *testing.T) {
-				// Fix when rebased with new version
-				// testNixView(t, newSnapshotterWithOpts(append(opts, overlay.WithMountOptions([]string{"volatile"}))...))
-				testNixView(t, newSnapshotter)
+				testNixView(t, newSnapshotterWithOpts("", append(opts, overlay.WithMountOptions([]string{"volatile"}))...))
 			})
 		})
 	}
@@ -189,63 +184,52 @@ func testNixView(t *testing.T, newSnapshotter testsuite.SnapshotterFunc) {
 		t.Errorf("mount source should be overlay but received %q", m.Source)
 	}
 
-	//### UNCOMMENT when can support
-	// supportsIndex := supportsIndex()
-	// expectedOptions := 3
-	// if !supportsIndex {
-	// 	expectedOptions--
-	// }
-	// userxattr, err := overlayutils.NeedsUserXAttr(root)
-	// if err != nil {
-	// 	t.Fatal(err)
-	// }
-	// if userxattr {
-	// 	expectedOptions++
-	// }
-
-	// if len(m.Options) != expectedOptions {
-	// 	t.Errorf("expected %d additional mount option but got %d", expectedOptions, len(m.Options))
-	// }
-	// lowers := getParents(ctx, o, root, "/tmp/view2")
-	// expected = fmt.Sprintf("lowerdir=%s:%s", lowers[0], lowers[1])
-	// optIdx := 2
-	// if !supportsIndex {
-	// 	optIdx--
-	// }
-	// if userxattr {
-	// 	optIdx++
-	// }
-	// if m.Options[0] != "volatile" {
-	// 	t.Error("expected option first option to be provided option \"volatile\"")
-	// }
-	// if m.Options[optIdx] != expected {
-	// 	t.Errorf("expected option %q but received %q", expected, m.Options[optIdx])
-	// }
-}
-
-func getBasePath(ctx context.Context, sn snapshots.Snapshotter, root, key string) string {
-	o := sn.(*snapshotter)
-	ctx, t, err := o.ms.TransactionContext(ctx, false)
-	if err != nil {
-		panic(err)
+	supportsIndex := supportsIndex()
+	expectedOptions := 3
+	if !supportsIndex {
+		expectedOptions--
 	}
-	defer t.Rollback()
-
-	s, err := storage.GetSnapshot(ctx, key)
+	userxattr, err := overlayutils.NeedsUserXAttr(root)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
+	}
+	if userxattr {
+		expectedOptions++
 	}
 
-	return filepath.Join(root, "snapshots", s.ID)
+	if len(m.Options) != expectedOptions {
+		t.Errorf("expected %d additional mount option but got %d", expectedOptions, len(m.Options))
+	}
+	lowers := getParents(ctx, o, root, "/tmp/view2")
+	expected = fmt.Sprintf("lowerdir=%s:%s", lowers[0], lowers[1])
+	optIdx := 2
+	if !supportsIndex {
+		optIdx--
+	}
+	if userxattr {
+		optIdx++
+	}
+	if m.Options[0] != "volatile" {
+		t.Error("expected option first option to be provided option \"volatile\"")
+	}
+	if m.Options[optIdx] != expected {
+		t.Errorf("expected option %q but received %q", expected, m.Options[optIdx])
+	}
 }
 
 func getParents(ctx context.Context, sn snapshots.Snapshotter, root, key string) []string {
-	o := sn.(*snapshotter)
+	o := sn.(*nixSnapshotter)
 	ctx, t, err := o.ms.TransactionContext(ctx, false)
 	if err != nil {
 		panic(err)
 	}
-	defer t.Rollback()
+	defer func() {
+		err = t.Rollback()
+		if err != nil {
+			panic(err)
+		}
+	}()
+
 	s, err := storage.GetSnapshot(ctx, key)
 	if err != nil {
 		panic(err)
@@ -257,4 +241,10 @@ func getParents(ctx context.Context, sn snapshots.Snapshotter, root, key string)
 	return parents
 }
 
-// func testNixView(t *testing.T) {}
+// supportsIndex checks whether the "index=off" option is supported by the kernel.
+func supportsIndex() bool {
+	if _, err := os.Stat("/sys/module/overlay/parameters/index"); err == nil {
+		return true
+	}
+	return false
+}

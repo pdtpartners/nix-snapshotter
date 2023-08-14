@@ -76,11 +76,15 @@ func NewSnapshotter(root, nixStoreDir string, opts ...interface{}) (snapshots.Sn
 			if err := safeOpt(&config); err != nil {
 				return nil, err
 			}
-		// Checking the overlay.Opt here does not work but expanding does
+		// Checking the overlay.Opt here does not work but expanding does.
+		// However if func returns an opt then only overlay.opt works
 		case func(config *overlay.SnapshotterConfig) error:
 			overlayOpts = append(overlayOpts, safeOpt)
+		case overlay.Opt:
+			overlayOpts = append(overlayOpts, safeOpt)
+
 		default:
-			return nil, fmt.Errorf("Unexpected opt type")
+			return nil, fmt.Errorf("Unexpected opt type: %T", safeOpt)
 		}
 	}
 
