@@ -49,13 +49,13 @@ There is an example container image for use with this snapshotter pushed to Dock
 There is a `Makefile` for testing locally. Though it requires a development
 environment where you have access to root.
 
-In on terminal, use `nix develop` to enter a development environment with
-everything necessary to run nix-snapshotter. Then run `make start-containerd`
-to start the container supervisor. This containerd will be configured to
-use proxy plugin `nix` for the snapshotter.
+If you have [direnv](https://github.com/direnv/direnv), run `direnv allow` to enter a development environment,
+otherwise run `nix develop` in each of the terminals you'll have to manage.
+Then, inside the development environment run `make start-containerd` to start
+the container supervisor. This containerd will be configured to use proxy plugin
+`nix` for the snapshotter.
 
 ```sh
-$ nix develop
 $ make start-containerd
 ```
 
@@ -63,7 +63,6 @@ Then in another terminal, start `nix-snapshotter`, a GRPC service that
 implements a containerd snapshotter.
 
 ```sh
-$ nix develop
 $ make start-nix-snapshotter
 ```
 
@@ -71,14 +70,12 @@ In a final terminal, `make run` will use the CRI interface to pull the
 prebuilt `hinshun/hello:nix` image and run it.
 
 ```sh
-$ nix develop
 $ make run
 Hello, world!
 ```
 
 A more complicated example is `hinshun/redis:nix`:
 ```
-$ nix develop
 $ make run-redis
 1:C 18 Dec 2022 22:46:12.876 # oO0OoO0OoO0Oo Redis is starting oO0OoO0OoO0Oo
 1:C 18 Dec 2022 22:46:12.876 # Redis version=7.0.5, bits=64, commit=00000000, modified=0, pid=1, just started

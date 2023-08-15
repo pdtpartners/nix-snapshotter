@@ -17,6 +17,9 @@
 # nix
 result*
 
+# direnv
+.direnv/
+
 # nix-snapshotter
 root/
 out/
