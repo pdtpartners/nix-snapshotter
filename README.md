@@ -14,37 +14,19 @@ https://user-images.githubusercontent.com/6493975/208307213-705abd5c-b345-4b0c-b
 
 This package also still needs rigorous documentation, unit and integration testing.
 
-## Example image
+## Running NixOS VM
 
-There is an example container image for use with this snapshotter pushed to DockerHub as `hinshun/hello:nix`:
+The easiest way to try this out is to run a NixOS VM with containerd and
+nix-snapshotter pre-configured. Run `nix run .#vm` to launch a graphic-less
+NixOS VM that you can play around with immediately.
 
-```
-{
-  "schemaVersion": 2,
-  "mediaType": "application/vnd.oci.image.manifest.v1+json",
-  "config": {
-    "mediaType": "application/vnd.oci.image.config.v1+json",
-    "digest": "sha256:d0b29db9c2d41192481511b7ed1aea271708290a4b74c0f7caf02be54c083d7b",
-    "size": 311
-  },
-  "layers": [
-    {
-      "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
-      "digest": "sha256:fa013ec743e03c288f6a8ab8b15ebe1eb9f56dc290b668f16aee263fe29dd600",
-      "size": 317,
-      "annotations": {
-        "containerd.io/snapshot/nix-layer": "true",
-        "containerd.io/snapshot/nix/store.0": "34xlpp3j3vy7ksn09zh44f1c04w77khf-libunistring-1.0",
-        "containerd.io/snapshot/nix/store.1": "4nlgxhb09sdr51nc9hdm8az5b08vzkgx-glibc-2.35-163",
-        "containerd.io/snapshot/nix/store.2": "5mh5019jigj0k14rdnjam1xwk5avn1id-libidn2-2.3.2",
-        "containerd.io/snapshot/nix/store.3": "g2m8kfw7kpgpph05v2fxcx4d5an09hl3-hello-2.12.1"
-      }
-    }
-  ]
-}
+```sh
+nix run .#vm
+nixos login: admin
+Password: admin
 ```
 
-## Running
+## Running locally
 
 There is a `Makefile` for testing locally. Though it requires a development
 environment where you have access to root.
@@ -88,6 +70,36 @@ $ make run-redis
 1:M 18 Dec 2022 22:46:12.876 # Server initialized
 1:M 18 Dec 2022 22:46:12.876 # WARNING overcommit_memory is set to 0! Background save may fail under low memory condition. To fix this issue add 'vm.overcommit_memory = 1' to /etc/sysctl.conf and then reboot or run the command 'sysctl vm.overcommit_memory=1' for this to take effect.
 1:M 18 Dec 2022 22:46:12.877 * Ready to accept connections
+```
+
+## Example image
+
+There is an example container image for use with this snapshotter pushed to DockerHub as `hinshun/hello:nix`:
+
+```
+{
+  "schemaVersion": 2,
+  "mediaType": "application/vnd.oci.image.manifest.v1+json",
+  "config": {
+    "mediaType": "application/vnd.oci.image.config.v1+json",
+    "digest": "sha256:d0b29db9c2d41192481511b7ed1aea271708290a4b74c0f7caf02be54c083d7b",
+    "size": 311
+  },
+  "layers": [
+    {
+      "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+      "digest": "sha256:fa013ec743e03c288f6a8ab8b15ebe1eb9f56dc290b668f16aee263fe29dd600",
+      "size": 317,
+      "annotations": {
+        "containerd.io/snapshot/nix-layer": "true",
+        "containerd.io/snapshot/nix/store.0": "34xlpp3j3vy7ksn09zh44f1c04w77khf-libunistring-1.0",
+        "containerd.io/snapshot/nix/store.1": "4nlgxhb09sdr51nc9hdm8az5b08vzkgx-glibc-2.35-163",
+        "containerd.io/snapshot/nix/store.2": "5mh5019jigj0k14rdnjam1xwk5avn1id-libidn2-2.3.2",
+        "containerd.io/snapshot/nix/store.3": "g2m8kfw7kpgpph05v2fxcx4d5an09hl3-hello-2.12.1"
+      }
+    }
+  ]
+}
 ```
 
 ## Implementation notes
