@@ -6,16 +6,12 @@ let
     pname = "nix-snapshotter";
     version = "0.0.1";
     src = l.cleanSourceWith {
-      src = ./.;
-      filter = path: type:
-      let
-        p = baseNameOf path;
-      in !(
-        p == "flake.nix" ||
-        p == "flake.lock" ||
-        p == "README.md" ||
-        p == "default.nix"
-      );
+      src = l.sourceFilesBySuffices ./. [
+        ".go"
+        "go.mod"
+        "go.sum"
+        ".tar"
+      ];
     };
     vendorSha256 = "sha256-CfojYSq8BesP+6Ujf8eHhazjY6E+5RHHej4a1XyWI5M=";
   };
