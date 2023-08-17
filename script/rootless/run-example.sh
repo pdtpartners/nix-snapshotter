@@ -1,6 +1,5 @@
 #!/bin/bash
 REPO_DIR=$(git rev-parse --show-toplevel)
-export CONTAINERD_SNAPSHOTTER=nix 
-export CONTAINERD_ADDRESS=$REPO_DIR/build/containerd/state/containerd.sock
-nsenter -U --preserve-credentials -m -n -t $(cat $REPO_DIR/build/rootlesskit-containerd/child_pid) nerdctl pull docker.io/hinshun/hello:nix 
-nsenter -U --preserve-credentials -m -n -t $(cat $REPO_DIR/build/rootlesskit-containerd/child_pid) ctr run --rm --cgroup "" docker.io/hinshun/hello:nix example 
+export NERDCTL_TOML=$REPO_DIR/script/rootless/nerdctl.toml
+export ROOTLESSKIT_STATE_DIR=$REPO_DIR/build/rootlesskit-containerd/ #This fixes a "Your aren't rootless error"
+nsenter -U --preserve-credentials -m -n -t $(cat $REPO_DIR/build/rootlesskit-containerd/child_pid) nerdctl run --rm docker.io/hinshun/hello:nix 
