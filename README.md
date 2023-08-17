@@ -25,7 +25,7 @@ nix run .#vm
 nixos login: admin (Ctrl-A then X to quit)
 Password: admin
 sudo nerdctl --snapshotter nix run hinshun/hello:nix
-```
+
 
 ## Running locally as root
 
@@ -58,7 +58,7 @@ Hello, world!
 ```
 
 A more complicated example is `hinshun/redis:nix`:
-```
+```sh
 $ make run-redis
 1:C 18 Dec 2022 22:46:12.876 # oO0OoO0OoO0Oo Redis is starting oO0OoO0OoO0Oo
 1:C 18 Dec 2022 22:46:12.876 # Redis version=7.0.5, bits=64, commit=00000000, modified=0, pid=1, just started
@@ -76,25 +76,32 @@ $ make run-redis
 ## Running locally as rootless
 
 In terminal 1 (starting containerd)
-```
+
+```sh
 $ make start-rootless-containerd
 ```
 
 In terminal 2 (starting the remote nix-snapshotter)
-```
+
+```sh
 $ make start-rootless-nix-snapshotter
 ```
 
 In terminal 3 (pulling and running an example image)
-```
+
+```sh
 $ make run-rootless-example
 ```
-or 
-```
+
+or
+
+```sh
 $ make run-rootless-redis
 ```
 
-The Makefile will create a config.toml for containerd that looks like this
+The Makefile will generate a config.toml that configures containerd 
+to uses the build folder. However for regular use you should create a config
+file that looks more like this. For more infomation look under "Hard way" in [containerd](https://github.com/containerd/containerd/blob/main/docs/rootless.md).
 
 ```toml
 version = 2
@@ -104,25 +111,15 @@ state = "/run/user/<YOUR_UID>/containerd"
 [grpc]
 address = "/run/user/<YOUR_UID>/containerd/containerd.sock"
 
-# - Set default runtime handler to v2, which has a per-pod shim
 # - Enable to use nix snapshotter
 [plugins."io.containerd.grpc.v1.cri".containerd]
-default_runtime_name = "runc"
 snapshotter = "nix"
-disable_snapshot_annotations = false
-[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
-runtime_type = "io.containerd.runc.v2"
-
-# Setup a runtime with the magic name ("test-handler") used for Kubernetes
-# runtime class tests ...
-[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.test-handler]
-runtime_type = "io.containerd.runc.v2"
 
 # Use nix snapshotter
 [proxy_plugins]
 [proxy_plugins.nix]
     type = "snapshot"
-    address = "/run/user/<YOUR_UID>/containerd-nix/containerd-nix.sock"
+    address = "/run/user/<YOUR_UID>/nix-snapshotter/nix-snapshotter.sock"
 ```
 
 ## Example image

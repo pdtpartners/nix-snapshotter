@@ -29,8 +29,8 @@ run-redis: set-crictl-config
 
 start-nix-snapshotter: nix-snapshotter
 	mkdir -p root
-	sudo mkdir -p /run/containerd-nix
-	sudo ./out/nix-snapshotter /run/containerd-nix/containerd-nix.sock $$(pwd)/root
+	sudo mkdir -p /run/nix-snapshotter
+	sudo ./out/nix-snapshotter /run/nix-snapshotter/nix-snapshotter.sock $$(pwd)/root
 
 create-rootless-config:
 	bash ./script/rootless/create-config.sh
@@ -54,5 +54,5 @@ rootless-clean:
 clean:
 	sudo rm -rf ./root
 	sudo rm -rf /run/containerd
-	sudo rm -rf /run/containerd-nix
+	sudo rm -rf /run/nix-snapshotter
 	sudo rm -rf /var/lib/containerd

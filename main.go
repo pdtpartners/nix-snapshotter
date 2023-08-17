@@ -19,8 +19,8 @@ import (
 )
 
 const (
-	defaultAddress = "/run/containerd-nix/containerd-nix.sock"
-	defaultRootDir = "/var/lib/containerd-nix"
+	defaultAddress = "/run/nix-snapshotter/nix-snapshotter.sock"
+	defaultRootDir = "/var/lib/nix-snapshotter"
 )
 
 func main() {

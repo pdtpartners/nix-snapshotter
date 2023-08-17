@@ -1,14 +1,14 @@
 #!/bin/bash
-CUR_DIR=$(pwd)
+REPO_DIR=$(git rev-parse --show-toplevel)
 if [ ! -f ./script/rootless/config.toml ]
 then
 echo "
 version = 2
-root = \"$CUR_DIR/build/containerd/root\"
-state = \"$CUR_DIR/build/containerd/state\"
+root = \"$REPO_DIR/build/containerd/root\"
+state = \"$REPO_DIR/build/containerd/state\"
 
 [grpc]
-    address = \"$XDG_RUNTIME_DIR/containerd/containerd.sock\"
+    address = \"$REPO_DIR/build/containerd/state/containerd.sock\"
 
 # - Enable to use nix snapshotter
 [plugins.\"io.containerd.grpc.v1.cri\".containerd]
@@ -18,6 +18,6 @@ state = \"$CUR_DIR/build/containerd/state\"
 [proxy_plugins]
     [proxy_plugins.nix]
         type = \"snapshot\"
-        address = \"$XDG_RUNTIME_DIR/containerd-nix/containerd-nix.sock\"
+        address = \"$REPO_DIR/build/nix-snapshotter/state/nix-snapshotter.sock\"
     " >> ./script/rootless/config.toml
 fi
