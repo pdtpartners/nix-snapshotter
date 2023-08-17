@@ -22,8 +22,9 @@ NixOS VM that you can play around with immediately.
 
 ```sh
 nix run .#vm
-nixos login: admin
+nixos login: admin (Ctrl-A then X to quit)
 Password: admin
+sudo nerdctl --snapshotter nix run hinshun/hello:nix
 ```
 
 ## Running locally
