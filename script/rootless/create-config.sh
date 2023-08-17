@@ -1,34 +1,23 @@
 #!/bin/bash
-UID=$(id -u) 
-
+CUR_DIR=$(pwd)
 if [ ! -f ./script/rootless/config.toml ]
 then
 echo "
 version = 2
-root = \"${HOME}/.local/share/containerd\"
-state = \"/run/user/${UID}/containerd\"
+root = \"$CUR_DIR/build/containerd/root\"
+state = \"$CUR_DIR/build/containerd/state\"
 
 [grpc]
-address = \"/run/user/1001/containerd/containerd.sock\"
+    address = \"$XDG_RUNTIME_DIR/containerd/containerd.sock\"
 
-# - Set default runtime handler to v2, which has a per-pod shim
 # - Enable to use nix snapshotter
 [plugins.\"io.containerd.grpc.v1.cri\".containerd]
-default_runtime_name = \"runc\"
-snapshotter = \"nix\"
-disable_snapshot_annotations = false
-[plugins.\"io.containerd.grpc.v1.cri\".containerd.runtimes.runc]
-runtime_type = \"io.containerd.runc.v2\"
-
-# Setup a runtime with the magic name (\"test-handler\") used for Kubernetes
-# runtime class tests ...
-[plugins.\"io.containerd.grpc.v1.cri\".containerd.runtimes.test-handler]
-runtime_type = \"io.containerd.runc.v2\"
+    snapshotter = \"nix\"
 
 # Use nix snapshotter
 [proxy_plugins]
-[proxy_plugins.nix]
-    type = \"snapshot\"
-    address = \"/run/user/${UID}/containerd-nix/containerd-nix.sock\"
-" >> ./script/rootless/config.toml
+    [proxy_plugins.nix]
+        type = \"snapshot\"
+        address = \"$XDG_RUNTIME_DIR/containerd-nix/containerd-nix.sock\"
+    " >> ./script/rootless/config.toml
 fi
