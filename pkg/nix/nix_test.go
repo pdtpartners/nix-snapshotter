@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/containerd/containerd/pkg/testutil"
 	"github.com/containerd/containerd/snapshots"
 	"github.com/containerd/containerd/snapshots/overlay"
 	"github.com/containerd/containerd/snapshots/storage"
@@ -26,23 +27,21 @@ func newSnapshotterWithOpts(nixStore string, opts ...interface{}) testsuite.Snap
 	}
 }
 
-// Require root is currently broken on my machine
-
-// func TestNixWithSnaphotterSuite(t *testing.T) {
-// 	testutil.RequiresRoot(t)
-// 	optTestCases := map[string][]interface{}{
-// 		"no opt": nil,
-// 		// default in init()
-// 		"AsynchronousRemove": {overlay.AsynchronousRemove},
-// 	}
-// 	for optsName, opts := range optTestCases {
-// 		t.Run(optsName, func(t *testing.T) {
-// 			newSnapshotter := newSnapshotterWithOpts("", opts...)
-// 			//Changing to nix here breaks tests
-// 			testsuite.SnapshotterSuite(t, "overlayfs", newSnapshotter)
-// 		})
-// 	}
-// }
+func TestNixWithSnaphotterSuite(t *testing.T) {
+	testutil.RequiresRoot(t)
+	optTestCases := map[string][]interface{}{
+		"no opt": nil,
+		// default in init()
+		"AsynchronousRemove": {overlay.AsynchronousRemove},
+	}
+	for optsName, opts := range optTestCases {
+		t.Run(optsName, func(t *testing.T) {
+			newSnapshotter := newSnapshotterWithOpts("", opts...)
+			// The Nix-Snapshotter pass the overlayfs profile of tests
+			testsuite.SnapshotterSuite(t, "overlayfs", newSnapshotter)
+		})
+	}
+}
 
 func TestNix(t *testing.T) {
 	optTestCases := map[string][]interface{}{
