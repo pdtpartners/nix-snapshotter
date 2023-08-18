@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"syscall"
 	"testing"
 
+	"github.com/containerd/containerd/mount"
 	"github.com/containerd/containerd/pkg/testutil"
 	"github.com/containerd/containerd/snapshots"
 	"github.com/containerd/containerd/snapshots/overlay"
@@ -33,6 +35,7 @@ func TestNixWithSnaphotterSuite(t *testing.T) {
 		"no opt": nil,
 		// default in init()
 		"AsynchronousRemove": {overlay.AsynchronousRemove},
+		"FuseOverlayFs":      {WithFuseOverlayfs},
 	}
 	for optsName, opts := range optTestCases {
 		t.Run(optsName, func(t *testing.T) {
@@ -48,24 +51,146 @@ func TestNix(t *testing.T) {
 		"no opt": nil,
 		// default in init()
 		"AsynchronousRemove": {overlay.AsynchronousRemove},
+		"FuseOverlayFs":      {WithFuseOverlayfs},
 	}
 	for optsName, opts := range optTestCases {
 		t.Run(optsName, func(t *testing.T) {
 			newSnapshotter := newSnapshotterWithOpts("", opts...)
-			t.Run("TestOverlayMounts", func(t *testing.T) {
-				testNixMounts(t, newSnapshotter)
+			t.Run("TestNonNixMounts", func(t *testing.T) {
+				testNonNixMounts(t, newSnapshotter)
 			})
-			t.Run("TestOverlayCommit", func(t *testing.T) {
-				testNixCommit(t, newSnapshotter)
+			t.Run("TestNonNixCommit", func(t *testing.T) {
+				testNonNixCommit(t, newSnapshotter)
 			})
-			t.Run("TestOverlayView", func(t *testing.T) {
-				testNixView(t, newSnapshotterWithOpts("", append(opts, overlay.WithMountOptions([]string{"volatile"}))...))
+			t.Run("TestNonNixView", func(t *testing.T) {
+				testNonNixView(t, newSnapshotterWithOpts("", append(opts, overlay.WithMountOptions([]string{"volatile"}))...))
 			})
+			t.Run("TestNonNixOverlayMount", func(t *testing.T) {
+				testNonNixOverlayMount(t, newSnapshotter)
+			})
+			t.Run("TestNonNixOverlayRead", func(t *testing.T) {
+				testNonNixOverlayRead(t, newSnapshotter)
+			})
+
 		})
 	}
 }
 
-func testNixMounts(t *testing.T, newSnapshotter testsuite.SnapshotterFunc) {
+func testNonNixOverlayMount(t *testing.T, newSnapshotter testsuite.SnapshotterFunc) {
+	ctx := context.TODO()
+	root := t.TempDir()
+	o, _, err := newSnapshotter(ctx, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	key := "/tmp/test"
+	if _, err = o.Prepare(ctx, key, ""); err != nil {
+		t.Fatal(err)
+	}
+	if err := o.Commit(ctx, "base", key); err != nil {
+		t.Fatal(err)
+	}
+	var mounts []mount.Mount
+	if mounts, err = o.Prepare(ctx, "/tmp/layer2", "base"); err != nil {
+		t.Fatal(err)
+	}
+	if len(mounts) != 1 {
+		t.Errorf("should only have 1 mount but received %d", len(mounts))
+	}
+	m := mounts[0]
+	if m.Type != "overlay" {
+		t.Errorf("mount type should be overlay but received %q", m.Type)
+	}
+	if m.Source != "overlay" {
+		t.Errorf("expected source %q but received %q", "overlay", m.Source)
+	}
+	var (
+		bp    = getBasePath(ctx, o, root, "/tmp/layer2")
+		work  = "workdir=" + filepath.Join(bp, "work")
+		upper = "upperdir=" + filepath.Join(bp, "fs")
+		lower = "lowerdir=" + getParents(ctx, o, root, "/tmp/layer2")[0]
+	)
+
+	expected := []string{}
+	if !supportsIndex() {
+		expected = expected[1:]
+	}
+	if userxattr, err := overlayutils.NeedsUserXAttr(root); err != nil {
+		t.Fatal(err)
+	} else if userxattr {
+		expected = append(expected, "userxattr")
+	}
+
+	expected = append(expected, "index=off")
+	expected = append(expected, []string{
+		work,
+		upper,
+		lower,
+	}...)
+	for i, v := range expected {
+		if m.Options[i] != v {
+			t.Errorf("expected %q but received %q", v, m.Options[i])
+		}
+	}
+}
+
+func getBasePath(ctx context.Context, sn snapshots.Snapshotter, root, key string) string {
+	o := sn.(*nixSnapshotter)
+	ctx, t, err := o.ms.TransactionContext(ctx, false)
+	if err != nil {
+		panic(err)
+	}
+	defer t.Rollback()
+
+	s, err := storage.GetSnapshot(ctx, key)
+	if err != nil {
+		panic(err)
+	}
+
+	return filepath.Join(root, "snapshots", s.ID)
+}
+
+func testNonNixOverlayRead(t *testing.T, newSnapshotter testsuite.SnapshotterFunc) {
+	testutil.RequiresRoot(t)
+	ctx := context.TODO()
+	root := t.TempDir()
+	o, _, err := newSnapshotter(ctx, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	key := "/tmp/test"
+	mounts, err := o.Prepare(ctx, key, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := mounts[0]
+	if err := os.WriteFile(filepath.Join(m.Source, "foo"), []byte("hi"), 0660); err != nil {
+		t.Fatal(err)
+	}
+	if err := o.Commit(ctx, "base", key); err != nil {
+		t.Fatal(err)
+	}
+	if mounts, err = o.Prepare(ctx, "/tmp/layer2", "base"); err != nil {
+		t.Fatal(err)
+	}
+	dest := filepath.Join(root, "dest")
+	if err := os.Mkdir(dest, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := mount.All(mounts, dest); err != nil {
+		t.Fatal(err)
+	}
+	defer syscall.Unmount(dest, 0)
+	data, err := os.ReadFile(filepath.Join(dest, "foo"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if e := string(data); e != "hi" {
+		t.Fatalf("expected file contents hi but got %q", e)
+	}
+}
+
+func testNonNixMounts(t *testing.T, newSnapshotter testsuite.SnapshotterFunc) {
 	ctx := context.Background()
 	root := t.TempDir()
 	snapshotter, _, err := newSnapshotter(ctx, root)
@@ -93,7 +218,7 @@ func testNixMounts(t *testing.T, newSnapshotter testsuite.SnapshotterFunc) {
 	}
 }
 
-func testNixCommit(t *testing.T, newSnapshotter testsuite.SnapshotterFunc) {
+func testNonNixCommit(t *testing.T, newSnapshotter testsuite.SnapshotterFunc) {
 	ctx := context.TODO()
 	root := t.TempDir()
 	o, _, err := newSnapshotter(ctx, root)
@@ -114,7 +239,7 @@ func testNixCommit(t *testing.T, newSnapshotter testsuite.SnapshotterFunc) {
 	}
 }
 
-func testNixView(t *testing.T, newSnapshotter testsuite.SnapshotterFunc) {
+func testNonNixView(t *testing.T, newSnapshotter testsuite.SnapshotterFunc) {
 	ctx := context.TODO()
 	root := t.TempDir()
 	o, _, err := newSnapshotter(ctx, root)
