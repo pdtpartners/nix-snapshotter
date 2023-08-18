@@ -1,5 +1,9 @@
-{ pkgs, ... }: 
+{ pkgs, modulesPath, ... }:
 {
+  imports = [
+    (modulesPath + "/virtualisation/qemu-vm.nix")
+  ];
+
   nix-snapshotter.enable = true;
 
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
@@ -24,12 +28,11 @@
     };
   };
 
-  virtualisation.vmVariant = {
-    virtualisation = {
-      memorySize = 2048;
-      cores = 4;
-      graphics = false;
-    };
+  virtualisation = {
+    memorySize = 2048;
+    cores = 4;
+    graphics = false;
+    diskImage = null;
   };
 
   services.openssh.enable = true;
