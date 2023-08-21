@@ -6,8 +6,6 @@ let
   imageName = "${registryHost}:${toString registryPort}/hello";
 
 in {
-  name = "basic";
-
   nodes.machine = { pkgs, nix-snapshotter-parts, ... }:
     let
       hello = nix-snapshotter-parts.buildImage {
@@ -47,6 +45,6 @@ in {
         machine.succeed("copy-to-registry")
 
     with subtest("Nerdctl can pull and run nix-snapshotter image"):
-        machine.succeed("nerdctl --snapshotter nix run ${imageName}")
+        assert "Hello, world!" in machine.succeed("nerdctl --snapshotter nix run ${imageName}")
   '';
 }
