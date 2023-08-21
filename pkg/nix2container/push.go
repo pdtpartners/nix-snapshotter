@@ -37,15 +37,34 @@ const (
 	NixStorePrefixAnnotation = "containerd.io/snapshot/nix/store."
 )
 
+type PushOpt func(*PushConfig)
+
+type PushConfig struct {
+	DefaultScheme string
+}
+
+func WithPlainHTTP() PushOpt {
+	return func(cfg *PushConfig) {
+		cfg.DefaultScheme = "http"
+	}
+}
+
 // Push generates a nix-snapshotter image and pushes it to a remote.
-func Push(ctx context.Context, image types.Image, ref string) error {
+func Push(ctx context.Context, image types.Image, ref string, opts ...PushOpt) error {
+	cfg := &PushConfig{
+		DefaultScheme: "https",
+	}
+	for _, opt := range opts {
+		opt(cfg)
+	}
+
 	provider := NewInmemoryProvider()
 	desc, err := generateImage(ctx, image, provider)
 	if err != nil {
 		return err
 	}
 
-	pusher, err := defaultPusher(ctx, ref)
+	pusher, err := newPusher(ctx, cfg, ref)
 	if err != nil {
 		return err
 	}
