@@ -89,39 +89,44 @@ func TestNix(t *testing.T) {
 }
 
 func testNixMounts(t *testing.T, newSnapshotter testsuite.SnapshotterFunc) {
-	// 	ctx := context.TODO()
-	// 	root := t.TempDir()
-	// 	o, _, err := newSnapshotter(ctx, root)
-	// 	if err != nil {
-	// 		t.Fatal(err)
-	// 	}
-	// 	labels := make(map[string]string)
-	// 	labels[nix2container.NixLayerAnnotation] = "some string"
-	// 	labels[nix2container.NixStorePrefixAnnotation] = "/nix/store"
-	// 	key := "/nix/store/base"
-	// 	mounts, err := o.Prepare(ctx, key, "", snapshots.WithLabels(labels))
-	// 	if err != nil {
-	// 		t.Fatal(err)
-	// 	}
-	// m := mounts[0]
-	// if err := os.WriteFile(filepath.Join(m.Source, "foo"), []byte("hi"), 0660); err != nil {
-	// 	t.Fatal(err)
-	// }
-	// mounts2, err := o.Mounts(ctx, key)
-	// if err != nil {
-	// 	t.Fatal(err)
-	// }
+	ctx := context.TODO()
+	root := t.TempDir()
+	o, _, err := newSnapshotter(ctx, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	labels := make(map[string]string)
+	labels[nix2container.NixStorePrefixAnnotation] = "/nix/store"
+	key := "/nix/store/base"
+	prepareMounts, err := o.Prepare(ctx, key, "", snapshots.WithLabels(labels))
+	if err != nil {
+		t.Fatal(err)
+	}
+	mountsMounts, err := o.Mounts(ctx, key)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	// if len(mounts) != len(mounts2) {
-	// 	t.Errorf("Different number of mounts returned from Prepare():%v and Mounts():%v", len(mounts), len(mounts2))
-	// }
-	// if m.Type != "bind" {
-	// 	t.Errorf("mount type should be bind but received %q", m.Type)
-	// }
-	// m = mounts2[1]
-	// if m.Type != "bind" {
-	// 	t.Errorf("mount type should be bind but received %q", m.Type)
-	// }
+	sort.Strings(mountsMounts[0].Options)
+	sort.Strings(prepareMounts[0].Options)
+	sort.Strings(mountsMounts[1].Options)
+	sort.Strings(prepareMounts[1].Options)
+
+	expected := []mount.Mount{
+		{
+			Type:    "bind",
+			Source:  filepath.Join(root, "snapshots", "1", "fs"),
+			Options: []string{"rbind", "rw"},
+		},
+		{
+			Type:    "bind",
+			Source:  "/nix/store",
+			Target:  "/nix/store",
+			Options: []string{"rbind", "ro"},
+		},
+	}
+	testutil.IsIdentical(t, prepareMounts, mountsMounts)
+	testutil.IsIdentical(t, mountsMounts, expected)
 }
 
 func testNixRemove(t *testing.T, newSnapshotter testsuite.SnapshotterFunc) {
@@ -132,7 +137,7 @@ func testNixRemove(t *testing.T, newSnapshotter testsuite.SnapshotterFunc) {
 		t.Fatal(err)
 	}
 	labels := make(map[string]string)
-	labels[nix2container.NixLayerAnnotation] = "some string"
+	labels[nix2container.NixLayerAnnotation] = "true"
 	labels[nix2container.NixStorePrefixAnnotation] = "/nix/store"
 	key := "/nix/store/base"
 	mounts, err := o.Prepare(ctx, key, "", snapshots.WithLabels(labels))
@@ -147,7 +152,7 @@ func testNixRemove(t *testing.T, newSnapshotter testsuite.SnapshotterFunc) {
 	if err != nil {
 		panic(err)
 	}
-	_, err = o.View(ctx, "view1", "base", snapshots.WithLabels(labels))
+	_, err = o.View(ctx, "view1", "base")
 	if err == nil {
 		t.Fatal(fmt.Errorf("viewed snapshot that has been removed"))
 	}
@@ -161,108 +166,103 @@ func testNixRemove(t *testing.T, newSnapshotter testsuite.SnapshotterFunc) {
 }
 
 func testNixView(t *testing.T, newSnapshotter testsuite.SnapshotterFunc) {
-	// ctx := context.TODO()
-	// root := t.TempDir()
-	// o, _, err := newSnapshotter(ctx, root)
-	// if err != nil {
-	// 	t.Fatal(err)
-	// }
-	// labels := make(map[string]string)
-	// labels[nix2container.NixLayerAnnotation] = "some string"
-	// labels[nix2container.NixStorePrefixAnnotation] = "/nix/store"
-	// key := "/nix/store/base"
-	// mounts, err := o.Prepare(ctx, key, "", snapshots.WithLabels(labels))
-	// if err != nil {
-	// 	t.Fatal(err)
-	// }
-	// m := mounts[0]
-	// if err := os.WriteFile(filepath.Join(m.Source, "foo"), []byte("hi"), 0660); err != nil {
-	// 	t.Fatal(err)
-	// }
-	// if err := o.Commit(ctx, "base", key); err != nil {
-	// 	t.Fatal(err)
-	// }
+	ctx := context.TODO()
+	root := t.TempDir()
+	o, _, err := newSnapshotter(ctx, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	labels := make(map[string]string)
+	labels[nix2container.NixLayerAnnotation] = "true"
+	labels[nix2container.NixStorePrefixAnnotation] = "/nix/store"
+	key := "/nix/store/base"
+	mounts, err := o.Prepare(ctx, key, "", snapshots.WithLabels(labels))
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := mounts[0]
+	if err := os.WriteFile(filepath.Join(m.Source, "foo"), []byte("hi"), 0660); err != nil {
+		t.Fatal(err)
+	}
+	if err := o.Commit(ctx, "base", key); err != nil {
+		t.Fatal(err)
+	}
+	labels = make(map[string]string)
+	labels[nix2container.NixStorePrefixAnnotation] = "/nix/store"
+	key = "/nix/store/top"
+	_, err = o.Prepare(ctx, key, "base", snapshots.WithLabels(labels))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(getParents(ctx, o, root, "/nix/store/top")[0], "foo"), []byte("hi, again"), 0660); err != nil {
+		t.Fatal(err)
+	}
+	if err := o.Commit(ctx, "top", key); err != nil {
+		t.Fatal(err)
+	}
 
-	// key = "/nix/store/top"
-	// _, err = o.Prepare(ctx, key, "base", snapshots.WithLabels(labels))
-	// if err != nil {
-	// 	t.Fatal(err)
-	// }
-	// if err := os.WriteFile(filepath.Join(getParents(ctx, o, root, "/nix/store/top")[0], "foo"), []byte("hi, again"), 0660); err != nil {
-	// 	t.Fatal(err)
-	// }
-	// if err := o.Commit(ctx, "top", key); err != nil {
-	// 	t.Fatal(err)
-	// }
+	mounts, err = o.View(ctx, "view1", "base", snapshots.WithLabels(labels))
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	// mounts, err = o.View(ctx, "view1", "base", snapshots.WithLabels(labels))
-	// if err != nil {
-	// 	t.Fatal(err)
-	// }
-	// if len(mounts) != 2 {
-	// 	t.Fatalf("should only have 2 mount but received %d", len(mounts))
-	// }
-	// m = mounts[0]
-	// if m.Type != "bind" {
-	// 	t.Errorf("mount type should be bind but received %q", m.Type)
-	// }
-	// m = mounts[1]
-	// if m.Type != "bind" {
-	// 	t.Errorf("mount type should be bind but received %q", m.Type)
-	// }
-	// expected := labels[nix2container.NixStorePrefixAnnotation]
-	// if m.Source != expected {
-	// 	t.Errorf("expected source %q but received %q", expected, m.Source)
-	// }
-	// if m.Options[0] != "ro" {
-	// 	t.Errorf("expected mount option ro but received %q", m.Options[0])
-	// }
-	// if m.Options[1] != "rbind" {
-	// 	t.Errorf("expected mount option rbind but received %q", m.Options[1])
-	// }
+	sort.Strings(mounts[0].Options)
+	sort.Strings(mounts[1].Options)
 
-	// mounts, err = o.View(ctx, "view2", "top", snapshots.WithLabels(labels))
-	// if err != nil {
-	// 	t.Fatal(err)
-	// }
-	// if len(mounts) != 2 {
-	// 	t.Fatalf("should only have 2 mount but received %d", len(mounts))
-	// }
-	// m = mounts[0]
-	// if m.Type != "overlay" {
-	// 	t.Errorf("mount type should be overlay but received %q", m.Type)
-	// }
-	// if m.Source != "overlay" {
-	// 	t.Errorf("mount source should be overlay but received %q", m.Source)
-	// }
-	// m = mounts[1]
-	// if m.Type != "bind" {
-	// 	t.Errorf("mount type should be bind but received %q", m.Type)
-	// }
-	// if m.Source != labels[nix2container.NixStorePrefixAnnotation] {
-	// 	t.Errorf("mount source should be %q but received %q", labels[nix2container.NixStorePrefixAnnotation], m.Source)
-	// }
+	expected := []mount.Mount{
+		{
+			Type:    "bind",
+			Source:  filepath.Join(root, "snapshots", "1", "fs"),
+			Options: []string{"rbind", "ro"},
+		},
+		{
+			Type:    "bind",
+			Source:  labels[nix2container.NixStorePrefixAnnotation],
+			Target:  labels[nix2container.NixStorePrefixAnnotation],
+			Options: []string{"rbind", "ro"},
+		},
+	}
+	testutil.IsIdentical(t, mounts, expected)
 
-	// expectedOptions := 2
+	mounts, err = o.View(ctx, "view2", "top", snapshots.WithLabels(labels))
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	// supportsIndex := supportsIndex()
-	// if !supportsIndex {
-	// 	expectedOptions--
-	// }
+	mountOptions := mounts[0].Options
+	mounts[0].Options = nil
 
-	// if len(m.Options) != expectedOptions {
-	// 	t.Errorf("expected %d additional mount option but got %d", expectedOptions, len(m.Options))
-	// }
-	// expected = "rbind"
-	// optIdx := 1
+	lowers := getParents(ctx, o, root, "view2")
+	expectedOptions := []string{fmt.Sprintf("lowerdir=%s:%s", lowers[0], lowers[1])}
+	userxattr, err := overlayutils.NeedsUserXAttr(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if userxattr {
+		expectedOptions = append(expectedOptions, "userxattr")
+	}
+	if supportsIndex() {
+		expectedOptions = append(expectedOptions, "index=off")
+	}
+	sort.Strings(mountOptions)
+	sort.Strings(expectedOptions)
+	sort.Strings(mounts[1].Options)
 
-	// if !supportsIndex {
-	// 	optIdx--
-	// }
+	testutil.IsIdentical(t, mountOptions, expectedOptions)
 
-	// if m.Options[optIdx] != expected {
-	// 	t.Errorf("expected option %q but received %q", expected, m.Options[optIdx])
-	// }
+	expected = []mount.Mount{
+		{
+			Type:   "overlay",
+			Source: "overlay",
+		},
+		{
+			Type:    "bind",
+			Source:  labels[nix2container.NixStorePrefixAnnotation],
+			Target:  labels[nix2container.NixStorePrefixAnnotation],
+			Options: []string{"rbind", "ro"},
+		},
+	}
+	testutil.IsIdentical(t, mounts, expected)
 }
 
 func testNonNixMounts(t *testing.T, newSnapshotter testsuite.SnapshotterFunc) {
@@ -274,11 +274,13 @@ func testNonNixMounts(t *testing.T, newSnapshotter testsuite.SnapshotterFunc) {
 	mounts, err := snapshotter.Prepare(ctx, root, "")
 	require.NoError(t, err)
 
+	sort.Strings(mounts[0].Options)
+
 	expected := []mount.Mount{
 		{
 			Type:    "bind",
 			Source:  filepath.Join(root, "snapshots", "1", "fs"),
-			Options: []string{"rw", "rbind"},
+			Options: []string{"rbind", "rw"},
 		},
 	}
 	testutil.IsIdentical(t, mounts, expected)
@@ -361,6 +363,9 @@ func testNonNixView(t *testing.T, newSnapshotter testsuite.SnapshotterFunc) {
 
 	expectedOptions := []string{"volatile", fmt.Sprintf("lowerdir=%s:%s", lowers[0], lowers[1])}
 	userxattr, err := overlayutils.NeedsUserXAttr(root)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if userxattr {
 		expectedOptions = append(expectedOptions, "userxattr")
 	}
@@ -433,44 +438,39 @@ func testNonNixOverlayMount(t *testing.T, newSnapshotter testsuite.SnapshotterFu
 	if mounts, err = o.Prepare(ctx, "/tmp/layer2", "base"); err != nil {
 		t.Fatal(err)
 	}
-	if len(mounts) != 1 {
-		t.Errorf("should only have 1 mount but received %d", len(mounts))
-	}
-	m := mounts[0]
-	if m.Type != "overlay" {
-		t.Errorf("mount type should be overlay but received %q", m.Type)
-	}
-	if m.Source != "overlay" {
-		t.Errorf("expected source %q but received %q", "overlay", m.Source)
-	}
-	// var (
-	// 	bp    = getBasePath(ctx, o, root, "/tmp/layer2")
-	// 	work  = "workdir=" + filepath.Join(bp, "work")
-	// 	upper = "upperdir=" + filepath.Join(bp, "fs")
-	// 	lower = "lowerdir=" + getParents(ctx, o, root, "/tmp/layer2")[0]
-	// )
 
-	// expected := []string{
-	// 	"index=off",
-	// }
-	// if !supportsIndex() {
-	// 	expected = expected[1:]
-	// }
-	// if userxattr, err := overlayutils.NeedsUserXAttr(root); err != nil {
-	// 	t.Fatal(err)
-	// } else if userxattr {
-	// 	expected = append(expected, "userxattr")
-	// }
-	// expected = append(expected, []string{
-	// 	work,
-	// 	upper,
-	// 	lower,
-	// }...)
-	// for i, v := range expected {
-	// 	if m.Options[i] != v {
-	// 		t.Errorf("expected %q but received %q", v, m.Options[i])
-	// 	}
-	// }
+	mountOptions := mounts[0].Options
+
+	var bp = getBasePath(ctx, o, root, "/tmp/layer2")
+
+	expectedOptions := []string{
+		"workdir=" + filepath.Join(bp, "work"),
+		"upperdir=" + filepath.Join(bp, "fs"),
+		"lowerdir=" + getParents(ctx, o, root, "/tmp/layer2")[0]}
+	userxattr, err := overlayutils.NeedsUserXAttr(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if userxattr {
+		expectedOptions = append(expectedOptions, "userxattr")
+	}
+	if supportsIndex() {
+		expectedOptions = append(expectedOptions, "index=off")
+	}
+
+	sort.Strings(expectedOptions)
+	sort.Strings(mountOptions)
+	testutil.IsIdentical(t, mountOptions, expectedOptions)
+
+	mounts[0].Options = nil
+	expected := []mount.Mount{
+		{
+			Type:   "overlay",
+			Source: "overlay",
+		},
+	}
+
+	testutil.IsIdentical(t, mounts, expected)
 }
 
 func getBasePath(ctx context.Context, sn snapshots.Snapshotter, root, key string) string {
