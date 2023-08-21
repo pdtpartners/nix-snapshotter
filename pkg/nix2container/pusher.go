@@ -7,28 +7,38 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/containerd/containerd/pkg/cri/config"
+	criconfig "github.com/containerd/containerd/pkg/cri/config"
 	"github.com/containerd/containerd/pkg/cri/server"
 	"github.com/containerd/containerd/remotes"
 	"github.com/containerd/containerd/remotes/docker"
+	"github.com/containerd/containerd/remotes/docker/config"
 	runtime "k8s.io/cri-api/pkg/apis/runtime/v1"
 )
 
-// defaultPusher returns a remotes.Pusher that automatically authenticates
+// newPusher returns a remotes.Pusher that automatically authenticates
 // using docker login credentials.
-func defaultPusher(ctx context.Context, ref string) (remotes.Pusher, error) {
-	aopts, err := defaultAuthorizerOpts()
+func newPusher(ctx context.Context, cfg *PushConfig, ref string) (remotes.Pusher, error) {
+	authOpts, err := defaultAuthorizerOpts()
 	if err != nil {
 		return nil, err
 	}
 
-	ropts := []docker.RegistryOpt{
-		docker.WithAuthorizer(docker.NewDockerAuthorizer(aopts...)),
+	// Use local docker login credentials if available to push to DockerHub
+	// repositories.
+	registryOpts := []docker.RegistryOpt{
+		docker.WithAuthorizer(docker.NewDockerAuthorizer(authOpts...)),
 	}
-	resolver := docker.NewResolver(docker.ResolverOptions{
-		Hosts: docker.ConfigureDefaultRegistries(ropts...),
-	})
+	resolverOpts := docker.ResolverOptions {
+		Hosts: docker.ConfigureDefaultRegistries(registryOpts...),
+	}
 
+	// Allow insecure registries via `WithPlainHTTP()`.
+	hostOpts := config.HostOptions{
+		DefaultScheme: cfg.DefaultScheme,
+	}
+	resolverOpts.Hosts = config.ConfigureHosts(ctx, hostOpts)
+
+	resolver := docker.NewResolver(resolverOpts)
 	return resolver.Pusher(ctx, ref)
 }
 
@@ -42,7 +52,7 @@ func defaultAuthorizerOpts() ([]docker.AuthorizerOpt, error) {
 
 	var aopts []docker.AuthorizerOpt
 	if len(dt) > 0 {
-		var registry config.Registry
+		var registry criconfig.Registry
 		err = json.Unmarshal(dt, &registry)
 		if err != nil {
 			return nil, err
