@@ -1,10 +1,13 @@
 { pkgs, modulesPath, ... }:
 {
   imports = [
+    # Import qemu-vm directly to avoid using vmVariant since this config
+    # is only intended to be used as a VM. Using vmVariant will emit assertion
+    # errors regarding `fileSystems."/"` and `boot.loader.grub.device`.
     (modulesPath + "/virtualisation/qemu-vm.nix")
   ];
 
-  nix-snapshotter.enable = true;
+  services.nix-snapshotter.enable = true;
 
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
 
@@ -16,8 +19,6 @@
     nix-snapshotter
     runc
   ];
-
-  boot.kernelPackages = pkgs.linuxPackages_latest;
 
   users.users = {
     admin = {

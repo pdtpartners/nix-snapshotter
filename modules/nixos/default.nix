@@ -1,36 +1,51 @@
-{ lib, getSystem, withSystem, ... }:
+{ self, lib, withSystem, ... }:
 let
-  system = "x86_64-linux";
+  vmFor = system:
+    let
+      # NixOS systems need access to pkgs with nix-snapshotter, which is
+      # provided by `pkgs'`.
+      pkgs' = withSystem system ({ pkgs', ...}: pkgs');
 
-  packages = (getSystem system).packages;
-
-  pkgs = withSystem system ({ pkgs, ...}: pkgs);
-
-  pkgsModule = {
-    _module.args.pkgs = lib.mkForce (pkgs.extend(self: super: {
-      inherit (packages) nix-snapshotter;
-    }));
-    nixpkgs.hostPlatform = system;
-  };
-
-  vm = lib.nixosSystem {
-    system = "x86_64-linux";
-    modules = [
-      pkgsModule
-      ./nix-snapshotter.nix
-      ./vm.nix
-    ];
-  };
+    in lib.nixosSystem {
+      inherit system;
+      modules = [
+        { _module.args.pkgs = lib.mkForce pkgs'; }
+        self.nixosModules.default
+        ./vm.nix
+      ];
+    };
 
 in {
-  flake.nixosModules.default = ./nix-snapshotter.nix;
+  /* NixOS module to provide nix-snapshotter systemd service.
+   
+    ```nix
+    services.nix-snapshotter.enable = true;
+    ```
+  */
+  flake.nixosModules.default = import ./nix-snapshotter.nix;
 
-  flake.nixosConfigurations = { inherit vm; };
+  /* NixOS config for a VM to quickly try out nix-snapshotter.
 
-  perSystem = { pkgs, ... }: {
+     ```sh
+     nixos-rebuild build-vm --flake .#vm
+     ```
+  */
+  flake.nixosConfigurations.vm = vmFor "x86_64-linux";
+
+  perSystem = { system, ... }: {
+    /* A convenient `apps` target to run a NixOS VM to quickly try out
+      nix-snaphotter without having `nixos-rebuild`.
+
+      ```sh
+      nix run .#vm
+      ```
+    */
     apps.vm = {
       type = "app";
-      program = "${vm.config.system.build.vm}/bin/run-nixos-vm";
+      program = "${(vmFor system).config.system.build.vm}/bin/run-nixos-vm";
     };
+
+    # NixOS tests for nix-snapshotter.
+    nixosTests.snapshotter = import ./tests/snapshotter.nix;
   };
 }

@@ -33,10 +33,10 @@
           copyToRoot = pkgs.buildEnv {
             name = "system-path";
             pathsToLink = [ "/bin" ];
-            paths = with pkgs; [
-              bashInteractive
-              coreutils
-              redis
+            paths = [
+              pkgs.bashInteractive
+              pkgs.coreutils
+              pkgs.redis
             ];
           };
         };
