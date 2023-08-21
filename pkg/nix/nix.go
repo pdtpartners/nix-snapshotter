@@ -105,19 +105,13 @@ func NewSnapshotter(root, nixStoreDir string, opts ...interface{}) (snapshots.Sn
 
 }
 
-func (o *nixSnapshotter) Prepare(ctx context.Context, key, parent string, opts ...snapshots.Opt) ([]mount.Mount, error) {
+func (o *nixSnapshotter) handleNixLayer(ctx context.Context, key string, mounts []mount.Mount, opts ...snapshots.Opt) ([]mount.Mount, error) {
 	var base snapshots.Info
 	for _, opt := range opts {
 		if err := opt(&base); err != nil {
 			return nil, err
 		}
 	}
-
-	mounts, err := o.Snapshotter.Prepare(ctx, key, parent, opts...)
-	if err != nil {
-		return nil, err
-	}
-
 	// Annotations with prefix `containerd.io/snapshot/` will be passed down by
 	// the unpacker during CRI pull time. If this is a nix layer, then we need to
 	// prepare gc roots to ensure nix doesn't GC the underlying paths while this
@@ -128,11 +122,20 @@ func (o *nixSnapshotter) Prepare(ctx context.Context, key, parent string, opts .
 	// mountpoints and copyToRoot symlinks. Returning nix bind mounts will error
 	// due to the paths being read only.
 	if _, ok := base.Labels[nix2container.NixLayerAnnotation]; ok {
-		err = o.prepareNixGCRoots(ctx, key, base.Labels)
+		err := o.prepareNixGCRoots(ctx, key, base.Labels)
 		return mounts, err
 	}
 
-	return o.withNixBindMounts(ctx, key, mounts)
+	return o.withNixBindMounts(ctx, key, o.convertToOverlayMountType(mounts))
+}
+
+func (o *nixSnapshotter) Prepare(ctx context.Context, key, parent string, opts ...snapshots.Opt) ([]mount.Mount, error) {
+
+	mounts, err := o.Snapshotter.Prepare(ctx, key, parent, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return o.handleNixLayer(ctx, key, mounts, opts...)
 }
 
 func (o *nixSnapshotter) prepareNixGCRoots(ctx context.Context, key string, labels map[string]string) (err error) {
@@ -186,13 +189,16 @@ func (o *nixSnapshotter) View(ctx context.Context, key, parent string, opts ...s
 	if err != nil {
 		return nil, err
 	}
-	return o.withNixBindMounts(ctx, key, o.convertToOverlayMountType(mounts))
+	return o.handleNixLayer(ctx, key, mounts, opts...)
 }
 
 // Mounts returns the mounts for the transaction identified by key. Can be
 // called on an read-write or readonly transaction.
 //
 // This can be used to recover mounts after calling View or Prepare.
+//
+// Note: Mounts does not check for the nixLayer so will always provide the
+// nix mounts whereas View and Prepare might not
 func (o *nixSnapshotter) Mounts(ctx context.Context, key string) ([]mount.Mount, error) {
 	mounts, err := o.Snapshotter.Mounts(ctx, key)
 	if err != nil {
