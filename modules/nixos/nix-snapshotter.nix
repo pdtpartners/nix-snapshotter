@@ -6,10 +6,10 @@ let
     mkPackageOptionMD
   ;
 
-  cfg = config.nix-snapshotter;
+  cfg = config.services.nix-snapshotter;
 
 in {
-  options.nix-snapshotter = {
+  options.services.nix-snapshotter = {
     enable = mkEnableOption "nix-snapshotter";
 
     package = mkPackageOptionMD pkgs "nix-snapshotter" { };
@@ -19,6 +19,7 @@ in {
     virtualisation.containerd = {
       enable = true;
 
+      # Configure containerd with nix-snapshotter.
       settings = {
         plugins."io.containerd.grpc.v1.cri" = {
           containerd.snapshotter = "nix";
