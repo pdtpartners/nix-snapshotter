@@ -14,6 +14,4 @@ func IsIdentical(t *testing.T, x interface{}, y interface{}) {
 	}
 }
 
-func RequiresRoot(t testing.TB) {
-	testutil.RequiresRoot(t)
-}
+var RequiresRoot = testutil.RequiresRoot
