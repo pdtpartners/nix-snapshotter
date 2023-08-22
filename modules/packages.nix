@@ -5,6 +5,12 @@
         nix-snapshotter
       ;
 
+      nerdctl = pkgs.nerdctl.overrideAttrs(o: {
+        patches = [
+          ../script/rootless/nerdctl-ocihook.patch
+        ];
+      });
+
     in {
       packages = {
         inherit nix-snapshotter;
@@ -25,7 +31,7 @@
           pkgs.rootlesskit
           pkgs.runc
           pkgs.slirp4netns
-          pkgs.nerdctl
+          nerdctl
         ] ++ nix-snapshotter.nativeBuildInputs;
       };
     };

@@ -1,0 +1,17 @@
+diff --git a/pkg/ocihook/ocihook.go b/pkg/ocihook/ocihook.go
+index 4d7e343..d485c58 100644
+--- a/pkg/ocihook/ocihook.go
++++ b/pkg/ocihook/ocihook.go
+@@ -78,8 +78,11 @@ func Run(stdin io.Reader, stderr io.Writer, event, dataStore, cniPath, cniNetcon
+ 	if err != nil {
+ 		return err
+ 	}
+-	defer logFile.Close()
+ 	logrus.SetOutput(io.MultiWriter(stderr, logFile))
++	defer func() {
++		logrus.SetOutput(stderr)
++		logFile.Close()
++	}()
+ 
+ 	opts, err := newHandlerOpts(&state, dataStore, cniPath, cniNetconfPath)
+ 	if err != nil {
