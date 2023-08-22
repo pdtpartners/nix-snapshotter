@@ -62,9 +62,12 @@ func TestWithNixBindMounts(t *testing.T) {
 				t.Fatal(err)
 			}
 			mounts, err := snapshotter.(*nixSnapshotter).withNixBindMounts(ctx, key, []mount.Mount{})
+			if err != nil {
+				t.Fatal(err)
+			}
 			keys := []string{}
 			expectedMounts := []mount.Mount{}
-			for key, _ := range tc.labels {
+			for key := range tc.labels {
 				if key != nix2container.NixLayerAnnotation {
 					keys = append(keys, key)
 				}

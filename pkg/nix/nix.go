@@ -23,6 +23,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/containerd/containerd/log"
@@ -341,19 +342,26 @@ func (o *nixSnapshotter) withNixBindMounts(ctx context.Context, key string, moun
 			return nil, err
 		}
 
-		for label, nixHash := range info.Labels {
+		// Make the order of the bind mounts deterministic
+		sortedLabels := []string{}
+		for label := range info.Labels {
+			sortedLabels = append(sortedLabels, label)
+		}
+		sort.Strings(sortedLabels)
+
+		for _, label := range sortedLabels {
 			if !strings.HasPrefix(label, nix2container.NixStorePrefixAnnotation) {
 				continue
 			}
 
 			// Avoid duplicate mounts.
-			_, ok := pathsSeen[nixHash]
+			_, ok := pathsSeen[info.Labels[label]]
 			if ok {
 				continue
 			}
-			pathsSeen[nixHash] = struct{}{}
+			pathsSeen[info.Labels[label]] = struct{}{}
 
-			storePath := filepath.Join(o.nixStoreDir, nixHash)
+			storePath := filepath.Join(o.nixStoreDir, info.Labels[label])
 			mounts = append(mounts, mount.Mount{
 				Source: storePath,
 				Type:   "bind",
