@@ -22,6 +22,4 @@ nixos.qcow2
 .direnv/
 
 # nix-snapshotter
-root/
-out/
-script/rootless/config.toml
+build/

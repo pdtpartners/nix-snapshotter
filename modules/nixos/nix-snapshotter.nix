@@ -27,7 +27,7 @@ in {
 
         proxy_plugins.nix = {
           type = "snapshot";
-          address = "/run/containerd-nix/containerd-nix.sock";
+          address = "/run/nix-snapshotter/nix-snapshotter.sock";
         };
       };
     };

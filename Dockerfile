@@ -80,6 +80,6 @@ FROM kind-nix
 COPY --from=containerd-dev /out/bin/containerd /out/bin/containerd-shim-runc-v2 /usr/local/bin/
 COPY --from=cri-tools-dev /out/* /usr/local/bin/
 COPY --from=snapshotter-dev /out/* /usr/local/bin/
-COPY ./script/config/ /
+COPY ./script/kind/ /
 RUN systemctl enable nix-snapshotter
 ENTRYPOINT [ "/usr/local/bin/kind-entrypoint.sh", "/usr/local/bin/entrypoint", "/sbin/init" ]

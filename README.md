@@ -21,43 +21,56 @@ nix-snapshotter pre-configured. Run `nix run .#vm` to launch a graphic-less
 NixOS VM that you can play around with immediately.
 
 ```sh
-nix run .#vm
+nix run ".#vm"
 nixos login: admin (Ctrl-A then X to quit)
 Password: admin
 sudo nerdctl --snapshotter nix run hinshun/hello:nix
+```
 
+## Running locally
 
-## Running locally as root
+There is a `Makefile` for testing locally via rootless mode. This lets us run
+containerd without root, but may need some setup on your machine.
 
-There is a `Makefile` for testing locally. Though it requires a development
-environment where you have access to root.
+See https://rootlesscontaine.rs/getting-started/common/ for the prerequisites.
 
-If you have [direnv](https://github.com/direnv/direnv), run `direnv allow` to enter a development environment,
-otherwise run `nix develop` in each of the terminals you'll have to manage.
-Then, inside the development environment run `make start-containerd` to start
-the container supervisor. This containerd will be configured to use proxy plugin
-`nix` for the snapshotter.
+This project also uses [direnv](https://github.com/direnv/direnv) to enter a
+development environment. Otherwise, you can use `nix develop` as a replacement.
+
+```sh
+git clone https://github.com/pdtpartners/nix-snapshotter.git
+cd nix-snapshotter
+direnv allow # or `nix develop`
+```
+
+Start three terminals inside the development environment. In the first one,
+run `make start-containerd` to start rootless containerd, which will be
+configured to use nix-snapshotter.
 
 ```sh
 $ make start-containerd
 ```
 
-Then in another terminal, start `nix-snapshotter`, a GRPC service that
-implements a containerd snapshotter.
+Then in second terminal, run `make start-nix-snapshotter`, a containerd proxy
+plugin that provides a snapshotter that natively understands nix store paths
+as well as regular image layers.
 
 ```sh
 $ make start-nix-snapshotter
 ```
 
-In a final terminal, `make run` will use the CRI interface to pull the
-prebuilt `hinshun/hello:nix` image and run it.
+In a final terminal, run `make run-hello` will run a pre-built image from
+DockerHub `hinshun/hello:nix` which packages `pkgs.hello` from nixpkgs.
 
 ```sh
-$ make run
+$ make run-hello
 Hello, world!
 ```
 
-A more complicated example is `hinshun/redis:nix`:
+You can also try `make run-redis` which runs `pkgs.redis` from nixpkgs, which
+also publishes ports to `:6379`, so you can try connecting to it via
+`redis-cli`.
+
 ```sh
 $ make run-redis
 1:C 18 Dec 2022 22:46:12.876 # oO0OoO0OoO0Oo Redis is starting oO0OoO0OoO0Oo
@@ -71,55 +84,6 @@ $ make run-redis
 1:M 18 Dec 2022 22:46:12.876 # Server initialized
 1:M 18 Dec 2022 22:46:12.876 # WARNING overcommit_memory is set to 0! Background save may fail under low memory condition. To fix this issue add 'vm.overcommit_memory = 1' to /etc/sysctl.conf and then reboot or run the command 'sysctl vm.overcommit_memory=1' for this to take effect.
 1:M 18 Dec 2022 22:46:12.877 * Ready to accept connections
-```
-
-## Running locally as rootless
-
-In terminal 1 (starting containerd)
-
-```sh
-$ make start-rootless-containerd
-```
-
-In terminal 2 (starting the remote nix-snapshotter)
-
-```sh
-$ make start-rootless-nix-snapshotter
-```
-
-In terminal 3 (pulling and running an example image)
-
-```sh
-$ make run-rootless-example
-```
-
-or
-
-```sh
-$ make run-rootless-redis
-```
-
-The Makefile will generate a config.toml that configures containerd 
-to uses the build folder. However for regular use you should create a config
-file that looks more like this. For more infomation look under "Hard way" in [containerd](https://github.com/containerd/containerd/blob/main/docs/rootless.md).
-
-```toml
-version = 2
-root = "/home/<YOUR_USERNAME>/.local/share/containerd"
-state = "/run/user/<YOUR_UID>/containerd"
-
-[grpc]
-address = "/run/user/<YOUR_UID>/containerd/containerd.sock"
-
-# - Enable to use nix snapshotter
-[plugins."io.containerd.grpc.v1.cri".containerd]
-snapshotter = "nix"
-
-# Use nix snapshotter
-[proxy_plugins]
-[proxy_plugins.nix]
-    type = "snapshot"
-    address = "/run/user/<YOUR_UID>/nix-snapshotter/nix-snapshotter.sock"
 ```
 
 ## Example image
