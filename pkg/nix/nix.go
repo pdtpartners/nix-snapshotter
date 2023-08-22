@@ -140,7 +140,35 @@ func (o *nixSnapshotter) Prepare(ctx context.Context, key, parent string, opts .
 	return o.withNixBindMounts(ctx, key, mounts)
 }
 
-func (o *nixSnapshotter) prepareNixGCRoots(ctx context.Context, key string, labels map[string]string) (err error) {
+type nixGCOptConfig struct {
+	builder func(nixTool string, filepath string, nixPath string) ([]byte, error)
+}
+
+type nixGCOpt func(config *nixGCOptConfig) error
+
+func defaultNixBuilder(config *nixGCOptConfig) error {
+	config.builder = func(nixTool string, filepath string, nixPath string) ([]byte, error) {
+		return exec.Command(
+			nixTool,
+			"build",
+			"--out-link",
+			filepath,
+			nixPath,
+		).Output()
+	}
+	return nil
+}
+
+func (o *nixSnapshotter) prepareNixGCRoots(ctx context.Context, key string, labels map[string]string, opts ...nixGCOpt) (err error) {
+	var conf nixGCOptConfig
+	defaultNixBuilder(&conf)
+
+	for _, opt := range opts {
+		if err := opt(&conf); err != nil {
+			return err
+		}
+	}
+
 	ctx, t, err := o.ms.TransactionContext(ctx, false)
 	if err != nil {
 		return err
@@ -170,13 +198,7 @@ func (o *nixSnapshotter) prepareNixGCRoots(ctx context.Context, key string, labe
 		// nix build with a store path fetches a store path from the configured
 		// substituters, if it doesn't already exist.
 		nixPath := filepath.Join(o.nixStoreDir, nixHash)
-		_, err = exec.Command(
-			nixTool,
-			"build",
-			"--out-link",
-			filepath.Join(gcRootsDir, nixHash),
-			nixPath,
-		).Output()
+		_, err = conf.builder(nixTool, filepath.Join(gcRootsDir, nixHash), nixPath)
 		if err != nil {
 			return err
 		}

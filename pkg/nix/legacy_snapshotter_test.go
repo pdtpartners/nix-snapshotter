@@ -46,25 +46,63 @@ func TestSnapshotter(t *testing.T) {
 	for optsName, opts := range optTestCases {
 		t.Run(optsName, func(t *testing.T) {
 			newSnapshotter := newSnapshotterWithOpts("", opts...)
-			t.Run("TestNonNixMounts", func(t *testing.T) {
+			t.Run("TestSnapshotterRemove", func(t *testing.T) {
+				testSnapshotterRemove(t, newSnapshotter)
+			})
+			t.Run("TestSnapshotterMounts", func(t *testing.T) {
 				testSnapshotterMounts(t, newSnapshotter)
 			})
-			t.Run("TestNonNixCommit", func(t *testing.T) {
+			t.Run("TestSnapshotterCommit", func(t *testing.T) {
 				testSnapshotterCommit(t, newSnapshotter)
 			})
-			t.Run("TestNonNixView", func(t *testing.T) {
+			t.Run("TestSnapshotterView", func(t *testing.T) {
 				testSnapshotterView(t, newSnapshotterWithOpts("", append(opts, overlay.WithMountOptions([]string{"volatile"}))...))
 			})
-			t.Run("TestNonNixOverlayMount", func(t *testing.T) {
+			t.Run("TestSnapshotterOverlayMount", func(t *testing.T) {
 				testSnapshotterOverlayMount(t, newSnapshotter)
 			})
-			t.Run("TestNonNixOverlayRead", func(t *testing.T) {
+			t.Run("TestSnapshotterOverlayRead", func(t *testing.T) {
 				testSnapshotterOverlayRead(t, newSnapshotter)
 			})
 
 		})
 	}
 }
+
+func testSnapshotterRemove(t *testing.T, newSnapshotter testsuite.SnapshotterFunc) {
+	ctx := context.TODO()
+	root := t.TempDir()
+	o, _, err := newSnapshotter(ctx, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	labels := make(map[string]string)
+	key := "/tmp/base"
+	mounts, err := o.Prepare(ctx, key, "", snapshots.WithLabels(labels))
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := mounts[0]
+	if err := os.WriteFile(filepath.Join(m.Source, "foo"), []byte("hi"), 0660); err != nil {
+		t.Fatal(err)
+	}
+	err = o.Remove(ctx, key)
+	if err != nil {
+		panic(err)
+	}
+	_, err = o.View(ctx, "view1", "base")
+	if err == nil {
+		t.Fatal(fmt.Errorf("viewed snapshot that has been removed"))
+	}
+	if _, err := os.ReadFile(filepath.Join(m.Source, "foo")); err == nil {
+		t.Fatal(fmt.Errorf("written file was not removed"))
+	}
+	err = o.(*nixSnapshotter).Cleanup(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 func testSnapshotterMounts(t *testing.T, newSnapshotter testsuite.SnapshotterFunc) {
 	ctx := context.Background()
 	root := t.TempDir()
