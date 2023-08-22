@@ -22,7 +22,10 @@
           pkgs.gotools
           pkgs.kind
           pkgs.kubectl
+          pkgs.rootlesskit
           pkgs.runc
+          pkgs.slirp4netns
+          pkgs.nerdctl
         ] ++ nix-snapshotter.nativeBuildInputs;
       };
     };

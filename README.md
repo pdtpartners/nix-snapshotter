@@ -21,7 +21,7 @@ nix-snapshotter pre-configured. Run `nix run .#vm` to launch a graphic-less
 NixOS VM that you can play around with immediately.
 
 ```sh
-nix run .#vm
+nix run ".#vm"
 nixos login: admin (Ctrl-A then X to quit)
 Password: admin
 sudo nerdctl --snapshotter nix run hinshun/hello:nix
@@ -29,36 +29,49 @@ sudo nerdctl --snapshotter nix run hinshun/hello:nix
 
 ## Running locally
 
-There is a `Makefile` for testing locally. Though it requires a development
-environment where you have access to root.
+There is a `Makefile` for testing locally via rootless mode. This lets us run
+containerd without root, but may need some setup on your machine.
 
-If you have [direnv](https://github.com/direnv/direnv), run `direnv allow` to enter a development environment,
-otherwise run `nix develop` in each of the terminals you'll have to manage.
-Then, inside the development environment run `make start-containerd` to start
-the container supervisor. This containerd will be configured to use proxy plugin
-`nix` for the snapshotter.
+See https://rootlesscontaine.rs/getting-started/common/ for the prerequisites.
+
+This project also uses [direnv](https://github.com/direnv/direnv) to enter a
+development environment. Otherwise, you can use `nix develop` as a replacement.
+
+```sh
+git clone https://github.com/pdtpartners/nix-snapshotter.git
+cd nix-snapshotter
+direnv allow # or `nix develop`
+```
+
+Start three terminals inside the development environment. In the first one,
+run `make start-containerd` to start rootless containerd, which will be
+configured to use nix-snapshotter.
 
 ```sh
 $ make start-containerd
 ```
 
-Then in another terminal, start `nix-snapshotter`, a GRPC service that
-implements a containerd snapshotter.
+Then in second terminal, run `make start-nix-snapshotter`, a containerd proxy
+plugin that provides a snapshotter that natively understands nix store paths
+as well as regular image layers.
 
 ```sh
 $ make start-nix-snapshotter
 ```
 
-In a final terminal, `make run` will use the CRI interface to pull the
-prebuilt `hinshun/hello:nix` image and run it.
+In a final terminal, run `make run-hello` will run a pre-built image from
+DockerHub `hinshun/hello:nix` which packages `pkgs.hello` from nixpkgs.
 
 ```sh
-$ make run
+$ make run-hello
 Hello, world!
 ```
 
-A more complicated example is `hinshun/redis:nix`:
-```
+You can also try `make run-redis` which runs `pkgs.redis` from nixpkgs, which
+also publishes ports to `:6379`, so you can try connecting to it via
+`redis-cli`.
+
+```sh
 $ make run-redis
 1:C 18 Dec 2022 22:46:12.876 # oO0OoO0OoO0Oo Redis is starting oO0OoO0OoO0Oo
 1:C 18 Dec 2022 22:46:12.876 # Redis version=7.0.5, bits=64, commit=00000000, modified=0, pid=1, just started

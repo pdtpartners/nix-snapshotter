@@ -22,5 +22,4 @@ nixos.qcow2
 .direnv/
 
 # nix-snapshotter
-root/
-out/
+build/
