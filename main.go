@@ -35,57 +35,68 @@ func DefaultConfig() *Config {
 }
 
 func main() {
-	var configLocation, root, address string
-	var logging bool
 	ctx := context.Background()
-	app := &cli.App{
-		Flags: []cli.Flag{
-			&cli.BoolFlag{
-				Name:        "logging",
-				Aliases:     []string{"l"},
-				Value:       true,
-				Usage:       "Enable logging",
-				Destination: &logging,
-			},
-			&cli.StringFlag{
-				Name:        "config",
-				Aliases:     []string{"c"},
-				Value:       filepath.Join(defaultConfigDir, "config.toml"),
-				Usage:       "Path to the configuration file",
-				Destination: &configLocation,
-			},
-			&cli.StringFlag{
-				Name:        "address",
-				Aliases:     []string{"a"},
-				Usage:       "Address for nix-shnapshotter's GRPC server",
-				Destination: &address,
-			},
-			&cli.StringFlag{
-				Name:        "root",
-				Usage:       "nix-snapshotter root directory",
-				Destination: &root,
-			},
-		},
-		Commands: []*cli.Command{
-			{
-				Name:  "start",
-				Usage: "start the nix snapshotter",
-				Action: func(*cli.Context) error {
-					err := run(ctx, configLocation, root, address, logging)
-					if err != nil {
-						fmt.Fprintf(os.Stderr, "nix-snapshotter: %s\n", err)
-						os.Exit(1)
-					}
-					return nil
-				},
-			},
-		},
-		Name:  "nix-snapshotter",
-		Usage: "A containerd remote snapshotter that prepares container rootfs from nix store directly",
-	}
+	app := App(ctx)
 	if err := app.Run(os.Args); err != nil {
 		log.G(ctx).Fatal(err)
 	}
+}
+
+func App(ctx context.Context) *cli.App {
+	var configLocation, root, address string
+	var logging bool
+	app := cli.NewApp()
+	app.Name = "nix-snapshotter"
+	app.Version = "1.0.0"
+	app.Usage = "A containerd remote snapshotter that prepares container rootfs from nix store directly"
+	app.Description = `The easiest way to try this out is to run a NixOS VM with containerd and nix-snapshotter pre-configured. Run nix run .#vm to launch a graphic-less NixOS VM that you can play around with immediately.
+
+nix run \".#vm\"
+nixos login: admin (Ctrl-A then X to quit)
+Password: admin
+sudo nerdctl --snapshotter nix run hinshun/hello:nix`
+	app.Flags = []cli.Flag{
+		&cli.BoolFlag{
+			Name:        "logging",
+			Aliases:     []string{"l"},
+			Value:       true,
+			Usage:       "Enable logging",
+			Destination: &logging,
+		},
+		&cli.StringFlag{
+			Name:        "config",
+			Aliases:     []string{"c"},
+			Value:       filepath.Join(defaultConfigDir, "config.toml"),
+			Usage:       "Path to the configuration file",
+			Destination: &configLocation,
+		},
+		&cli.StringFlag{
+			Name:        "address",
+			Aliases:     []string{"a"},
+			Usage:       "Address for nix-shnapshotter's GRPC server",
+			Destination: &address,
+		},
+		&cli.StringFlag{
+			Name:        "root",
+			Usage:       "nix-snapshotter root directory",
+			Destination: &root,
+		},
+	}
+	app.Commands = []*cli.Command{
+		{
+			Name:  "start",
+			Usage: "start the nix snapshotter",
+			Action: func(*cli.Context) error {
+				err := run(ctx, configLocation, root, address, logging)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "nix-snapshotter: %s\n", err)
+					os.Exit(1)
+				}
+				return nil
+			},
+		},
+	}
+	return app
 }
 
 func run(ctx context.Context, configLocation, root, address string, logging bool) error {
