@@ -19,7 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Legacy tests adapted from https://github.com/containerd/containerd/blob/main/snapshots/overlay/overlay_test.go
+// tests adapted from https://github.com/containerd/containerd/blob/main/snapshots/overlay/overlay_test.go
 
 func TestNixSnapshotterWithSnaphotterSuite(t *testing.T) {
 	testutil.RequiresRoot(t)
