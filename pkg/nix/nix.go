@@ -190,17 +190,23 @@ func (o *nixSnapshotter) prepareNixGCRoots(ctx context.Context, key string, labe
 		nixTool = defaultNixTool
 	}
 
+	sortedLabels := []string{}
+	for label := range labels {
+		sortedLabels = append(sortedLabels, label)
+	}
+	sort.Strings(sortedLabels)
+
 	gcRootsDir := filepath.Join(o.root, "gcroots", id)
 	log.G(ctx).Infof("Preparing nix gc roots at %s", gcRootsDir)
-	for label, nixHash := range labels {
-		if !strings.HasPrefix(label, nix2container.NixStorePrefixAnnotation) {
+	for _, labelKey := range sortedLabels {
+		if !strings.HasPrefix(labelKey, nix2container.NixStorePrefixAnnotation) {
 			continue
 		}
 
 		// nix build with a store path fetches a store path from the configured
 		// substituters, if it doesn't already exist.
-		nixPath := filepath.Join(o.nixStoreDir, nixHash)
-		_, err = conf.builder(nixTool, filepath.Join(gcRootsDir, nixHash), nixPath)
+		nixPath := filepath.Join(o.nixStoreDir, labels[labelKey])
+		_, err = conf.builder(nixTool, filepath.Join(gcRootsDir, labels[labelKey]), nixPath)
 		if err != nil {
 			return err
 		}
@@ -373,19 +379,19 @@ func (o *nixSnapshotter) withNixBindMounts(ctx context.Context, key string, moun
 		}
 		sort.Strings(sortedLabels)
 
-		for _, label := range sortedLabels {
-			if !strings.HasPrefix(label, nix2container.NixStorePrefixAnnotation) {
+		for _, labelKey := range sortedLabels {
+			if !strings.HasPrefix(labelKey, nix2container.NixStorePrefixAnnotation) {
 				continue
 			}
 
 			// Avoid duplicate mounts.
-			_, ok := pathsSeen[info.Labels[label]]
+			_, ok := pathsSeen[info.Labels[labelKey]]
 			if ok {
 				continue
 			}
-			pathsSeen[info.Labels[label]] = struct{}{}
+			pathsSeen[info.Labels[labelKey]] = struct{}{}
 
-			storePath := filepath.Join(o.nixStoreDir, info.Labels[label])
+			storePath := filepath.Join(o.nixStoreDir, info.Labels[labelKey])
 			mounts = append(mounts, mount.Mount{
 				Source: storePath,
 				Type:   "bind",
