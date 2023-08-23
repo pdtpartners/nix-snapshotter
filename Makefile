@@ -19,10 +19,13 @@ build/containerd/config.toml:
 build/nerdctl/nerdctl.toml:
 	bash ./script/rootless/create-nerdctl-config.sh
 
+build/nerdctl/nix-snapshotter.toml:
+	bash ./script/rootless/create-nix-snapshotter-config.sh
+
 start-containerd: build/containerd/config.toml
 	bash ./script/rootless/containerd.sh
 
-start-nix-snapshotter: nix-snapshotter
+start-nix-snapshotter: nix-snapshotter build/nerdctl/nix-snapshotter.toml
 	bash ./script/rootless/nix-snapshotter.sh
 
 run-hello: build/nerdctl/nerdctl.toml
