@@ -161,7 +161,9 @@ func defaultNixBuilder(config *nixGCOptConfig) error {
 
 func (o *nixSnapshotter) prepareNixGCRoots(ctx context.Context, key string, labels map[string]string, opts ...nixGCOpt) (err error) {
 	var conf nixGCOptConfig
-	defaultNixBuilder(&conf)
+	if err = defaultNixBuilder(&conf); err != nil {
+		return err
+	}
 
 	for _, opt := range opts {
 		if err := opt(&conf); err != nil {
