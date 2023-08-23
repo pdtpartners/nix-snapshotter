@@ -20,6 +20,8 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
+const defaultConfigDir = "/etc/nix-snapshotter"
+
 type Config struct {
 	Address string
 	Root    string
@@ -34,13 +36,21 @@ func DefaultConfig() *Config {
 
 func main() {
 	var configLocation, root, address string
+	var logging bool
 	ctx := context.Background()
 	app := &cli.App{
 		Flags: []cli.Flag{
+			&cli.BoolFlag{
+				Name:        "logging",
+				Aliases:     []string{"l"},
+				Value:       true,
+				Usage:       "Enable logging",
+				Destination: &logging,
+			},
 			&cli.StringFlag{
 				Name:        "config",
-				Aliases:     []string{"conf", "config-path"},
-				Value:       "/etc/nix-snapshotter/config.toml",
+				Aliases:     []string{"c"},
+				Value:       filepath.Join(defaultConfigDir, "config.toml"),
 				Usage:       "Path to the configuration file",
 				Destination: &configLocation,
 			},
@@ -61,7 +71,7 @@ func main() {
 				Name:  "start",
 				Usage: "start the nix snapshotter",
 				Action: func(*cli.Context) error {
-					err := run(ctx, configLocation, root, address)
+					err := run(ctx, configLocation, root, address, logging)
 					if err != nil {
 						fmt.Fprintf(os.Stderr, "nix-snapshotter: %s\n", err)
 						os.Exit(1)
@@ -78,8 +88,11 @@ func main() {
 	}
 }
 
-func run(ctx context.Context, configLocation, root, address string) error {
+func run(ctx context.Context, configLocation, root, address string, logging bool) error {
 	var conf Config
+	if logging {
+		log.G(ctx).Infof("starting nix-snapshotter")
+	}
 
 	if _, err := os.Stat(configLocation); os.IsNotExist(err) {
 		log.G(ctx).Infof("failed to find config at %q switching to default values", configLocation)
@@ -97,6 +110,7 @@ func run(ctx context.Context, configLocation, root, address string) error {
 		return err
 	}
 
+	//Flags always override
 	if root != "" {
 		conf.Root = root
 	}
@@ -120,6 +134,11 @@ func run(ctx context.Context, configLocation, root, address string) error {
 	if err != nil {
 		return err
 	}
+
+	if logging {
+		log.G(ctx).Infof("created snapshotter... 		        \033[35m root_dir=\033[39m%v", conf.Root)
+	}
+
 	service := snapshotservice.FromSnapshotter(sn)
 
 	rpc := grpc.NewServer()
@@ -136,6 +155,10 @@ func run(ctx context.Context, configLocation, root, address string) error {
 			errCh <- fmt.Errorf("error on serving via socket %q: %w", conf.Address, err)
 		}
 	}()
+
+	if logging {
+		log.G(ctx).Infof("serving... 				 	\033[35m address=\033[39m%v", conf.Address)
+	}
 
 	// If NOTIFY_SOCKET is set, nix-snapshotter is run as a systemd service.
 	// Notify systemd that the service is ready.
