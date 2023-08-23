@@ -190,6 +190,7 @@ func (o *nixSnapshotter) prepareNixGCRoots(ctx context.Context, key string, labe
 		nixTool = defaultNixTool
 	}
 
+	// Make the order of gc deterministic
 	sortedLabels := []string{}
 	for label := range labels {
 		sortedLabels = append(sortedLabels, label)

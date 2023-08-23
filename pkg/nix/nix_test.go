@@ -25,7 +25,7 @@ func newSnapshotterWithOpts(nixStorePrefix string, opts ...interface{}) testsuit
 	}
 }
 
-func TestWithNixBindMounts(t *testing.T) {
+func TestNixSnapshotter(t *testing.T) {
 	type testCase struct {
 		name        string
 		nixStores   []string
@@ -96,25 +96,29 @@ func TestWithNixBindMounts(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			mounts, err := snapshotter.(*nixSnapshotter).withNixBindMounts(ctx, key, []mount.Mount{})
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			expectedMounts := []mount.Mount{}
-			for _, nixStore := range tc.nixStores {
-				expectedMounts = append(expectedMounts,
-					mount.Mount{
-						Type:    "bind",
-						Source:  filepath.Join(nixStorePrefix, nixStore),
-						Target:  filepath.Join(nixStorePrefix, nixStore),
-						Options: []string{"ro", "rbind"},
-					})
-			}
-			testutil.IsIdentical(t, mounts, expectedMounts)
+			testBindMounts(t, ctx, snapshotter, key, nixStorePrefix, tc.nixStores)
+			testGCRoots(t, ctx, snapshotter, key, nixStorePrefix, tc.nixStores, root, labels)
 		})
 	}
+}
 
+func testBindMounts(t *testing.T, ctx context.Context, snapshotter snapshots.Snapshotter, key string, nixStorePrefix string, nixStores []string) {
+	mounts, err := snapshotter.(*nixSnapshotter).withNixBindMounts(ctx, key, []mount.Mount{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expectedMounts := []mount.Mount{}
+	for _, nixStore := range nixStores {
+		expectedMounts = append(expectedMounts,
+			mount.Mount{
+				Type:    "bind",
+				Source:  filepath.Join(nixStorePrefix, nixStore),
+				Target:  filepath.Join(nixStorePrefix, nixStore),
+				Options: []string{"ro", "rbind"},
+			})
+	}
+	testutil.IsIdentical(t, mounts, expectedMounts)
 }
 
 func getStoreID(t *testing.T, ctx context.Context, snapshotter snapshots.Snapshotter, key string) string {
@@ -135,97 +139,30 @@ func getStoreID(t *testing.T, ctx context.Context, snapshotter snapshots.Snapsho
 	return id
 }
 
-func TestPrepareNixGCRoots(t *testing.T) {
-	type testCase struct {
-		name        string
-		nixStores   []string
-		extraLabels map[string]string
+func testGCRoots(t *testing.T, ctx context.Context, snapshotter snapshots.Snapshotter, key string, nixStorePrefix string, nixStores []string, root string, labels map[string]string) {
+	// Mock builder to test inputs
+	var nixToolInputs, filepathInputs, nixPathInputs []string
+	testBuilder := func(config *nixGCOptConfig) error {
+		config.builder = func(nixTool string, filepath string, nixPath string) ([]byte, error) {
+			nixToolInputs = append(nixToolInputs, nixTool)
+			filepathInputs = append(filepathInputs, filepath)
+			nixPathInputs = append(nixPathInputs, nixPath)
+			return []byte{}, nil
+
+		}
+		return nil
 	}
 
-	for _, tc := range []testCase{
-		{
-			name: "empty",
-		},
-		{
-			name: "basic",
-			nixStores: []string{
-				"34xlpp3j3vy7ksn09zh44f1c04w77khf-libunistring-1.0",
-				"4nlgxhb09sdr51nc9hdm8az5b08vzkgx-glibc-2.35-163",
-				"5mh5019jigj0k14rdnjam1xwk5avn1id-libidn2-2.3.2",
-				"g2m8kfw7kpgpph05v2fxcx4d5an09hl3-hello-2.12.1",
-			},
-			extraLabels: map[string]string{
-				nix2container.NixLayerAnnotation: "true",
-			},
-		},
-		{
-			name: "irrelevantLabels",
-			nixStores: []string{
-				"34xlpp3j3vy7ksn09zh44f1c04w77khf-libunistring-1.0",
-				"4nlgxhb09sdr51nc9hdm8az5b08vzkgx-glibc-2.35-163",
-				"5mh5019jigj0k14rdnjam1xwk5avn1id-libidn2-2.3.2",
-				"g2m8kfw7kpgpph05v2fxcx4d5an09hl3-hello-2.12.1",
-			},
-			extraLabels: map[string]string{
-				nix2container.NixLayerAnnotation: "true",
-				"labelToBeIgnored":               "ValueToBeIgnored",
-				"labelToBeIgnored2":              "ValueToBeIgnored2",
-			},
-		},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			ctx := context.Background()
-
-			root := t.TempDir()
-			nixStorePrefix := "/nix/store"
-			snapshotterFunc := newSnapshotterWithOpts(nixStorePrefix)
-			snapshotter, _, err := snapshotterFunc(ctx, root)
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			labels := map[string]string{}
-
-			for idx, value := range tc.nixStores {
-				labels[nix2container.NixStorePrefixAnnotation+strconv.Itoa(idx)] = value
-			}
-
-			for idx, value := range tc.extraLabels {
-				labels[idx] = value
-			}
-
-			key := "test"
-			_, err = snapshotter.Prepare(ctx, key, "", snapshots.WithLabels(labels))
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			// Mock builder to test inputs
-			var nixToolInputs, filepathInputs, nixPathInputs []string
-			testBuilder := func(config *nixGCOptConfig) error {
-				config.builder = func(nixTool string, filepath string, nixPath string) ([]byte, error) {
-					nixToolInputs = append(nixToolInputs, nixTool)
-					filepathInputs = append(filepathInputs, filepath)
-					nixPathInputs = append(nixPathInputs, nixPath)
-					return []byte{}, nil
-
-				}
-				return nil
-			}
-
-			err = snapshotter.(*nixSnapshotter).prepareNixGCRoots(ctx, key, labels, testBuilder)
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			id := getStoreID(t, ctx, snapshotter, key)
-
-			for idx := range nixToolInputs {
-				testutil.IsIdentical(t, nixToolInputs[idx], "nix")
-				testutil.IsIdentical(t, filepathInputs[idx], filepath.Join(root, "gcroots", id, tc.nixStores[idx]))
-				testutil.IsIdentical(t, nixPathInputs[idx], filepath.Join(nixStorePrefix, tc.nixStores[idx]))
-			}
-		})
+	err := snapshotter.(*nixSnapshotter).prepareNixGCRoots(ctx, key, labels, testBuilder)
+	if err != nil {
+		t.Fatal(err)
 	}
 
+	id := getStoreID(t, ctx, snapshotter, key)
+
+	for idx := range nixToolInputs {
+		testutil.IsIdentical(t, nixToolInputs[idx], "nix")
+		testutil.IsIdentical(t, filepathInputs[idx], filepath.Join(root, "gcroots", id, nixStores[idx]))
+		testutil.IsIdentical(t, nixPathInputs[idx], filepath.Join(nixStorePrefix, nixStores[idx]))
+	}
 }
