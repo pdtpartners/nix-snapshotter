@@ -8,5 +8,5 @@ fi
 mkdir -p $(dirname $CONFIG_FILE)
 cat <<EOM > $CONFIG_FILE
 address = "${REPO_DIR}/build/nix-snapshotter/nix-snapshotter.sock"
-root    = "${REPO_DIR}/nix-snapshotter/root"
+root    = "${REPO_DIR}/build/nix-snapshotter/root"
 EOM

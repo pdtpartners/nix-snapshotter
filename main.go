@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 
 	"github.com/pelletier/go-toml/v2"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 	"google.golang.org/grpc"
 
@@ -35,119 +36,109 @@ func DefaultConfig() *Config {
 }
 
 func main() {
-	ctx := context.Background()
-	app := App(ctx)
-	if err := app.Run(os.Args); err != nil {
-		log.G(ctx).Fatal(err)
+	if err := App().Run(os.Args); err != nil {
+		fmt.Fprintf(os.Stderr, "nix-snapshotter: %s\n", err)
+		os.Exit(1)
 	}
 }
 
-func App(ctx context.Context) *cli.App {
-	var configLocation, root, address string
-	var logging bool
+func App() *cli.App {
 	app := cli.NewApp()
 	app.Name = "nix-snapshotter"
 	app.Version = "1.0.0"
-	app.Usage = "A containerd remote snapshotter that prepares container rootfs from nix store directly"
-	app.Description = `The easiest way to try this out is to run a NixOS VM with containerd and nix-snapshotter pre-configured. Run nix run .#vm to launch a graphic-less NixOS VM that you can play around with immediately.
+	app.Usage = "A containerd snapshotter that understands nix store paths natively"
+	app.Description = `nix-snapshotter is a containerd proxy snapshotter whose
+daemon can be started using this command. Containerd communicates with proxy
+snapshotters over GRPC, so this daemon will start a GRPC server listening on
+a unix domain socket.
 
-nix run \".#vm\"
-nixos login: admin (Ctrl-A then X to quit)
-Password: admin
-sudo nerdctl --snapshotter nix run hinshun/hello:nix`
+This snapshotter depends on access to a "nix" binary to substitute store paths
+and creating GC roots during unpacking of a container image with nix store path
+annotations. At runtime, the container rootfs will be backed by a read-writable
+overlayfs root along with bind mounts for every nix store path required.`
 	app.Flags = []cli.Flag{
-		&cli.BoolFlag{
-			Name:        "logging",
-			Aliases:     []string{"l"},
-			Value:       true,
-			Usage:       "Enable logging",
-			Destination: &logging,
+		&cli.StringFlag{
+			Name:    "log-level",
+			Aliases: []string{"l"},
+			Value:   logrus.InfoLevel.String(),
+			Usage:   "Set the logging level [trace, debug, info, warn, error, fatal, panic]",
 		},
 		&cli.StringFlag{
-			Name:        "config",
-			Aliases:     []string{"c"},
-			Value:       filepath.Join(defaultConfigDir, "config.toml"),
-			Usage:       "Path to the configuration file",
-			Destination: &configLocation,
+			Name:    "config",
+			Aliases: []string{"c"},
+			Value:   filepath.Join(defaultConfigDir, "config.toml"),
+			Usage:   "Path to the configuration file",
 		},
 		&cli.StringFlag{
-			Name:        "address",
-			Aliases:     []string{"a"},
-			Usage:       "Address for nix-shnapshotter's GRPC server",
-			Destination: &address,
+			Name:    "address",
+			Aliases: []string{"a"},
+			Usage:   "Address for nix-snapshotter's GRPC server",
 		},
 		&cli.StringFlag{
-			Name:        "root",
-			Usage:       "nix-snapshotter root directory",
-			Destination: &root,
+			Name:  "root",
+			Usage: "Directory where nix-snapshotter will store persistent data",
 		},
 	}
-	app.Commands = []*cli.Command{
-		{
-			Name:  "start",
-			Usage: "start the nix snapshotter",
-			Action: func(*cli.Context) error {
-				err := run(ctx, configLocation, root, address, logging)
-				if err != nil {
-					fmt.Fprintf(os.Stderr, "nix-snapshotter: %s\n", err)
-					os.Exit(1)
-				}
-				return nil
-			},
-		},
+	app.Action = func(c *cli.Context) error {
+		lvl, err := logrus.ParseLevel(c.String("log-level"))
+		if err != nil {
+			log.L.WithError(err).Fatal("failed to prepare logger")
+		}
+		logrus.SetLevel(lvl)
+		logrus.SetFormatter(&logrus.TextFormatter{
+			FullTimestamp:   true,
+			TimestampFormat: log.RFC3339NanoFixed,
+		})
+
+		ctx := log.WithLogger(context.Background(), log.L)
+
+		var cfg Config
+		if _, err := os.Stat(c.String("config")); os.IsNotExist(err) {
+			log.G(ctx).Infof("failed to find config at %q switching to default values", c.String("config"))
+			cfg = *DefaultConfig()
+		} else if err != nil {
+			return err
+		}
+		data, err := os.ReadFile(c.String("config"))
+		if err != nil {
+			return err
+		}
+		err = toml.Unmarshal([]byte(data), &cfg)
+		if err != nil {
+			return err
+		}
+
+		//Flags always override
+		if c.String("root") != "" {
+			cfg.Root = c.String("root")
+		}
+		if c.String("address") != "" {
+			cfg.Address = c.String("address")
+		}
+		return serve(ctx, cfg)
 	}
 	return app
 }
 
-func run(ctx context.Context, configLocation, root, address string, logging bool) error {
-	var conf Config
-	if logging {
-		log.G(ctx).Infof("starting nix-snapshotter")
-	}
+func serve(ctx context.Context, cfg Config) error {
 
-	if _, err := os.Stat(configLocation); os.IsNotExist(err) {
-		log.G(ctx).Infof("failed to find config at %q switching to default values", configLocation)
-		conf = *DefaultConfig()
-	} else if err != nil {
-		return err
-	}
-
-	data, err := os.ReadFile(configLocation)
-	if err != nil {
-		return err
-	}
-	err = toml.Unmarshal([]byte(data), &conf)
-	if err != nil {
-		return err
-	}
-
-	//Flags always override
-	if root != "" {
-		conf.Root = root
-	}
-	if address != "" {
-		conf.Address = address
-	}
+	log.G(ctx).WithField("root", cfg.Root).Info("Starting the nix-snapshotter")
 
 	// Prepare the directory for the socket
-	err = os.MkdirAll(filepath.Dir(conf.Address), 0700)
+	err := os.MkdirAll(filepath.Dir(cfg.Address), 0700)
 	if err != nil {
-		return fmt.Errorf("failed to create directory %q: %w", filepath.Dir(conf.Address), err)
+		return fmt.Errorf("failed to create directory %q: %w", filepath.Dir(cfg.Address), err)
 	}
 
 	// Try to remove the socket file to avoid EADDRINUSE
-	err = os.RemoveAll(conf.Address)
+	err = os.RemoveAll(cfg.Address)
 	if err != nil {
-		return fmt.Errorf("failed to remove %q: %w", conf.Address, err)
+		return fmt.Errorf("failed to remove %q: %w", cfg.Address, err)
 	}
 
-	sn, err := nix.NewSnapshotter(conf.Root, "/nix/store")
+	sn, err := nix.NewSnapshotter(cfg.Root, "/nix/store")
 	if err != nil {
 		return err
-	}
-
-	if logging {
-		log.G(ctx).Infof("created snapshotter... 		        \033[35m root_dir=\033[39m%v", conf.Root)
 	}
 
 	service := snapshotservice.FromSnapshotter(sn)
@@ -155,7 +146,7 @@ func run(ctx context.Context, configLocation, root, address string, logging bool
 	rpc := grpc.NewServer()
 	snapshotsapi.RegisterSnapshotsServer(rpc, service)
 
-	l, err := net.Listen("unix", conf.Address)
+	l, err := net.Listen("unix", cfg.Address)
 	if err != nil {
 		return err
 	}
@@ -163,13 +154,11 @@ func run(ctx context.Context, configLocation, root, address string, logging bool
 	errCh := make(chan error, 1)
 	go func() {
 		if err := rpc.Serve(l); err != nil {
-			errCh <- fmt.Errorf("error on serving via socket %q: %w", conf.Address, err)
+			errCh <- fmt.Errorf("error on serving via socket %q: %w", cfg.Address, err)
 		}
 	}()
 
-	if logging {
-		log.G(ctx).Infof("serving... 				 	\033[35m address=\033[39m%v", conf.Address)
-	}
+	log.G(ctx).WithField("address", cfg.Address).Info("Serving...")
 
 	// If NOTIFY_SOCKET is set, nix-snapshotter is run as a systemd service.
 	// Notify systemd that the service is ready.
