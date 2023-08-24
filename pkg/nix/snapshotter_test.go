@@ -1,3 +1,8 @@
+// # Forked from https://github.com/containerd/containerd/blob/v1.7.2/snapshots/overlay/overlay_test.go
+// # Copyright The containerd Authors.
+// # Licensed under the Apache License, Version 2.0
+// # NOTICE: https://github.com/containerd/containerd/blob/v1.7.2/NOTICE
+
 package nix
 
 import (
@@ -10,16 +15,15 @@ import (
 	"testing"
 
 	"github.com/containerd/containerd/mount"
+	"github.com/containerd/containerd/pkg/testutil"
 	"github.com/containerd/containerd/snapshots"
 	"github.com/containerd/containerd/snapshots/overlay"
 	"github.com/containerd/containerd/snapshots/storage"
 	"github.com/containerd/containerd/snapshots/testsuite"
 	"github.com/docker/docker/daemon/graphdriver/overlayutils"
-	"github.com/pdtpartners/nix-snapshotter/pkg/testutil"
+	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
 )
-
-// tests adapted from https://github.com/containerd/containerd/blob/main/snapshots/overlay/overlay_test.go
 
 func TestNixSnapshotterWithSnaphotterSuite(t *testing.T) {
 	testutil.RequiresRoot(t)
@@ -88,7 +92,7 @@ func testSnapshotterRemove(t *testing.T, newSnapshotter testsuite.SnapshotterFun
 	}
 	err = o.Remove(ctx, key)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 	_, err = o.View(ctx, "view1", "base")
 	if err == nil {
@@ -97,7 +101,7 @@ func testSnapshotterRemove(t *testing.T, newSnapshotter testsuite.SnapshotterFun
 	if _, err := os.ReadFile(filepath.Join(m.Source, "foo")); err == nil {
 		t.Fatal(fmt.Errorf("written file was not removed"))
 	}
-	err = o.(*nixSnapshotter).Cleanup(ctx)
+	err = o.(snapshots.Cleaner).Cleanup(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -121,7 +125,7 @@ func testSnapshotterMounts(t *testing.T, newSnapshotter testsuite.SnapshotterFun
 			Options: []string{"rbind", "rw"},
 		},
 	}
-	testutil.IsIdentical(t, mounts, expected)
+	IsIdentical(t, mounts, expected)
 }
 
 func testSnapshotterCommit(t *testing.T, newSnapshotter testsuite.SnapshotterFunc) {
@@ -170,7 +174,7 @@ func testSnapshotterView(t *testing.T, newSnapshotter testsuite.SnapshotterFunc)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(getParents(ctx, o, root, "/tmp/top")[0], "foo"), []byte("hi, again"), 0660); err != nil {
+	if err := os.WriteFile(filepath.Join(getParents(t, ctx, o, root, "/tmp/top")[0], "foo"), []byte("hi, again"), 0660); err != nil {
 		t.Fatal(err)
 	}
 	if err := o.Commit(ctx, "top", key); err != nil {
@@ -185,17 +189,17 @@ func testSnapshotterView(t *testing.T, newSnapshotter testsuite.SnapshotterFunc)
 	expected := []mount.Mount{
 		{
 			Type:    "bind",
-			Source:  getParents(ctx, o, root, "/tmp/view1")[0],
+			Source:  getParents(t, ctx, o, root, "/tmp/view1")[0],
 			Options: []string{"ro", "rbind"},
 		},
 	}
-	testutil.IsIdentical(t, mounts, expected)
+	IsIdentical(t, mounts, expected)
 
 	mounts, err = o.View(ctx, "/tmp/view2", "top")
 	if err != nil {
 		t.Fatal(err)
 	}
-	lowers := getParents(ctx, o, root, "/tmp/view2")
+	lowers := getParents(t, ctx, o, root, "/tmp/view2")
 
 	mountOptions := mounts[0].Options
 
@@ -213,7 +217,7 @@ func testSnapshotterView(t *testing.T, newSnapshotter testsuite.SnapshotterFunc)
 
 	sort.Strings(expectedOptions)
 	sort.Strings(mountOptions)
-	testutil.IsIdentical(t, mountOptions, expectedOptions)
+	IsIdentical(t, mountOptions, expectedOptions)
 
 	mounts[0].Options = nil
 	expected = []mount.Mount{
@@ -223,25 +227,25 @@ func testSnapshotterView(t *testing.T, newSnapshotter testsuite.SnapshotterFunc)
 		},
 	}
 
-	testutil.IsIdentical(t, mounts, expected)
+	IsIdentical(t, mounts, expected)
 }
 
-func getParents(ctx context.Context, sn snapshots.Snapshotter, root, key string) []string {
+func getParents(t *testing.T, ctx context.Context, sn snapshots.Snapshotter, root, key string) []string {
 	o := sn.(*nixSnapshotter)
-	ctx, t, err := o.ms.TransactionContext(ctx, false)
+	ctx, transactor, err := o.ms.TransactionContext(ctx, false)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 	defer func() {
-		err = t.Rollback()
+		err = transactor.Rollback()
 		if err != nil {
-			panic(err)
+			t.Fatal(err)
 		}
 	}()
 
 	s, err := storage.GetSnapshot(ctx, key)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 	parents := make([]string, len(s.ParentIDs))
 	for i := range s.ParentIDs {
@@ -279,12 +283,12 @@ func testSnapshotterOverlayMount(t *testing.T, newSnapshotter testsuite.Snapshot
 
 	mountOptions := mounts[0].Options
 
-	var bp = getBasePath(ctx, o, root, "/tmp/layer2")
+	var bp = getBasePath(t, ctx, o, root, "/tmp/layer2")
 
 	expectedOptions := []string{
 		"workdir=" + filepath.Join(bp, "work"),
 		"upperdir=" + filepath.Join(bp, "fs"),
-		"lowerdir=" + getParents(ctx, o, root, "/tmp/layer2")[0]}
+		"lowerdir=" + getParents(t, ctx, o, root, "/tmp/layer2")[0]}
 	userxattr, err := overlayutils.NeedsUserXAttr(root)
 	if err != nil {
 		t.Fatal(err)
@@ -298,7 +302,7 @@ func testSnapshotterOverlayMount(t *testing.T, newSnapshotter testsuite.Snapshot
 
 	sort.Strings(expectedOptions)
 	sort.Strings(mountOptions)
-	testutil.IsIdentical(t, mountOptions, expectedOptions)
+	IsIdentical(t, mountOptions, expectedOptions)
 
 	mounts[0].Options = nil
 	expected := []mount.Mount{
@@ -308,25 +312,25 @@ func testSnapshotterOverlayMount(t *testing.T, newSnapshotter testsuite.Snapshot
 		},
 	}
 
-	testutil.IsIdentical(t, mounts, expected)
+	IsIdentical(t, mounts, expected)
 }
 
-func getBasePath(ctx context.Context, sn snapshots.Snapshotter, root, key string) string {
+func getBasePath(t *testing.T, ctx context.Context, sn snapshots.Snapshotter, root, key string) string {
 	o := sn.(*nixSnapshotter)
-	ctx, t, err := o.ms.TransactionContext(ctx, false)
+	ctx, transactor, err := o.ms.TransactionContext(ctx, false)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 	defer func() {
-		err = t.Rollback()
+		err = transactor.Rollback()
 		if err != nil {
-			panic(err)
+			t.Fatal(err)
 		}
 	}()
 
 	s, err := storage.GetSnapshot(ctx, key)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 
 	return filepath.Join(root, "snapshots", s.ID)
@@ -365,7 +369,7 @@ func testSnapshotterOverlayRead(t *testing.T, newSnapshotter testsuite.Snapshott
 	defer func() {
 		err = syscall.Unmount(dest, 0)
 		if err != nil {
-			panic(err)
+			t.Fatal(err)
 		}
 	}()
 	data, err := os.ReadFile(filepath.Join(dest, "foo"))
@@ -374,5 +378,12 @@ func testSnapshotterOverlayRead(t *testing.T, newSnapshotter testsuite.Snapshott
 	}
 	if e := string(data); e != "hi" {
 		t.Fatalf("expected file contents hi but got %q", e)
+	}
+}
+
+func IsIdentical(t *testing.T, x interface{}, y interface{}) {
+	diff := cmp.Diff(x, y)
+	if diff != "" {
+		t.Fatalf(diff)
 	}
 }

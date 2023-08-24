@@ -12,6 +12,7 @@ import (
 	"github.com/containerd/containerd/snapshots/testsuite"
 	"github.com/pdtpartners/nix-snapshotter/pkg/nix2container"
 	"github.com/pdtpartners/nix-snapshotter/pkg/testutil"
+	"github.com/stretchr/testify/require"
 )
 
 func newSnapshotterWithOpts(nixStorePrefix string, opts ...interface{}) testsuite.SnapshotterFunc {
@@ -28,7 +29,7 @@ func newSnapshotterWithOpts(nixStorePrefix string, opts ...interface{}) testsuit
 func TestNixSnapshotter(t *testing.T) {
 	type testCase struct {
 		name        string
-		nixStores   []string
+		nixHashes   []string
 		extraLabels map[string]string
 	}
 
@@ -38,7 +39,7 @@ func TestNixSnapshotter(t *testing.T) {
 		},
 		{
 			name: "basic",
-			nixStores: []string{
+			nixHashes: []string{
 				"34xlpp3j3vy7ksn09zh44f1c04w77khf-libunistring-1.0",
 				"4nlgxhb09sdr51nc9hdm8az5b08vzkgx-glibc-2.35-163",
 				"5mh5019jigj0k14rdnjam1xwk5avn1id-libidn2-2.3.2",
@@ -49,8 +50,8 @@ func TestNixSnapshotter(t *testing.T) {
 			},
 		},
 		{
-			name: "noNixLayerAnnotation",
-			nixStores: []string{
+			name: "with no nix layer annotation",
+			nixHashes: []string{
 				"34xlpp3j3vy7ksn09zh44f1c04w77khf-libunistring-1.0",
 				"4nlgxhb09sdr51nc9hdm8az5b08vzkgx-glibc-2.35-163",
 				"5mh5019jigj0k14rdnjam1xwk5avn1id-libidn2-2.3.2",
@@ -58,8 +59,8 @@ func TestNixSnapshotter(t *testing.T) {
 			},
 		},
 		{
-			name: "irrelevantLabels",
-			nixStores: []string{
+			name: "with irrelevant labels",
+			nixHashes: []string{
 				"34xlpp3j3vy7ksn09zh44f1c04w77khf-libunistring-1.0",
 				"4nlgxhb09sdr51nc9hdm8az5b08vzkgx-glibc-2.35-163",
 				"5mh5019jigj0k14rdnjam1xwk5avn1id-libidn2-2.3.2",
@@ -74,42 +75,37 @@ func TestNixSnapshotter(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := context.Background()
-			key := "test"
-			root := t.TempDir()
-			nixStorePrefix := "/nix/store"
-			snapshotterFunc := newSnapshotterWithOpts(nixStorePrefix)
-			snapshotter, _, err := snapshotterFunc(ctx, root)
-			if err != nil {
-				t.Fatal(err)
-			}
 
 			labels := map[string]string{}
-			for idx, value := range tc.nixStores {
+			for idx, value := range tc.nixHashes {
 				labels[nix2container.NixStorePrefixAnnotation+strconv.Itoa(idx)] = value
 			}
 			for idx, value := range tc.extraLabels {
 				labels[idx] = value
 			}
 
-			_, err = snapshotter.Prepare(ctx, key, "", snapshots.WithLabels(labels))
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			testBindMounts(t, ctx, snapshotter, key, nixStorePrefix, tc.nixStores)
-			testGCRoots(t, ctx, snapshotter, key, nixStorePrefix, tc.nixStores, root, labels)
+			testBindMounts(t, ctx, tc.nixHashes, labels)
+			testGCRoots(t, ctx, tc.nixHashes, labels)
 		})
 	}
 }
 
-func testBindMounts(t *testing.T, ctx context.Context, snapshotter snapshots.Snapshotter, key string, nixStorePrefix string, nixStores []string) {
-	mounts, err := snapshotter.(*nixSnapshotter).withNixBindMounts(ctx, key, []mount.Mount{})
-	if err != nil {
-		t.Fatal(err)
-	}
+func testBindMounts(t *testing.T, ctx context.Context, nixHashes []string, labels map[string]string) {
+	key := "test"
+	nixStorePrefix := "/nix/store"
+	root := t.TempDir()
+	snapshotterFunc := newSnapshotterWithOpts(nixStorePrefix)
+	snapshotter, _, err := snapshotterFunc(ctx, root)
+	s := snapshotter.(*nixSnapshotter)
+	require.NoError(t, err)
+
+	_, err = s.Prepare(ctx, key, "", snapshots.WithLabels(labels))
+	require.NoError(t, err)
+	mounts, err := s.withNixBindMounts(ctx, key, []mount.Mount{})
+	require.NoError(t, err)
 
 	expectedMounts := []mount.Mount{}
-	for _, nixStore := range nixStores {
+	for _, nixStore := range nixHashes {
 		expectedMounts = append(expectedMounts,
 			mount.Mount{
 				Type:    "bind",
@@ -121,28 +117,12 @@ func testBindMounts(t *testing.T, ctx context.Context, snapshotter snapshots.Sna
 	testutil.IsIdentical(t, mounts, expectedMounts)
 }
 
-func getStoreID(t *testing.T, ctx context.Context, snapshotter snapshots.Snapshotter, key string) string {
-	ctx, transactor, err := snapshotter.(*nixSnapshotter).ms.TransactionContext(ctx, false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() {
-		err = transactor.Rollback()
-		if err != nil {
-			t.Fatal(err)
-		}
-	}()
-	id, _, _, err := storage.GetInfo(ctx, key)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return id
-}
-
-func testGCRoots(t *testing.T, ctx context.Context, snapshotter snapshots.Snapshotter, key string, nixStorePrefix string, nixStores []string, root string, labels map[string]string) {
-	// Mock builder to test inputs
+func testGCRoots(t *testing.T, ctx context.Context, nixHashes []string, labels map[string]string) {
+	key := "test"
+	nixStorePrefix := "/nix/store"
+	root := t.TempDir()
 	var nixToolInputs, filepathInputs, nixPathInputs []string
-	testBuilder := func(config *nixGCOptConfig) error {
+	testBuilder := func(config *NixSnapshotterConfig) error {
 		config.builder = func(nixTool string, filepath string, nixPath string) ([]byte, error) {
 			nixToolInputs = append(nixToolInputs, nixTool)
 			filepathInputs = append(filepathInputs, filepath)
@@ -153,16 +133,24 @@ func testGCRoots(t *testing.T, ctx context.Context, snapshotter snapshots.Snapsh
 		return nil
 	}
 
-	err := snapshotter.(*nixSnapshotter).prepareNixGCRoots(ctx, key, labels, testBuilder)
-	if err != nil {
-		t.Fatal(err)
-	}
+	snapshotterFunc := newSnapshotterWithOpts(nixStorePrefix, testBuilder)
+	snapshotter, _, err := snapshotterFunc(ctx, root)
+	s := snapshotter.(*nixSnapshotter)
+	require.NoError(t, err)
 
-	id := getStoreID(t, ctx, snapshotter, key)
+	_, err = s.Prepare(ctx, key, "", snapshots.WithLabels(labels))
+	require.NoError(t, err)
+
+	var id string
+	err = s.ms.WithTransaction(ctx, false, func(ctx context.Context) (err error) {
+		id, _, _, err = storage.GetInfo(ctx, key)
+		return err
+	})
+	require.NoError(t, err)
 
 	for idx := range nixToolInputs {
 		testutil.IsIdentical(t, nixToolInputs[idx], "nix")
-		testutil.IsIdentical(t, filepathInputs[idx], filepath.Join(root, "gcroots", id, nixStores[idx]))
-		testutil.IsIdentical(t, nixPathInputs[idx], filepath.Join(nixStorePrefix, nixStores[idx]))
+		testutil.IsIdentical(t, filepathInputs[idx], filepath.Join(root, "gcroots", id, nixHashes[idx]))
+		testutil.IsIdentical(t, nixPathInputs[idx], filepath.Join(nixStorePrefix, nixHashes[idx]))
 	}
 }

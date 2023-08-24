@@ -13,7 +13,11 @@ let
         ".tar"
       ];
     };
+<<<<<<< HEAD
     vendorSha256 = "sha256-C7XICC0WWLE5VsiKsJvjfHVIJKlRAgIRjIny3eRgnbw=";
+=======
+    vendorSha256 = "sha256-9vs19O6Q3YJVAVSz5TGNNDHVgDOPVSRPUirNNYVh4Og=";
+>>>>>>> d35fe6c (Added pr suggestions)
   };
 
   buildImage = args@{

@@ -40,11 +40,22 @@ const (
 
 // NixSnapshotterConfig is used to configure the nix snapshotter instance
 type NixSnapshotterConfig struct {
-	fuse bool
+	fuse    bool
+	builder func(nixTool string, filepath string, nixPath string) ([]byte, error)
 }
 
 // NixOpt is an option to configure the nix snapshotter
 type NixOpt func(config *NixSnapshotterConfig) error
+
+func defaultNixBuilder(nixTool string, filepath string, nixPath string) ([]byte, error) {
+	return exec.Command(
+		nixTool,
+		"build",
+		"--out-link",
+		filepath,
+		nixPath,
+	).Output()
+}
 
 // WithFuseOverlayfs changes the overlay mount type used to fuse-overlayfs, an
 // FUSE implementation for overlayfs.
@@ -62,13 +73,16 @@ type nixSnapshotter struct {
 	root        string
 	fuse        bool
 	nixStoreDir string
+	builder     func(nixTool string, filepath string, nixPath string) ([]byte, error)
 }
 
 // NewSnapshotter returns a Snapshotter which uses overlayfs. The overlayfs
 // diffs are stored under the provided root. A metadata file is stored under
 // the root.
 func NewSnapshotter(root, nixStoreDir string, opts ...interface{}) (snapshots.Snapshotter, error) {
-	var config NixSnapshotterConfig
+	config := NixSnapshotterConfig{
+		builder: defaultNixBuilder,
+	}
 	overlayOpts := []overlay.Opt{}
 	for _, opt := range opts {
 		switch safeOpt := opt.(type) {
@@ -106,6 +120,7 @@ func NewSnapshotter(root, nixStoreDir string, opts ...interface{}) (snapshots.Sn
 		root:        root,
 		nixStoreDir: nixStoreDir,
 		fuse:        config.fuse,
+		builder:     config.builder,
 	}, nil
 
 }
@@ -140,37 +155,7 @@ func (o *nixSnapshotter) Prepare(ctx context.Context, key, parent string, opts .
 	return o.withNixBindMounts(ctx, key, mounts)
 }
 
-type nixGCOptConfig struct {
-	builder func(nixTool string, filepath string, nixPath string) ([]byte, error)
-}
-
-type nixGCOpt func(config *nixGCOptConfig) error
-
-func defaultNixBuilder(config *nixGCOptConfig) error {
-	config.builder = func(nixTool string, filepath string, nixPath string) ([]byte, error) {
-		return exec.Command(
-			nixTool,
-			"build",
-			"--out-link",
-			filepath,
-			nixPath,
-		).Output()
-	}
-	return nil
-}
-
-func (o *nixSnapshotter) prepareNixGCRoots(ctx context.Context, key string, labels map[string]string, opts ...nixGCOpt) (err error) {
-	var conf nixGCOptConfig
-	if err = defaultNixBuilder(&conf); err != nil {
-		return err
-	}
-
-	for _, opt := range opts {
-		if err := opt(&conf); err != nil {
-			return err
-		}
-	}
-
+func (o *nixSnapshotter) prepareNixGCRoots(ctx context.Context, key string, labels map[string]string) (err error) {
 	ctx, t, err := o.ms.TransactionContext(ctx, false)
 	if err != nil {
 		return err
@@ -206,8 +191,9 @@ func (o *nixSnapshotter) prepareNixGCRoots(ctx context.Context, key string, labe
 
 		// nix build with a store path fetches a store path from the configured
 		// substituters, if it doesn't already exist.
-		nixPath := filepath.Join(o.nixStoreDir, labels[labelKey])
-		_, err = conf.builder(nixTool, filepath.Join(gcRootsDir, labels[labelKey]), nixPath)
+		nixHash := labels[labelKey]
+		nixPath := filepath.Join(o.nixStoreDir, nixHash)
+		_, err = o.builder(nixTool, filepath.Join(gcRootsDir, labels[labelKey]), nixPath)
 		if err != nil {
 			return err
 		}
