@@ -29,10 +29,10 @@ start-nix-snapshotter: nix-snapshotter build/nerdctl/nix-snapshotter.toml
 	bash ./script/rootless/nix-snapshotter.sh
 
 run-hello: build/nerdctl/nerdctl.toml
-	bash ./script/rootless/nerdctl.sh run --rm docker.io/hinshun/hello:nix
+	bash ./script/rootless/nerdctl.sh run --rm ghcr.io/pdtpartners/hello
 
 run-redis: build/nerdctl/nerdctl.toml
-	bash ./script/rootless/nerdctl.sh run --rm -p 6379:6379 docker.io/hinshun/redis:nix --protected-mode no
+	bash ./script/rootless/nerdctl.sh run --rm -p 6379:6379 ghcr.io/pdtpartners/redis --protected-mode no
 
 # e.g. `make nerdctl ARGS="--help"`
 nerdctl:

@@ -49,10 +49,8 @@ func defaultAuthorizerOpts() ([]docker.AuthorizerOpt, error) {
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, err
 	}
-
 	var aopts []docker.AuthorizerOpt
 	if len(dt) > 0 {
-		fmt.Printf("#####FOUND CONFIG\n")
 		var registry criconfig.Registry
 		err = json.Unmarshal(dt, &registry)
 		if err != nil {
@@ -72,8 +70,6 @@ func defaultAuthorizerOpts() ([]docker.AuthorizerOpt, error) {
 			}
 			return server.ParseAuth(auth, host)
 		}))
-	} else {
-		fmt.Printf("#####DID NOT FIND CONFIG\n")
 	}
 
 	return aopts, nil

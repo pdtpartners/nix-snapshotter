@@ -26,10 +26,10 @@ nixos login: admin (Ctrl-A then X to quit)
 Password: admin
 
 # Running pkgs.hello image with nix-snapshotter
-sudo nerdctl run hinshun/hello:nix
+sudo nerdctl run ghcr.io/pdtpartners/hello
 
 # Running pkgs.hello image with rootless nix-snapshotter
-nerdctl run hinshun/hello:nix
+nerdctl run ghcr.io/pdtpartners/hello
 
 # Running pkgs.redis image with kubernetes & nix-snapshotter
 kubectl apply -f /etc/kubernetes/redis.yaml
@@ -72,7 +72,7 @@ $ make start-nix-snapshotter
 ```
 
 In a final terminal, run `make run-hello` will run a pre-built image from
-DockerHub `hinshun/hello:nix` which packages `pkgs.hello` from nixpkgs.
+DockerHub `ghcr.io/pdtpartners/hello` which packages `pkgs.hello` from nixpkgs.
 
 ```sh
 $ make run-hello
@@ -100,7 +100,8 @@ $ make run-redis
 
 ## Example image
 
-There is an example container image for use with this snapshotter pushed to DockerHub as `hinshun/hello:nix`:
+There is an example container image for use with this snapshotter pushed to
+DockerHub as `ghcr.io/pdtpartners/hello`:
 
 ```
 {

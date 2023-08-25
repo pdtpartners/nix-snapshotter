@@ -4,30 +4,30 @@ on:
   push:
     branches: 
       - main
-      - feature/switch-to-ghci #Test
-env: 
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+      - feature/switch-to-ghci #Remove once finished testing
 
 jobs:
-    publish-image:
-        runs-on: ubuntu-22.04
-        permissions: 
-          packages: write
-          contents: read
-        
-        steps: 
-          - uses: actions/checkout@v3
-          - name: Install Nix
-            uses: DeterminateSystems/nix-installer-action@main
-          - name: Run the Magic Nix Cache
-            uses: DeterminateSystems/magic-nix-cache-action@main
-          - name: Log in to the Container registry
-            uses: docker/login-action@65b78e6e13532edd9afa3aa52ac7964289d1a9c1
-            with:
-              registry: ${{ env.REGISTRY }}
-              username: ${{ github.actor }}
-              password: ${{ secrets.GITHUB_TOKEN }}
-          - name: Build and Push image
-            run: nix run .#copyHelloToRegistry
-
+  publish-image:
+    runs-on: ubuntu-22.04
+    permissions: 
+      packages: write
+      contents: read
+    strategy:
+      matrix:
+        image:
+          - hello
+          - redis
+          - redisWithShell
+    steps: 
+      - uses: actions/checkout@v3
+      - name: Setup Nix
+        uses: ./.github/actions/setup-nix
+      - name: Log in to the Container registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Push ${{ matrix.image }} image
+        run: nix run .#push-${{ matrix.image }}
+    
