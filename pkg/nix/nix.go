@@ -23,6 +23,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/containerd/containerd/log"
@@ -33,17 +34,26 @@ import (
 	"github.com/pdtpartners/nix-snapshotter/pkg/nix2container"
 )
 
-const (
-	defaultNixTool = "nix"
-)
+// NixBuilder is a `nix build --out-link` implementation.
+type NixBuilder func(ctx context.Context, gcRootPath, nixStorePath string) error
 
 // NixSnapshotterConfig is used to configure the nix snapshotter instance
 type NixSnapshotterConfig struct {
-	fuse bool
+	fuse       bool
+	nixBuilder NixBuilder
 }
 
 // NixOpt is an option to configure the nix snapshotter
 type NixOpt func(config *NixSnapshotterConfig) error
+
+// WithNixBuilder is an option to specify how to subsitute a nix store path
+// and create a GC root out-link.
+func WithNixBuilder(nixBuilder NixBuilder) NixOpt {
+	return func(config *NixSnapshotterConfig) error {
+		config.nixBuilder = nixBuilder
+		return nil
+	}
+}
 
 // WithFuseOverlayfs changes the overlay mount type used to fuse-overlayfs, an
 // FUSE implementation for overlayfs.
@@ -61,26 +71,50 @@ type nixSnapshotter struct {
 	root        string
 	fuse        bool
 	nixStoreDir string
+	nixBuilder  NixBuilder
+}
+
+func defaultNixBuilder(ctx context.Context, gcRootPath, nixStorePath string) error {
+	return exec.Command(
+		"nix",
+		"build",
+		"--out-link",
+		gcRootPath,
+		nixStorePath,
+	).Run()
 }
 
 // NewSnapshotter returns a Snapshotter which uses overlayfs. The overlayfs
 // diffs are stored under the provided root. A metadata file is stored under
 // the root.
 func NewSnapshotter(root, nixStoreDir string, opts ...interface{}) (snapshots.Snapshotter, error) {
-	var config NixSnapshotterConfig
+	config := NixSnapshotterConfig{
+		nixBuilder: defaultNixBuilder,
+	}
 	overlayOpts := []overlay.Opt{}
 	for _, opt := range opts {
 		switch safeOpt := opt.(type) {
-		// Checking the NixOpt here does not work but expanding it does
+		// Checking the NixOpt here does not work for some cases
 		case func(config *NixSnapshotterConfig) error:
 			if err := safeOpt(&config); err != nil {
 				return nil, err
 			}
-		// Checking the overlay.Opt here does not work but expanding does
+		// But it does for others (when a func explicitly returns NixOpt like
+		// WithNixBuilder)
+		case NixOpt:
+			if err := safeOpt(&config); err != nil {
+				return nil, err
+			}
+
+		// Checking the overlay.Opt here does not work but expanding does.
+		// However if func returns an opt then only overlay.opt works
 		case func(config *overlay.SnapshotterConfig) error:
 			overlayOpts = append(overlayOpts, safeOpt)
+		case overlay.Opt:
+			overlayOpts = append(overlayOpts, safeOpt)
+
 		default:
-			return nil, fmt.Errorf("Unexpected opt type")
+			return nil, fmt.Errorf("Unexpected opt type: %T", safeOpt)
 		}
 	}
 
@@ -101,6 +135,7 @@ func NewSnapshotter(root, nixStoreDir string, opts ...interface{}) (snapshots.Sn
 		root:        root,
 		nixStoreDir: nixStoreDir,
 		fuse:        config.fuse,
+		nixBuilder:  config.nixBuilder,
 	}, nil
 
 }
@@ -148,30 +183,26 @@ func (o *nixSnapshotter) prepareNixGCRoots(ctx context.Context, key string, labe
 		return err
 	}
 
-	// Allow users to specify which nix to use. Perhaps this should be coming from
-	// a label.
-	nixTool := os.Getenv("NIX_TOOL")
-	if nixTool == "" {
-		nixTool = defaultNixTool
+	// Make the order of nix substitution deterministic
+	sortedLabels := []string{}
+	for label := range labels {
+		sortedLabels = append(sortedLabels, label)
 	}
+	sort.Strings(sortedLabels)
 
 	gcRootsDir := filepath.Join(o.root, "gcroots", id)
 	log.G(ctx).Infof("Preparing nix gc roots at %s", gcRootsDir)
-	for label, nixHash := range labels {
-		if !strings.HasPrefix(label, nix2container.NixStorePrefixAnnotation) {
+	for _, labelKey := range sortedLabels {
+		if !strings.HasPrefix(labelKey, nix2container.NixStorePrefixAnnotation) {
 			continue
 		}
 
 		// nix build with a store path fetches a store path from the configured
 		// substituters, if it doesn't already exist.
-		nixPath := filepath.Join(o.nixStoreDir, nixHash)
-		_, err = exec.Command(
-			nixTool,
-			"build",
-			"--out-link",
-			filepath.Join(gcRootsDir, nixHash),
-			nixPath,
-		).Output()
+		nixHash := labels[labelKey]
+		gcRootPath := filepath.Join(gcRootsDir, nixHash)
+		nixStorePath := filepath.Join(o.nixStoreDir, nixHash)
+		err = o.nixBuilder(ctx, gcRootPath, nixStorePath)
 		if err != nil {
 			return err
 		}
@@ -337,12 +368,20 @@ func (o *nixSnapshotter) withNixBindMounts(ctx context.Context, key string, moun
 			return nil, err
 		}
 
-		for label, nixHash := range info.Labels {
-			if !strings.HasPrefix(label, nix2container.NixStorePrefixAnnotation) {
+		// Make the order of the bind mounts deterministic
+		sortedLabels := []string{}
+		for label := range info.Labels {
+			sortedLabels = append(sortedLabels, label)
+		}
+		sort.Strings(sortedLabels)
+
+		for _, labelKey := range sortedLabels {
+			if !strings.HasPrefix(labelKey, nix2container.NixStorePrefixAnnotation) {
 				continue
 			}
 
 			// Avoid duplicate mounts.
+			nixHash := info.Labels[labelKey]
 			_, ok := pathsSeen[nixHash]
 			if ok {
 				continue
