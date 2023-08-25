@@ -99,8 +99,11 @@ func testBindMounts(t *testing.T, ctx context.Context, nixHashes []string, label
 	s := snapshotter.(*nixSnapshotter)
 	require.NoError(t, err)
 
+	// Test that Prepare doesn't interact badly with Nix labels.
 	_, err = s.Prepare(ctx, key, "", snapshots.WithLabels(labels))
 	require.NoError(t, err)
+
+	// Since we only care about the nix bind mounts, ignore the overlay mounts.
 	mounts, err := s.withNixBindMounts(ctx, key, []mount.Mount{})
 	require.NoError(t, err)
 

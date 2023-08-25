@@ -38,10 +38,12 @@ const (
 	defaultNixTool = "nix"
 )
 
+type NixBuilder func(nixTool string, filepath string, nixPath string) ([]byte, error)
+
 // NixSnapshotterConfig is used to configure the nix snapshotter instance
 type NixSnapshotterConfig struct {
 	fuse    bool
-	builder func(nixTool string, filepath string, nixPath string) ([]byte, error)
+	builder NixBuilder
 }
 
 // NixOpt is an option to configure the nix snapshotter
@@ -73,7 +75,7 @@ type nixSnapshotter struct {
 	root        string
 	fuse        bool
 	nixStoreDir string
-	builder     func(nixTool string, filepath string, nixPath string) ([]byte, error)
+	builder     NixBuilder
 }
 
 // NewSnapshotter returns a Snapshotter which uses overlayfs. The overlayfs
@@ -175,7 +177,7 @@ func (o *nixSnapshotter) prepareNixGCRoots(ctx context.Context, key string, labe
 		nixTool = defaultNixTool
 	}
 
-	// Make the order of gc deterministic
+	// Make the order of nix substitution deterministic
 	sortedLabels := []string{}
 	for label := range labels {
 		sortedLabels = append(sortedLabels, label)
@@ -193,7 +195,7 @@ func (o *nixSnapshotter) prepareNixGCRoots(ctx context.Context, key string, labe
 		// substituters, if it doesn't already exist.
 		nixHash := labels[labelKey]
 		nixPath := filepath.Join(o.nixStoreDir, nixHash)
-		_, err = o.builder(nixTool, filepath.Join(gcRootsDir, labels[labelKey]), nixPath)
+		_, err = o.builder(nixTool, filepath.Join(gcRootsDir, nixHash), nixPath)
 		if err != nil {
 			return err
 		}
@@ -372,13 +374,14 @@ func (o *nixSnapshotter) withNixBindMounts(ctx context.Context, key string, moun
 			}
 
 			// Avoid duplicate mounts.
-			_, ok := pathsSeen[info.Labels[labelKey]]
+			nixHash := info.Labels[labelKey]
+			_, ok := pathsSeen[nixHash]
 			if ok {
 				continue
 			}
-			pathsSeen[info.Labels[labelKey]] = struct{}{}
+			pathsSeen[nixHash] = struct{}{}
 
-			storePath := filepath.Join(o.nixStoreDir, info.Labels[labelKey])
+			storePath := filepath.Join(o.nixStoreDir, nixHash)
 			mounts = append(mounts, mount.Mount{
 				Source: storePath,
 				Type:   "bind",
