@@ -125,11 +125,11 @@ func testGCRoots(t *testing.T, ctx context.Context, nixHashes []string, labels m
 	key := "test"
 	nixStorePrefix := "/nix/store"
 	root := t.TempDir()
-	var filepathInputs, nixPathInputs []string
 
-	testBuilder := func(ctx context.Context, filepath string, nixPath string) error {
-		filepathInputs = append(filepathInputs, filepath)
-		nixPathInputs = append(nixPathInputs, nixPath)
+	var gcRootPaths, nixStorePaths []string
+	testBuilder := func(ctx context.Context, gcRootPath, nixStorePath string) error {
+		gcRootPaths = append(gcRootPaths, gcRootPath)
+		nixStorePaths = append(nixStorePaths, nixStorePath)
 		return nil
 	}
 
@@ -150,13 +150,13 @@ func testGCRoots(t *testing.T, ctx context.Context, nixHashes []string, labels m
 	require.NoError(t, err)
 
 	if labels[nix2container.NixLayerAnnotation] == "true" {
-		require.Equal(t, len(nixHashes), len(filepathInputs))
+		require.Equal(t, len(nixHashes), len(gcRootPaths))
 		for idx := 0; idx < len(nixHashes); idx += 1 {
-			testutil.IsIdentical(t, filepathInputs[idx], filepath.Join(root, "gcroots", id, nixHashes[idx]))
-			testutil.IsIdentical(t, nixPathInputs[idx], filepath.Join(nixStorePrefix, nixHashes[idx]))
+			testutil.IsIdentical(t, gcRootPaths[idx], filepath.Join(root, "gcroots", id, nixHashes[idx]))
+			testutil.IsIdentical(t, nixStorePaths[idx], filepath.Join(nixStorePrefix, nixHashes[idx]))
 		}
 	} else {
-		require.Equal(t, 0, len(filepathInputs))
+		require.Equal(t, 0, len(gcRootPaths))
 	}
 
 }
