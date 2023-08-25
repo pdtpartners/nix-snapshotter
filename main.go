@@ -8,32 +8,22 @@ import (
 	"os/signal"
 	"path/filepath"
 
-	"github.com/pelletier/go-toml/v2"
-	"github.com/sirupsen/logrus"
-	"golang.org/x/sys/unix"
-	"google.golang.org/grpc"
-
 	snapshotsapi "github.com/containerd/containerd/api/services/snapshots/v1"
 	"github.com/containerd/containerd/contrib/snapshotservice"
 	"github.com/containerd/containerd/log"
 	"github.com/coreos/go-systemd/v22/daemon"
+	"github.com/pdtpartners/nix-snapshotter/pkg/config"
 	"github.com/pdtpartners/nix-snapshotter/pkg/nix"
+	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
+	"golang.org/x/sys/unix"
+	"google.golang.org/grpc"
 )
 
-const defaultConfigDir = "/etc/nix-snapshotter"
-
-type Config struct {
-	Address string
-	Root    string
-}
-
-func DefaultConfig() *Config {
-	return &Config{
-		Address: "/run/nix-snapshotter/nix-snapshotter.sock",
-		Root:    "/var/lib/nix-snapshotter",
-	}
-}
+var (
+	defaultLogLevel   = logrus.InfoLevel
+	defaultConfigPath = "/etc/nix-snapshotter/config.toml"
+)
 
 func main() {
 	if err := App().Run(os.Args); err != nil {
@@ -56,72 +46,67 @@ This snapshotter depends on access to a "nix" binary to substitute store paths
 and creating GC roots during unpacking of a container image with nix store path
 annotations. At runtime, the container rootfs will be backed by a read-writable
 overlayfs root along with bind mounts for every nix store path required.`
+
+	// Allow flags to override config attributes.
+	flagCfg := config.New()
 	app.Flags = []cli.Flag{
 		&cli.StringFlag{
 			Name:    "log-level",
 			Aliases: []string{"l"},
-			Value:   logrus.InfoLevel.String(),
+			Value:   defaultLogLevel.String(),
 			Usage:   "Set the logging level [trace, debug, info, warn, error, fatal, panic]",
 		},
 		&cli.StringFlag{
 			Name:    "config",
 			Aliases: []string{"c"},
-			Value:   filepath.Join(defaultConfigDir, "config.toml"),
+			Value:   defaultConfigPath,
 			Usage:   "Path to the configuration file",
 		},
 		&cli.StringFlag{
-			Name:    "address",
-			Aliases: []string{"a"},
-			Usage:   "Address for nix-snapshotter's GRPC server",
+			Name:        "address",
+			Aliases:     []string{"a"},
+			Usage:       "Address for nix-snapshotter's GRPC server",
+			Destination: &flagCfg.Address,
 		},
 		&cli.StringFlag{
-			Name:  "root",
-			Usage: "Directory where nix-snapshotter will store persistent data",
+			Name:        "root",
+			Usage:       "Directory where nix-snapshotter will store persistent data",
+			Destination: &flagCfg.Root,
 		},
 	}
+
 	app.Action = func(c *cli.Context) error {
 		lvl, err := logrus.ParseLevel(c.String("log-level"))
 		if err != nil {
-			log.L.WithError(err).Fatal("failed to prepare logger")
+			return err
 		}
 		logrus.SetLevel(lvl)
 		logrus.SetFormatter(&logrus.TextFormatter{
 			FullTimestamp:   true,
 			TimestampFormat: log.RFC3339NanoFixed,
 		})
-
 		ctx := log.WithLogger(context.Background(), log.L)
 
-		var cfg Config
-		if _, err := os.Stat(c.String("config")); os.IsNotExist(err) {
-			log.G(ctx).Infof("failed to find config at %q switching to default values", c.String("config"))
-			cfg = *DefaultConfig()
-		} else if err != nil {
-			return err
-		}
-		data, err := os.ReadFile(c.String("config"))
-		if err != nil {
-			return err
-		}
-		err = toml.Unmarshal([]byte(data), &cfg)
+		// Override defaults with configuration file settings.
+		cfg := config.New()
+		err = cfg.Load(ctx, c.String("config"))
 		if err != nil {
 			return err
 		}
 
-		//Flags always override
-		if c.String("root") != "" {
-			cfg.Root = c.String("root")
+		// Override config with flag settings.
+		err = cfg.Merge(flagCfg)
+		if err != nil {
+			return err
 		}
-		if c.String("address") != "" {
-			cfg.Address = c.String("address")
-		}
+
 		return serve(ctx, cfg)
 	}
+
 	return app
 }
 
-func serve(ctx context.Context, cfg Config) error {
-
+func serve(ctx context.Context, cfg *config.Config) error {
 	log.G(ctx).WithField("root", cfg.Root).Info("Starting the nix-snapshotter")
 
 	// Prepare the directory for the socket
