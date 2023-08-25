@@ -84,5 +84,5 @@ let
 
 in
 {
-  inherit nix-snapshotter buildImage;
+  inherit nix-snapshotter buildImage copyToRegistry;
 }
