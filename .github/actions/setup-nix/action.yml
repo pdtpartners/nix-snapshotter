@@ -1,0 +1,22 @@
+inputs:
+  enable-kvm:
+    description: 'Enable KVM'
+    default: 'false'
+
+runs:
+  using: composite
+  steps:
+    - name: Enable KVM group perms
+      if: inputs.enable-kvm == 'true'
+      shell: bash
+      run: |
+        echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+        sudo udevadm control --reload-rules
+        sudo udevadm trigger --name-match=kvm
+    - uses: actions/checkout@v3
+    - name: Install Nix
+      uses: DeterminateSystems/nix-installer-action@main
+      with:
+        extra-conf: 'system-features = nixos-test benchmark big-parallel kvm'
+    - name: Run the Magic Nix Cache
+      uses: DeterminateSystems/magic-nix-cache-action@main
