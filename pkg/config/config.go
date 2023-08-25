@@ -46,7 +46,11 @@ func (cfg *Config) Load(ctx context.Context, configPath string) error {
 		}
 		return err
 	}
-	defer r.Close()
+	defer func() {
+		if err := r.Close(); err != nil {
+			log.G(ctx).WithError(err).Debugf("Failed to close config file")
+		}
+	}()
 
 	log.G(ctx).Debugf("Loading config from %q", configPath)
 	override := &Config{}
