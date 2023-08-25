@@ -34,11 +34,8 @@ import (
 	"github.com/pdtpartners/nix-snapshotter/pkg/nix2container"
 )
 
-const (
-	defaultNixTool = "nix"
-)
-
-type NixBuilder func(nixTool string, filepath string, nixPath string) ([]byte, error)
+// Specify the cmd to execute to build nix
+type NixBuilder func(ctx context.Context, filepath string, nixPath string) error
 
 // NixSnapshotterConfig is used to configure the nix snapshotter instance
 type NixSnapshotterConfig struct {
@@ -49,14 +46,14 @@ type NixSnapshotterConfig struct {
 // NixOpt is an option to configure the nix snapshotter
 type NixOpt func(config *NixSnapshotterConfig) error
 
-func defaultNixBuilder(nixTool string, filepath string, nixPath string) ([]byte, error) {
-	return exec.Command(
-		nixTool,
-		"build",
-		"--out-link",
-		filepath,
-		nixPath,
-	).Output()
+// WithNixBuilder lets you configure the way nix is built
+// Expects a cmd to be executed
+// e.g the current default `nix build --out-link $filepath $nixPath`
+func WithNixBuilder(builder NixBuilder) NixOpt {
+	return func(config *NixSnapshotterConfig) error {
+		config.builder = builder
+		return nil
+	}
 }
 
 // WithFuseOverlayfs changes the overlay mount type used to fuse-overlayfs, an
@@ -83,16 +80,32 @@ type nixSnapshotter struct {
 // the root.
 func NewSnapshotter(root, nixStoreDir string, opts ...interface{}) (snapshots.Snapshotter, error) {
 	config := NixSnapshotterConfig{
-		builder: defaultNixBuilder,
+		builder: func(ctx context.Context, filepath string, nixPath string) error {
+			_, err := exec.Command(
+				"nix",
+				"build",
+				"--out-link",
+				filepath,
+				nixPath,
+			).Output()
+			return err
+		},
 	}
 	overlayOpts := []overlay.Opt{}
 	for _, opt := range opts {
 		switch safeOpt := opt.(type) {
-		// Checking the NixOpt here does not work but expanding it does
+		// Checking the NixOpt here does not work for some cases
 		case func(config *NixSnapshotterConfig) error:
 			if err := safeOpt(&config); err != nil {
 				return nil, err
 			}
+		// But it does for others (when a func explicitly returns NixOpt like
+		// WithNixBuilder)
+		case NixOpt:
+			if err := safeOpt(&config); err != nil {
+				return nil, err
+			}
+
 		// Checking the overlay.Opt here does not work but expanding does.
 		// However if func returns an opt then only overlay.opt works
 		case func(config *overlay.SnapshotterConfig) error:
@@ -170,13 +183,6 @@ func (o *nixSnapshotter) prepareNixGCRoots(ctx context.Context, key string, labe
 		return err
 	}
 
-	// Allow users to specify which nix to use. Perhaps this should be coming from
-	// a label.
-	nixTool := os.Getenv("NIX_TOOL")
-	if nixTool == "" {
-		nixTool = defaultNixTool
-	}
-
 	// Make the order of nix substitution deterministic
 	sortedLabels := []string{}
 	for label := range labels {
@@ -195,7 +201,7 @@ func (o *nixSnapshotter) prepareNixGCRoots(ctx context.Context, key string, labe
 		// substituters, if it doesn't already exist.
 		nixHash := labels[labelKey]
 		nixPath := filepath.Join(o.nixStoreDir, nixHash)
-		_, err = o.builder(nixTool, filepath.Join(gcRootsDir, nixHash), nixPath)
+		err = o.builder(ctx, filepath.Join(gcRootsDir, nixHash), nixPath)
 		if err != nil {
 			return err
 		}

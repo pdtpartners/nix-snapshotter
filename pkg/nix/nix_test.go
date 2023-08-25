@@ -67,8 +67,8 @@ func TestNixSnapshotter(t *testing.T) {
 				"g2m8kfw7kpgpph05v2fxcx4d5an09hl3-hello-2.12.1",
 			},
 			extraLabels: map[string]string{
-				nix2container.NixLayerAnnotation: "true",
 				"labelToBeIgnored":               "ValueToBeIgnored",
+				nix2container.NixLayerAnnotation: "true",
 				"labelToBeIgnored2":              "ValueToBeIgnored2",
 			},
 		},
@@ -96,6 +96,7 @@ func testBindMounts(t *testing.T, ctx context.Context, nixHashes []string, label
 	root := t.TempDir()
 	snapshotterFunc := newSnapshotterWithOpts(nixStorePrefix)
 	snapshotter, _, err := snapshotterFunc(ctx, root)
+	require.NoError(t, err)
 	s := snapshotter.(*nixSnapshotter)
 	require.NoError(t, err)
 
@@ -124,20 +125,17 @@ func testGCRoots(t *testing.T, ctx context.Context, nixHashes []string, labels m
 	key := "test"
 	nixStorePrefix := "/nix/store"
 	root := t.TempDir()
-	var nixToolInputs, filepathInputs, nixPathInputs []string
-	testBuilder := func(config *NixSnapshotterConfig) error {
-		config.builder = func(nixTool string, filepath string, nixPath string) ([]byte, error) {
-			nixToolInputs = append(nixToolInputs, nixTool)
-			filepathInputs = append(filepathInputs, filepath)
-			nixPathInputs = append(nixPathInputs, nixPath)
-			return []byte{}, nil
+	var filepathInputs, nixPathInputs []string
 
-		}
+	testBuilder := func(ctx context.Context, filepath string, nixPath string) error {
+		filepathInputs = append(filepathInputs, filepath)
+		nixPathInputs = append(nixPathInputs, nixPath)
 		return nil
 	}
 
-	snapshotterFunc := newSnapshotterWithOpts(nixStorePrefix, testBuilder)
+	snapshotterFunc := newSnapshotterWithOpts(nixStorePrefix, WithNixBuilder(testBuilder))
 	snapshotter, _, err := snapshotterFunc(ctx, root)
+	require.NoError(t, err)
 	s := snapshotter.(*nixSnapshotter)
 	require.NoError(t, err)
 
@@ -151,9 +149,14 @@ func testGCRoots(t *testing.T, ctx context.Context, nixHashes []string, labels m
 	})
 	require.NoError(t, err)
 
-	for idx := range nixToolInputs {
-		testutil.IsIdentical(t, nixToolInputs[idx], "nix")
-		testutil.IsIdentical(t, filepathInputs[idx], filepath.Join(root, "gcroots", id, nixHashes[idx]))
-		testutil.IsIdentical(t, nixPathInputs[idx], filepath.Join(nixStorePrefix, nixHashes[idx]))
+	if labels[nix2container.NixLayerAnnotation] == "true" {
+		require.Equal(t, len(nixHashes), len(filepathInputs))
+		for idx := 0; idx < len(nixHashes); idx += 1 {
+			testutil.IsIdentical(t, filepathInputs[idx], filepath.Join(root, "gcroots", id, nixHashes[idx]))
+			testutil.IsIdentical(t, nixPathInputs[idx], filepath.Join(nixStorePrefix, nixHashes[idx]))
+		}
+	} else {
+		require.Equal(t, 0, len(filepathInputs))
 	}
+
 }

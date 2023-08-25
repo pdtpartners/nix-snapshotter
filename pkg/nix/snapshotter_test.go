@@ -1,7 +1,7 @@
-// # Forked from https://github.com/containerd/containerd/blob/v1.7.2/snapshots/overlay/overlay_test.go
-// # Copyright The containerd Authors.
-// # Licensed under the Apache License, Version 2.0
-// # NOTICE: https://github.com/containerd/containerd/blob/v1.7.2/NOTICE
+// Forked from https://github.com/containerd/containerd/blob/v1.7.2/snapshots/overlay/overlay_test.go
+// Copyright The containerd Authors.
+// Licensed under the Apache License, Version 2.0
+// NOTICE: https://github.com/containerd/containerd/blob/v1.7.2/NOTICE
 
 package nix
 
