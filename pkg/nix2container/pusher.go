@@ -28,7 +28,7 @@ func newPusher(ctx context.Context, cfg *PushConfig, ref string) (remotes.Pusher
 	registryOpts := []docker.RegistryOpt{
 		docker.WithAuthorizer(docker.NewDockerAuthorizer(authOpts...)),
 	}
-	resolverOpts := docker.ResolverOptions {
+	resolverOpts := docker.ResolverOptions{
 		Hosts: docker.ConfigureDefaultRegistries(registryOpts...),
 	}
 
@@ -52,6 +52,7 @@ func defaultAuthorizerOpts() ([]docker.AuthorizerOpt, error) {
 
 	var aopts []docker.AuthorizerOpt
 	if len(dt) > 0 {
+		fmt.Printf("#####FOUND CONFIG\n")
 		var registry criconfig.Registry
 		err = json.Unmarshal(dt, &registry)
 		if err != nil {
@@ -71,6 +72,8 @@ func defaultAuthorizerOpts() ([]docker.AuthorizerOpt, error) {
 			}
 			return server.ParseAuth(auth, host)
 		}))
+	} else {
+		fmt.Printf("#####DID NOT FIND CONFIG\n")
 	}
 
 	return aopts, nil
