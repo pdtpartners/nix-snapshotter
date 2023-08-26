@@ -1,6 +1,6 @@
 { self, lib, withSystem, ... }:
 let
-  vmFor = system:
+  nixosSystemFor = system: module:
     let
       # NixOS systems need access to pkgs with nix-snapshotter, which is
       # provided by `pkgs'`.
@@ -11,7 +11,7 @@ let
       modules = [
         { _module.args.pkgs = lib.mkForce pkgs'; }
         self.nixosModules.default
-        ./vm.nix
+        module
       ];
     };
 
@@ -22,7 +22,18 @@ in {
     services.nix-snapshotter.enable = true;
     ```
   */
-  flake.nixosModules.default = import ./nix-snapshotter.nix;
+  flake.nixosModules = {
+    default = {
+      imports = [
+        self.nixosModules.nix-snapshotter
+        self.nixosModules.nix-snapshotter-rootless
+      ];
+    };
+
+    nix-snapshotter = import ./nix-snapshotter.nix;
+    nix-snapshotter-rootless = import ./nix-snapshotter-rootless.nix;
+    containerd-rootless = import ./containerd-rootless.nix;
+  };
 
   /* NixOS config for a VM to quickly try out nix-snapshotter.
 
@@ -30,7 +41,7 @@ in {
      nixos-rebuild build-vm --flake .#vm
      ```
   */
-  flake.nixosConfigurations.vm = vmFor "x86_64-linux";
+  flake.nixosConfigurations.vm = nixosSystemFor "x86_64-linux" ./vm.nix;
 
   perSystem = { system, ... }: {
     /* A convenient `apps` target to run a NixOS VM to quickly try out
@@ -42,7 +53,7 @@ in {
     */
     apps.vm = {
       type = "app";
-      program = "${(vmFor system).config.system.build.vm}/bin/run-nixos-vm";
+      program = "${(nixosSystemFor system ./vm.nix).config.system.build.vm}/bin/run-nixos-vm";
     };
 
     # NixOS tests for nix-snapshotter.

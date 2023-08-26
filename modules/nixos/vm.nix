@@ -8,6 +8,7 @@
   ];
 
   services.nix-snapshotter.enable = true;
+  services.nix-snapshotter.rootless.enable = true;
 
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
 

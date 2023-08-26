@@ -8,19 +8,33 @@ let
     types
   ;
 
-  cfg = config.services.nix-snapshotter;
+  inherit (config.virtualisation.containerd.rootless)
+    nsenter
+  ;
+
+  cfg = config.services.nix-snapshotter.rootless;
 
   settingsFormat = pkgs.formats.toml {};
 
   configFile = settingsFormat.generate "config.toml" cfg.settings;
 
 in {
-  options.services.nix-snapshotter = {
-    enable = mkEnableOption "nix-snapshotter";
+  imports = [ ./containerd-rootless.nix ];
+
+  options.services.nix-snapshotter.rootless = {
+    enable = mkOption {
+      type = types.bool;
+      default = false;
+      description = lib.mdDoc ''
+        This option enables nix-snapshotter and containerd in rootless mode.
+        To interact with the containerd daemon, one needs to set
+        {command}`CONTAINERD_ADDRESS=$XDG_RUNTIME_DIR/containerd/containerd.sock`.
+      '';
+    };
 
     package = mkPackageOptionMD pkgs "nix-snapshotter" { };
 
-    configFile = mkOption {
+    configFile = lib.mkOption {
       type = types.nullOr types.path;
       default = null;
       description = lib.mdDoc ''
@@ -30,7 +44,7 @@ in {
       '';
     };
 
-    settings = mkOption {
+    settings = lib.mkOption {
       type = settingsFormat.type;
       default = {};
       description = lib.mdDoc ''
@@ -40,7 +54,7 @@ in {
   };
 
   config = mkIf cfg.enable {
-    virtualisation.containerd = {
+    virtualisation.containerd.rootless = {
       enable = true;
 
       # Configure containerd with nix-snapshotter.
@@ -54,20 +68,25 @@ in {
           address = "/run/nix-snapshotter/nix-snapshotter.sock";
         };
       };
+
+      bindMounts = {
+        "$XDG_RUNTIME_DIR/nix-snapshotter".mountPoint = "/run/nix-snapshotter";
+        "$XDG_DATA_HOME/nix-snapshotter".mountPoint = "/var/lib/nix-snapshotter";
+      };
     };
 
-    systemd.services.nix-snapshotter = {
-      wantedBy = [ "multi-user.target" ]; 
-      after = [ "network.target" ];
+    systemd.user.services.nix-snapshotter = {
+      wantedBy = [ "default.target" ];
       partOf = [ "containerd.service" ];
-      description = "nix-snapshotter - containerd snapshotter that understands nix store paths natively";
+      after = [ "containerd.service" ];
+      description = "nix-snapshotter - containerd snapshotter that understands nix store paths natively (Rootless)";
       serviceConfig = {
         Type = "notify";
         Delegate = "yes";
         KillMode = "mixed";
         Restart = "always";
         RestartSec = "2";
-        ExecStart = "${cfg.package}/bin/nix-snapshotter --config ${configFile}";
+        ExecStart = "${nsenter}/bin/containerd-nsenter ${cfg.package}/bin/nix-snapshotter --log-level debug --config ${configFile}";
 
         StateDirectory = "nix-snapshotter";
         RuntimeDirectory = "nix-snapshotter";

@@ -1,7 +1,7 @@
 [![ci workflow](https://github.com/pdtpartners/nix-snapshotter/actions/workflows/ci.yml/badge.svg)](https://github.com/pdtpartners/nix-snapshotter/actions?query=workflow%3ACI)
 # nix-snapshotter
 
-Containerd remote snapshotter that prepares container rootfs from nix store directly.
+nix-snapshotter is a containerd snapshotter that understands nix store paths natively.
 
 https://user-images.githubusercontent.com/6493975/208307213-705abd5c-b345-4b0c-b6ae-f64cce6edfef.mov
 
@@ -24,7 +24,12 @@ NixOS VM that you can play around with immediately.
 nix run ".#vm"
 nixos login: admin (Ctrl-A then X to quit)
 Password: admin
+
+# Running nix image with nix-snapshotter
 sudo nerdctl --snapshotter nix run hinshun/hello:nix
+
+# Running nix image with rootless nix-snapshotter
+nerdctl --snapshotter nix run hinshun/hello:nix
 ```
 
 ## Running locally
