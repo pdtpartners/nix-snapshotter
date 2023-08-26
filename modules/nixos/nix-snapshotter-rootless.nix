@@ -22,6 +22,16 @@ in {
   imports = [ ./containerd-rootless.nix ];
 
   options.services.nix-snapshotter.rootless = {
+
+    setContainerdSnapshotter = mkOption {
+      type = types.bool;
+      default = false;
+      description = lib.mdDoc ''
+        "Set the nix snapshotter to be the default containerd snapshotter 
+        by setting the env var CONTAINERD_SNAPSHOTTER="nix".
+      '';
+    };
+
     enable = mkOption {
       type = types.bool;
       default = false;

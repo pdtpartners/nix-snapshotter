@@ -7,9 +7,12 @@
     (modulesPath + "/virtualisation/qemu-vm.nix")
   ];
 
-  services.nix-snapshotter.enable = true;
-  services.nix-snapshotter.rootless.enable = true;
-
+  services.nix-snapshotter = {
+    enable = true;
+    setContainerdSnapshotter = true;
+    rootless.enable = true;
+  };
+  
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
 
   environment.systemPackages = with pkgs; [
