@@ -72,7 +72,7 @@ in {
 
       sudo_su = lib.concatStringsSep " " [
         "XDG_RUNTIME_DIR=/run/user/${toString user.uid}"
-        "sudo_su" "--preserve-env=XDG_RUNTIME_DIR" "-u" "alice"
+        "sudo" "--preserve-env=XDG_RUNTIME_DIR" "-u" "alice"
       ];
 
     in ''
