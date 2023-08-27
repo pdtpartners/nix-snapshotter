@@ -34,7 +34,7 @@ func TestNixSnapshotterWithSnaphotterSuite(t *testing.T) {
 	}
 	for optsName, opts := range optTestCases {
 		t.Run(optsName, func(t *testing.T) {
-			newSnapshotter := newSnapshotterWithOpts("/nix/store", opts...)
+			newSnapshotter := newSnapshotterWithOpts(opts...)
 			// The Nix-Snapshotter passes the overlayfs profile of tests
 			testsuite.SnapshotterSuite(t, "overlayfs", newSnapshotter)
 		})
@@ -49,7 +49,7 @@ func TestSnapshotter(t *testing.T) {
 	}
 	for optsName, opts := range optTestCases {
 		t.Run(optsName, func(t *testing.T) {
-			newSnapshotter := newSnapshotterWithOpts("", opts...)
+			newSnapshotter := newSnapshotterWithOpts(opts...)
 			t.Run("TestSnapshotterRemove", func(t *testing.T) {
 				testSnapshotterRemove(t, newSnapshotter)
 			})
@@ -60,7 +60,7 @@ func TestSnapshotter(t *testing.T) {
 				testSnapshotterCommit(t, newSnapshotter)
 			})
 			t.Run("TestSnapshotterView", func(t *testing.T) {
-				testSnapshotterView(t, newSnapshotterWithOpts("", append(opts, overlay.WithMountOptions([]string{"volatile"}))...))
+				testSnapshotterView(t, newSnapshotterWithOpts(append(opts, overlay.WithMountOptions([]string{"volatile"}))...))
 			})
 			t.Run("TestSnapshotterOverlayMount", func(t *testing.T) {
 				testSnapshotterOverlayMount(t, newSnapshotter)
