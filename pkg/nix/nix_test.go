@@ -125,25 +125,19 @@ func testBindMounts(t *testing.T, tc testCase, ctx context.Context, labels map[s
 	mounts, err := s.withNixBindMounts(ctx, key, []mount.Mount{})
 	require.NoError(t, err)
 
+	nixStoreDir := defaultNixStore
+	if tc.nixStoreDir != "" {
+		nixStoreDir = tc.nixStoreDir
+	}
 	expectedMounts := []mount.Mount{}
 	for _, nixStore := range tc.nixHashes {
-		if tc.nixStoreDir == "" {
-			expectedMounts = append(expectedMounts,
-				mount.Mount{
-					Type:    "bind",
-					Source:  filepath.Join("/nix/store", nixStore),
-					Target:  filepath.Join("/nix/store", nixStore),
-					Options: []string{"ro", "rbind"},
-				})
-		} else {
-			expectedMounts = append(expectedMounts,
-				mount.Mount{
-					Type:    "bind",
-					Source:  filepath.Join(tc.nixStoreDir, nixStore),
-					Target:  filepath.Join(tc.nixStoreDir, nixStore),
-					Options: []string{"ro", "rbind"},
-				})
-		}
+		expectedMounts = append(expectedMounts,
+			mount.Mount{
+				Type:    "bind",
+				Source:  filepath.Join(nixStoreDir, nixStore),
+				Target:  filepath.Join(nixStoreDir, nixStore),
+				Options: []string{"ro", "rbind"},
+			})
 	}
 	testutil.IsIdentical(t, mounts, expectedMounts)
 }
@@ -179,15 +173,16 @@ func testGCRoots(t *testing.T, tc testCase, ctx context.Context, labels map[stri
 	})
 	require.NoError(t, err)
 
+	nixStoreDir := defaultNixStore
+	if tc.nixStoreDir != "" {
+		nixStoreDir = tc.nixStoreDir
+	}
+
 	if labels[nix2container.NixLayerAnnotation] == "true" {
 		require.Equal(t, len(tc.nixHashes), len(gcRootPaths))
 		for idx := 0; idx < len(tc.nixHashes); idx += 1 {
 			testutil.IsIdentical(t, gcRootPaths[idx], filepath.Join(root, "gcroots", id, tc.nixHashes[idx]))
-			if tc.nixStoreDir == "" {
-				testutil.IsIdentical(t, nixStorePaths[idx], filepath.Join("/nix/store", tc.nixHashes[idx]))
-			} else {
-				testutil.IsIdentical(t, nixStorePaths[idx], filepath.Join(tc.nixStoreDir, tc.nixHashes[idx]))
-			}
+			testutil.IsIdentical(t, nixStorePaths[idx], filepath.Join(nixStoreDir, tc.nixHashes[idx]))
 		}
 	} else {
 		require.Equal(t, 0, len(gcRootPaths))

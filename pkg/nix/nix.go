@@ -34,6 +34,8 @@ import (
 	"github.com/pdtpartners/nix-snapshotter/pkg/nix2container"
 )
 
+var defaultNixStore = "/nix/store"
+
 // NixBuilder is a `nix build --out-link` implementation.
 type NixBuilder func(ctx context.Context, gcRootPath, nixStorePath string) error
 
@@ -100,7 +102,7 @@ func defaultNixBuilder(ctx context.Context, gcRootPath, nixStorePath string) err
 func NewSnapshotter(root string, opts ...interface{}) (snapshots.Snapshotter, error) {
 	config := NixSnapshotterConfig{
 		nixBuilder:  defaultNixBuilder,
-		nixStoreDir: "/nix/store",
+		nixStoreDir: defaultNixStore,
 	}
 	overlayOpts := []overlay.Opt{}
 	for _, opt := range opts {
