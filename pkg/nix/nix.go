@@ -59,7 +59,6 @@ func WithNixBuilder(nixBuilder NixBuilder) NixOpt {
 }
 
 // WithNixStoreDir is an option to specify the directory of the nix store
-// The default is "/nix/store"
 func WithNixStoreDir(nixStoreDir string) NixOpt {
 	return func(config *NixSnapshotterConfig) error {
 		config.nixStoreDir = nixStoreDir

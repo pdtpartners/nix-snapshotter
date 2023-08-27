@@ -98,13 +98,13 @@ func TestNixSnapshotter(t *testing.T) {
 				labels[idx] = value
 			}
 
-			testBindMounts(t, tc, ctx, labels)
-			testGCRoots(t, tc, ctx, labels)
+			testBindMounts(ctx, t, tc, labels)
+			testGCRoots(ctx, t, tc, labels)
 		})
 	}
 }
 
-func testBindMounts(t *testing.T, tc testCase, ctx context.Context, labels map[string]string) {
+func testBindMounts(ctx context.Context, t *testing.T, tc testCase, labels map[string]string) {
 	key := "test"
 	root := t.TempDir()
 	opts := []interface{}{}
@@ -142,7 +142,7 @@ func testBindMounts(t *testing.T, tc testCase, ctx context.Context, labels map[s
 	testutil.IsIdentical(t, mounts, expectedMounts)
 }
 
-func testGCRoots(t *testing.T, tc testCase, ctx context.Context, labels map[string]string) {
+func testGCRoots(ctx context.Context, t *testing.T, tc testCase, labels map[string]string) {
 	key := "test"
 	root := t.TempDir()
 
