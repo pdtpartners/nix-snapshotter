@@ -34,13 +34,16 @@ import (
 	"github.com/pdtpartners/nix-snapshotter/pkg/nix2container"
 )
 
+var defaultNixStore = "/nix/store"
+
 // NixBuilder is a `nix build --out-link` implementation.
 type NixBuilder func(ctx context.Context, gcRootPath, nixStorePath string) error
 
 // NixSnapshotterConfig is used to configure the nix snapshotter instance
 type NixSnapshotterConfig struct {
-	fuse       bool
-	nixBuilder NixBuilder
+	fuse        bool
+	nixBuilder  NixBuilder
+	nixStoreDir string
 }
 
 // NixOpt is an option to configure the nix snapshotter
@@ -51,6 +54,14 @@ type NixOpt func(config *NixSnapshotterConfig) error
 func WithNixBuilder(nixBuilder NixBuilder) NixOpt {
 	return func(config *NixSnapshotterConfig) error {
 		config.nixBuilder = nixBuilder
+		return nil
+	}
+}
+
+// WithNixStoreDir is an option to specify the directory of the nix store
+func WithNixStoreDir(nixStoreDir string) NixOpt {
+	return func(config *NixSnapshotterConfig) error {
+		config.nixStoreDir = nixStoreDir
 		return nil
 	}
 }
@@ -87,9 +98,10 @@ func defaultNixBuilder(ctx context.Context, gcRootPath, nixStorePath string) err
 // NewSnapshotter returns a Snapshotter which uses overlayfs. The overlayfs
 // diffs are stored under the provided root. A metadata file is stored under
 // the root.
-func NewSnapshotter(root, nixStoreDir string, opts ...interface{}) (snapshots.Snapshotter, error) {
+func NewSnapshotter(root string, opts ...interface{}) (snapshots.Snapshotter, error) {
 	config := NixSnapshotterConfig{
-		nixBuilder: defaultNixBuilder,
+		nixBuilder:  defaultNixBuilder,
+		nixStoreDir: defaultNixStore,
 	}
 	overlayOpts := []overlay.Opt{}
 	for _, opt := range opts {
@@ -133,7 +145,7 @@ func NewSnapshotter(root, nixStoreDir string, opts ...interface{}) (snapshots.Sn
 		ms:          ms,
 		asyncRemove: false,
 		root:        root,
-		nixStoreDir: nixStoreDir,
+		nixStoreDir: config.nixStoreDir,
 		fuse:        config.fuse,
 		nixBuilder:  config.nixBuilder,
 	}, nil
