@@ -40,20 +40,18 @@ const (
 type PushOpt func(*PushConfig)
 
 type PushConfig struct {
-	DefaultScheme string
+	PlainHTTP bool
 }
 
 func WithPlainHTTP() PushOpt {
 	return func(cfg *PushConfig) {
-		cfg.DefaultScheme = "http"
+		cfg.PlainHTTP = true
 	}
 }
 
 // Push generates a nix-snapshotter image and pushes it to a remote.
 func Push(ctx context.Context, image types.Image, ref string, opts ...PushOpt) error {
-	cfg := &PushConfig{
-		DefaultScheme: "https",
-	}
+	cfg := &PushConfig{}
 	for _, opt := range opts {
 		opt(cfg)
 	}
