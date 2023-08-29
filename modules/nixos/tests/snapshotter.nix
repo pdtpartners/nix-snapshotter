@@ -27,6 +27,7 @@ let
       };
 
     in {
+
       # Setup local registry for testing `buildImage` and `copyToRegistry`.
       services.dockerRegistry = {
         enable = true;
@@ -46,13 +47,13 @@ let
 
   rootful = {
     imports = [ base ../nix-snapshotter.nix ];
-
+    services.nix-snapshotter.setContainerdSnapshotter = true;
     services.nix-snapshotter.enable = true;
   };
 
   rootless = {
     imports = [ base ../nix-snapshotter-rootless.nix ];
-
+    services.nix-snapshotter.rootless.setContainerdSnapshotter = true;
     services.nix-snapshotter.rootless.enable = true;
 
     users.users.alice = {
@@ -89,14 +90,14 @@ in {
         machine.wait_for_unit("containerd.service")
 
         with subtest(f"{name}: Run regular container as root"):
-          machine.succeed("nerdctl --snapshotter nix load < $HELLO_TARBALL")
-          out = machine.succeed("nerdctl --snapshotter nix run --name hello ${regularImage}")
+          machine.succeed("nerdctl load < $HELLO_TARBALL")
+          out = machine.succeed("nerdctl run --name hello ${regularImage}")
           assert "Hello, world!" in out
           machine.succeed("nerdctl ps -a | grep hello")
           machine.succeed("nerdctl rm hello")
 
         with subtest(f"{name}: Run nix container as root"):
-          out = machine.succeed("nerdctl --snapshotter nix run --name hello ${nixImage}")
+          out = machine.succeed("nerdctl run --name hello ${nixImage}")
           assert "Hello, world!" in out
           machine.succeed("nerdctl ps -a | grep hello")
           machine.succeed("nerdctl rm hello")
@@ -107,8 +108,8 @@ in {
         wait_for_user_unit(machine, "containerd.service")
 
         with subtest(f"{name}: Run regular container as user"):
-          machine.succeed("${sudo_su} nerdctl --snapshotter nix load < $HELLO_TARBALL")
-          out = machine.succeed("${sudo_su} nerdctl --snapshotter nix run --name hello ${regularImage}")
+          machine.succeed("${sudo_su} nerdctl load < $HELLO_TARBALL")
+          out = machine.succeed("${sudo_su} nerdctl run --name hello ${regularImage}")
           assert "Hello, world!" in out
           machine.succeed("${sudo_su} nerdctl ps -a | grep hello")
           machine.succeed("${sudo_su} nerdctl rm hello")
@@ -126,7 +127,7 @@ in {
         # - https://github.com/containerd/nerdctl/issues/814
         # - https://github.com/rootless-containers/rootlesskit/pull/379
         # with subtest(f"{name}: Run nix container as user"):
-        #   out = machine.succeed("${sudo_su} nerdctl --snapshotter nix run --name hello ${nixImage}")
+        #   out = machine.succeed("${sudo_su} nerdctl run --name hello ${nixImage}")
         #   assert "Hello, world!" in out
         #   machine.succeed("${sudo_su} nerdctl ps -a | grep hello")
         #   machine.succeed("${sudo_su} nerdctl rm hello")

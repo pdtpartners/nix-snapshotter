@@ -16,6 +16,16 @@ let
 
 in {
   options.services.nix-snapshotter = {
+
+    setContainerdSnapshotter = mkOption {
+      type = types.bool;
+      default = false;
+      description = lib.mdDoc ''
+        "Set the nix snapshotter to be the default containerd snapshotter 
+        by setting the env var CONTAINERD_SNAPSHOTTER="nix".
+      '';
+    };
+
     enable = mkEnableOption "nix-snapshotter";
 
     package = mkPackageOptionMD pkgs "nix-snapshotter" { };
@@ -40,6 +50,11 @@ in {
   };
 
   config = mkIf cfg.enable {
+
+    environment.sessionVariables = lib.mkIf (cfg.setContainerdSnapshotter) {
+      CONTAINERD_SNAPSHOTTER  = "nix";
+    };
+
     virtualisation.containerd = {
       enable = true;
 

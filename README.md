@@ -26,10 +26,10 @@ nixos login: admin (Ctrl-A then X to quit)
 Password: admin
 
 # Running nix image with nix-snapshotter
-sudo nerdctl --snapshotter nix run hinshun/hello:nix
+sudo nerdctl run hinshun/hello:nix
 
 # Running nix image with rootless nix-snapshotter
-nerdctl --snapshotter nix run hinshun/hello:nix
+nerdctl run hinshun/hello:nix
 ```
 
 ## Running locally
