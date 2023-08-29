@@ -81,7 +81,7 @@ in {
 
       bindMounts = {
         "$XDG_RUNTIME_DIR/nix-snapshotter".mountPoint = "/run/nix-snapshotter";
-        "$XDG_DATA_HOME/nix-snapshotter".mountPoint = "/var/lib/nix-snapshotter";
+        "$XDG_DATA_HOME/nix-snapshotter".mountPoint = "/var/lib/containerd/io.containerd.snapshotter.v1.nix";
       };
     };
 

@@ -58,5 +58,6 @@ in {
 
     # NixOS tests for nix-snapshotter.
     nixosTests.snapshotter = import ./tests/snapshotter.nix;
+    nixosTests.kubernetes= import ./tests/kubernetes.nix;
   };
 }
