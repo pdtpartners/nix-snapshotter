@@ -1,8 +1,7 @@
-{ config, pkgs, lib, ... }:
+{ options, config, pkgs, lib, ... }:
 let
   inherit (lib)
     mkEnableOption
-    mkIf
     mkOption
     mkPackageOptionMD
     types
@@ -14,6 +13,8 @@ let
 
   cfg = config.services.nix-snapshotter.rootless;
 
+  ns-lib = config.services.nix-snapshotter.lib;
+
   settingsFormat = pkgs.formats.toml {};
 
   configFile = settingsFormat.generate "config.toml" cfg.settings;
@@ -22,15 +23,13 @@ in {
   imports = [ ./containerd-rootless.nix ];
 
   options.services.nix-snapshotter.rootless = {
-
-    setContainerdSnapshotter = mkOption {
-      type = types.bool;
-      default = false;
-      description = lib.mdDoc ''
-        "Set the nix snapshotter to be the default containerd snapshotter 
-        by setting the env var CONTAINERD_SNAPSHOTTER="nix".
-      '';
-    };
+    inherit (options.services.nix-snapshotter)
+      path
+      settings
+      setContainerdSnapshotter
+      setContainerdNamespace
+      preloadContainerdImages
+    ;
 
     enable = mkOption {
       type = types.bool;
@@ -43,65 +42,55 @@ in {
     };
 
     package = mkPackageOptionMD pkgs "nix-snapshotter" { };
-
-    configFile = lib.mkOption {
-      type = types.nullOr types.path;
-      default = null;
-      description = lib.mdDoc ''
-       Path to nix-snapshotter config file.
-       Setting this option will override any configuration applied by the
-       settings option.
-      '';
-    };
-
-    settings = lib.mkOption {
-      type = settingsFormat.type;
-      default = {};
-      description = lib.mdDoc ''
-        Verbatim lines to add to config.toml
-      '';
-    };
   };
 
-  config = mkIf cfg.enable {
-    virtualisation.containerd.rootless = {
-      enable = true;
+  config = lib.mkIf cfg.enable (lib.mkMerge [
+    {
+      services.nix-snapshotter = lib.mkDefault {
+        inherit (cfg)
+          setContainerdSnapshotter
+          setContainerdNamespace
+        ;
+      };
 
-      # Configure containerd with nix-snapshotter.
-      settings = {
-        plugins."io.containerd.grpc.v1.cri" = {
-          containerd.snapshotter = "nix";
-        };
+      virtualisation.containerd.rootless = {
+        enable = true;
 
-        proxy_plugins.nix = {
-          type = "snapshot";
-          address = "/run/nix-snapshotter/nix-snapshotter.sock";
+        # Configure containerd with nix-snapshotter.
+        settings = ns-lib.baseContainerdSettings;
+
+        bindMounts = {
+          "$XDG_RUNTIME_DIR/nix-snapshotter".mountPoint = "/run/nix-snapshotter";
+          "$XDG_DATA_HOME/nix-snapshotter".mountPoint = "/var/lib/containerd/io.containerd.snapshotter.v1.nix";
         };
       };
 
-      bindMounts = {
-        "$XDG_RUNTIME_DIR/nix-snapshotter".mountPoint = "/run/nix-snapshotter";
-        "$XDG_DATA_HOME/nix-snapshotter".mountPoint = "/var/lib/containerd/io.containerd.snapshotter.v1.nix";
+      systemd.user.services.nix-snapshotter = {
+        inherit (cfg) path;
+        description = "nix-snapshotter - containerd snapshotter that understands nix store paths natively (Rootless)";
+        wantedBy = [ "default.target" ];
+        partOf = [ "containerd.service" ];
+        after = [ "containerd.service" ];
+        serviceConfig = lib.mkMerge [
+          ns-lib.baseServiceConfig
+          {
+            ExecStart = "${nsenter}/bin/containerd-nsenter ${cfg.package}/bin/nix-snapshotter --log-level debug --config ${configFile}";
+          }
+        ];
       };
-    };
-
-    systemd.user.services.nix-snapshotter = {
-      wantedBy = [ "default.target" ];
-      partOf = [ "containerd.service" ];
-      after = [ "containerd.service" ];
-      description = "nix-snapshotter - containerd snapshotter that understands nix store paths natively (Rootless)";
-      serviceConfig = {
-        Type = "notify";
-        Delegate = "yes";
-        KillMode = "mixed";
-        Restart = "always";
-        RestartSec = "2";
-        ExecStart = "${nsenter}/bin/containerd-nsenter ${cfg.package}/bin/nix-snapshotter --log-level debug --config ${configFile}";
-
-        StateDirectory = "nix-snapshotter";
-        RuntimeDirectory = "nix-snapshotter";
-        RuntimeDirectoryPreserve = "yes";
-      };
-    };
-  };
+    }
+    (lib.mkIf (cfg.preloadContainerdImages != []) {
+      systemd.user.services.preload-containerd-images = lib.mkMerge [
+        (ns-lib.mkPreloadContainerdImageService {
+          archives = cfg.preloadContainerdImages;
+          namespace = cfg.setContainerdNamespace;
+        })
+        {
+          description = "Preload images to containerd (Rootless)";
+          wantedBy = [ "default.target" ];
+          environment.CONTAINERD_ADDRESS = "%t/containerd/containerd.sock";
+        }
+      ];
+    })
+  ]);
 }

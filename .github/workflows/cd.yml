@@ -4,7 +4,6 @@ on:
   push:
     branches: 
       - main
-      - feature/switch-to-ghci #Remove once finished testing
 
 jobs:
   publish-image:

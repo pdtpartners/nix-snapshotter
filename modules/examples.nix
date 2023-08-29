@@ -42,7 +42,7 @@
         };
       };
 
-      apps = 
+      pushImages =
         lib.mapAttrs'
           (name: image: 
             lib.nameValuePair
@@ -51,12 +51,27 @@
                 type = "app";
                 program = "${image.copyToRegistry {}}/bin/copy-to-registry";
               }
-              
+          )
+          examples;
+
+      imageArchives =
+        lib.mapAttrs'
+          (name: image:
+            lib.nameValuePair
+              ("archive-" + name)
+              (image.copyToOCIArchive {})
           )
           examples;
 
     in {
-      inherit apps;
-      packages = { inherit (examples) hello redis redisWithShell; };
+      # Load example images into VM.
+      _module.args = { inherit examples; };
+
+      apps = pushImages;
+
+      packages = lib.mkMerge [
+        { inherit (examples) hello redis redisWithShell; }
+        imageArchives
+      ];
     };
 }

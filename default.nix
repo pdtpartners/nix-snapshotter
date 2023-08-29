@@ -13,7 +13,7 @@ let
         ".tar"
       ];
     };
-    vendorSha256 = "sha256-TRPJXJRNiKExTBG+vDzHw1kdSVKzNn0jOq/FmSGkTSE=";
+    vendorSha256 = "sha256-l0ttbSToudTT+GloxOZE6ohGIx8/OTq2LFCi1rjk7Ec=";
   };
 
   buildImage = args@{
@@ -56,6 +56,7 @@ let
           # reference will exist in the store.
           imageRefUnsafe = l.unsafeDiscardStringContext "${imageName}:${imageTag}";
           copyToRegistry = copyToRegistry image;
+          copyToOCIArchive = copyToOCIArchive image;
         };
       }
       ''
@@ -75,11 +76,20 @@ let
       plainHTTPFlag = if plainHTTP then "--plain-http" else "";
 
     in pkgs.writeShellScriptBin "copy-to-registry" ''
-      echo "Copy to Docker registry image ${image.imageName}:${image.imageTag}"
+      echo "Copy ${image.imageName}:${image.imageTag} to Docker Registry"
       ${nix-snapshotter}/bin/nix2container push \
       ${plainHTTPFlag} \
       ${image} \
       ${image.imageName}:${image.imageTag}
+    '';
+
+  copyToOCIArchive = image: {}:
+    pkgs.runCommand "${baseNameOf image.imageName}.tar" {} ''
+      echo "Copy ${image.imageName}:${image.imageTag} to OCI archive"
+      ${nix-snapshotter}/bin/nix2container export \
+      ${image} \
+      ${image.imageName}:${image.imageTag} \
+      $out
     '';
 
 in

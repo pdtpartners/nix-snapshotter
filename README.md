@@ -22,21 +22,31 @@ NixOS VM that you can play around with immediately.
 
 ```sh
 nix run ".#vm"
-nixos login: admin (Ctrl-A then X to quit)
-Password: admin
+nixos login: root (Ctrl-A then X to quit)
+Password: root
 
 # Running pkgs.hello image with nix-snapshotter
-sudo nerdctl run ghcr.io/pdtpartners/hello
-
-# Running pkgs.hello image with rootless nix-snapshotter
 nerdctl run ghcr.io/pdtpartners/hello
 
 # Running pkgs.redis image with kubernetes & nix-snapshotter
 kubectl apply -f /etc/kubernetes/redis.yaml
 
-# A kubernetes service is setup to forward port 30000 to the redis pod, so you
-# can test out redis with a `ping` command.
+# Wait a few seconds and a kubernetes service will be ready to forward port
+# 30000 to the redis pod, so you can test it out with a `ping` command.
 redis-cli -p 30000 ping
+```
+
+Or you can try running in rootless mode:
+
+```sh
+nix run ".#vm"
+nixos login: rootless (Ctrl-A then X to quit)
+Password: rootless
+
+# Running pkgs.hello image with nix-snapshotter
+nerdctl run ghcr.io/pdtpartners/hello
+
+# Rootless kubernetes not supported yet
 ```
 
 ## Running locally

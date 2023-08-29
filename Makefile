@@ -2,7 +2,7 @@ PREFIX ?= $(CURDIR)/build/bin/
 
 CMD=nix-snapshotter
 
-.PHONY: all build nix-snapshotter start-containerd start-nix-snapshotter run-hello run-redis clean set-crictl-config
+.PHONY: all build nix-snapshotter nix2container start-containerd start-nix-snapshotter run-hello run-redis clean
 
 all: build
 
@@ -12,6 +12,9 @@ FORCE:
 
 nix-snapshotter: FORCE
 	go build -o $(PREFIX) .
+
+nix2container: FORCE
+	go build -o $(PREFIX) ./cmd/nix2container
 
 build/containerd/config.toml:
 	bash ./script/rootless/create-containerd-config.sh

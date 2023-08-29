@@ -17,6 +17,10 @@ address = "$REPO_DIR/build/containerd/containerd.sock"
 [plugins."io.containerd.grpc.v1.cri".containerd]
 snapshotter = "nix"
 
+[[plugins."io.containerd.transfer.v1.local".unpack_config]]
+platform = "linux/amd64"
+snapshotter = "nix"
+
 [proxy_plugins.nix]
 type = "snapshot"
 address = "$REPO_DIR/build/nix-snapshotter/nix-snapshotter.sock"

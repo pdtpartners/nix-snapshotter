@@ -19,6 +19,7 @@ package nix
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -86,13 +87,20 @@ type nixSnapshotter struct {
 }
 
 func defaultNixBuilder(ctx context.Context, gcRootPath, nixStorePath string) error {
-	return exec.Command(
+	_, err := exec.Command(
 		"nix",
 		"build",
 		"--out-link",
 		gcRootPath,
 		nixStorePath,
-	).Run()
+	).Output()
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) {
+		log.G(ctx).
+			WithField("nixStorePath", nixStorePath).
+			Debugf("Failed to create gc root:\n%s", string(exitErr.Stderr))
+	}
+	return err
 }
 
 // NewSnapshotter returns a Snapshotter which uses overlayfs. The overlayfs
