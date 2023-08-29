@@ -2,29 +2,55 @@ name: CI
 
 on:
   push:
+    branches: [ main ]
   pull_request:
+    types: [ opened, reopened, labeled, synchronize ]
 
 jobs:
-  nix-build:
+  lint:
     runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        linter:
+          - golangci-lint
     steps:
       - uses: actions/checkout@v3
-      - name: Install Nix
-        uses: DeterminateSystems/nix-installer-action@main
-      - name: Run the Magic Nix Cache
-        uses: DeterminateSystems/magic-nix-cache-action@main
-      - name: Check Nix Flake
-        run: nix flake check
-      - name: Build package
-        run: nix build
+      - name: Setup Nix
+        uses: ./.github/actions/setup-nix
+      - name: Run linter
+        run: nix run .#lint-${{ matrix.linter }}
 
-  go-lint-check:
+  build:
     runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        package:
+          - nix-snapshotter
+          - hello
+          - redis
+          - redisWithShell
     steps:
       - uses: actions/checkout@v3
-      - name: Install Nix
-        uses: DeterminateSystems/nix-installer-action@main
-      - name: Run the Magic Nix Cache
-        uses: DeterminateSystems/magic-nix-cache-action@main
-      - name: Run Linter
-        run: nix develop --command golangci-lint run
+      - name: Setup Nix
+        uses: ./.github/actions/setup-nix
+      - name: Build package
+        run: nix build .#${{ matrix.package }}
+
+  integration-test:
+    strategy:
+      matrix:
+        test:
+          - snapshotter
+    runs-on: nix-snapshotter-runner
+    needs: [lint, build]
+    if: contains(github.event.pull_request.labels.*.name, 'ok-to-test')
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Nix
+        uses: ./.github/actions/setup-nix
+        with:
+          enable-kvm: true
+      - name: Build snapshotter
+        run: nix build
+      - name: Run integration tests
+        run: nix run -L .#test-${{ matrix.test }}

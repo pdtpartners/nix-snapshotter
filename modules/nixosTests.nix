@@ -55,17 +55,7 @@ in {
           )
           testRigs;
 
-      /* For each nixosTest, add a check for interactive use and for CI.
-
-         ```sh
-         nix flake check -L
-         ```
-      */
-      # TODO: https://github.com/pdtpartners/nix-snapshotter/issues/36
-      # checks = lib.mapAttrs (_: testRig: testRig.test) testRigs;
-      checks = {};
-
     in {
-      inherit apps checks;
+      inherit apps;
     };
 }
