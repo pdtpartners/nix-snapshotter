@@ -41,6 +41,7 @@ jobs:
       matrix:
         test:
           - snapshotter
+          - kubernetes
     runs-on: nix-snapshotter-runner
     needs: [lint, build]
     if: contains(github.event.pull_request.labels.*.name, 'ok-to-test')
