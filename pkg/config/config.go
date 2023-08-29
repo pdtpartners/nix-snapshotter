@@ -13,7 +13,7 @@ import (
 
 var (
 	defaultAddress = "/run/nix-snapshotter/nix-snapshotter.sock"
-	defaultRoot    = "/var/lib/nix-snapshotter"
+	defaultRoot    = "/var/lib/containerd/io.containerd.snapshotter.v1.nix"
 )
 
 // Config provides nix-snapshotter configuration data.

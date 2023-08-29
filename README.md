@@ -25,11 +25,18 @@ nix run ".#vm"
 nixos login: admin (Ctrl-A then X to quit)
 Password: admin
 
-# Running nix image with nix-snapshotter
+# Running pkgs.hello image with nix-snapshotter
 sudo nerdctl run hinshun/hello:nix
 
-# Running nix image with rootless nix-snapshotter
+# Running pkgs.hello image with rootless nix-snapshotter
 nerdctl run hinshun/hello:nix
+
+# Running pkgs.redis image with kubernetes & nix-snapshotter
+kubectl apply -f /etc/kubernetes/redis.yaml
+
+# A kubernetes service is setup to forward port 30000 to the redis pod, so you
+# can test out redis with a `ping` command.
+redis-cli -p 30000 ping
 ```
 
 ## Running locally
