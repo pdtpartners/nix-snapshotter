@@ -1,4 +1,4 @@
-{ config, pkgs, lib, ... }:
+{ options, config, pkgs, lib, ... }:
 let
   inherit (lib)
     mkOption
@@ -97,6 +97,11 @@ let
 
 in {
   options.virtualisation.containerd.rootless = {
+    inherit (options.virtualisation.containerd)
+      settings
+      args
+    ;
+
     enable = mkOption {
       type = types.bool;
       default = false;
@@ -116,30 +121,6 @@ in {
         Point {command}`CONTAINERD_ADDRESS` to rootless containerd for normal
         users by default.
       '';
-    };
-
-    configFile = lib.mkOption {
-      type = types.nullOr types.path;
-      default = null;
-      description = lib.mdDoc ''
-       Path to containerd config file.
-       Setting this option will override any configuration applied by the
-       settings option.
-      '';
-    };
-
-    settings = lib.mkOption {
-      type = settingsFormat.type;
-      default = {};
-      description = lib.mdDoc ''
-        Verbatim lines to add to containerd.toml
-      '';
-    };
-
-    args = lib.mkOption {
-      type = types.attrsOf types.str;
-      default = {};
-      description = lib.mdDoc "extra args to append to the containerd cmdline";
     };
 
     bindMounts = lib.mkOption {

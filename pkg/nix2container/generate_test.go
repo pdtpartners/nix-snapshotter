@@ -117,7 +117,7 @@ func TestInitializeManifest(t *testing.T) {
 				img.BaseImage = outPath
 			}
 
-			ctx := context.TODO()
+			ctx := context.Background()
 			provider := NewInmemoryProvider()
 			mfst, cfg, err := initializeManifest(ctx, img, provider)
 			require.NoError(t, err)
@@ -131,7 +131,6 @@ func TestInitializeManifest(t *testing.T) {
 
 			testutil.IsIdentical(t, mfst, tc.expectedMfst)
 			testutil.IsIdentical(t, cfg, tc.expectedCfg)
-
 		})
 	}
 }
@@ -281,8 +280,7 @@ func TestWriteNixClosureLayer(t *testing.T) {
 			}
 
 			buf := new(bytes.Buffer)
-			_, err = writeNixClosureLayer(
-				ctx, buf, tc.storePaths, tc.copyToRoots)
+			_, err = writeNixClosureLayer(ctx, buf, tc.storePaths, tc.copyToRoots)
 			require.NoError(t, err)
 
 			// Convert Tar to file system
@@ -315,9 +313,7 @@ func TestWriteNixClosureLayer(t *testing.T) {
 			sort.Strings(tc.expectedTarballPaths)
 
 			testutil.IsIdentical(t, fsOut, tc.expectedTarballPaths)
-
 		})
-
 	}
 }
 
@@ -327,6 +323,7 @@ func newMapFSFromTar(tarBytes []byte) (fstest.MapFS, error) {
 		return nil, err
 	}
 	tarRead := tar.NewReader(gzRead)
+
 	files := make(fstest.MapFS)
 	for {
 		cur, err := tarRead.Next()
@@ -335,16 +332,19 @@ func newMapFSFromTar(tarBytes []byte) (fstest.MapFS, error) {
 		} else if err != nil {
 			return nil, err
 		}
+
 		data, err := io.ReadAll(tarRead)
 		if err != nil {
 			return nil, err
 		}
+
 		files[cur.Name] = &fstest.MapFile{
 			Data:    data,
 			Mode:    fs.FileMode(cur.Mode),
-			ModTime: cur.ModTime}
+			ModTime: cur.ModTime,
+		}
 
 	}
-	return files, nil
 
+	return files, nil
 }

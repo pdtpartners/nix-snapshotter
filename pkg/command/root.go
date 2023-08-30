@@ -16,6 +16,7 @@ func NewApp(ctx context.Context) *cli.App {
 		},
 		Commands: []*cli.Command{
 			buildCommand,
+			exportCommand,
 			pushCommand,
 		},
 	}
