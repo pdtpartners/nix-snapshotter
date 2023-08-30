@@ -1,0 +1,32 @@
+name: CD
+
+on:
+  push:
+    branches: 
+      - main
+
+jobs:
+  publish-image:
+    runs-on: ubuntu-22.04
+    permissions: 
+      packages: write
+      contents: read
+    strategy:
+      matrix:
+        image:
+          - hello
+          - redis
+          - redisWithShell
+    steps: 
+      - uses: actions/checkout@v3
+      - name: Setup Nix
+        uses: ./.github/actions/setup-nix
+      - name: Log in to the Container registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Push ${{ matrix.image }} image
+        run: nix run .#push-${{ matrix.image }}
+    

@@ -46,13 +46,20 @@ let
     };
 
   rootful = {
-    imports = [ base ../nix-snapshotter.nix ];
+    imports = [
+      base
+      ../nix-snapshotter.nix
+    ];
     services.nix-snapshotter.setContainerdSnapshotter = true;
     services.nix-snapshotter.enable = true;
   };
 
   rootless = {
-    imports = [ base ../nix-snapshotter-rootless.nix ];
+    imports = [
+      base
+      ../nix-snapshotter.nix
+      ../nix-snapshotter-rootless.nix
+    ];
     services.nix-snapshotter.rootless.setContainerdSnapshotter = true;
     services.nix-snapshotter.rootless.enable = true;
 

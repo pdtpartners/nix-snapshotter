@@ -2,14 +2,18 @@
 let
   nixosSystemFor = system: module:
     let
-      # NixOS systems need access to pkgs with nix-snapshotter, which is
-      # provided by `pkgs'`.
-      pkgs' = withSystem system ({ pkgs', ...}: pkgs');
+      pkgs = withSystem system ({ pkgs, ...}: pkgs);
+      examples = withSystem system ({ examples, ...}: examples);
 
     in lib.nixosSystem {
       inherit system;
       modules = [
-        { _module.args.pkgs = lib.mkForce pkgs'; }
+        {
+          _module.args = {
+            inherit examples;
+            pkgs = lib.mkForce pkgs;
+          };
+        }
         self.nixosModules.default
         module
       ];
