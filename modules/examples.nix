@@ -1,9 +1,8 @@
 {
-  perSystem = {lib, pkgs, nix-snapshotter-parts, ... }:
+  perSystem = { lib, pkgs, ... }:
     let
-      inherit (nix-snapshotter-parts)
+      inherit (pkgs.nix-snapshotter)
         buildImage
-        copyToRegistry
       ;
 
       examples = rec {

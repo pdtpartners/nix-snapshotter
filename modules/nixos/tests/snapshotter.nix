@@ -12,7 +12,7 @@ let
   nixTag = "nix";
   nixImage = "${imageName}:${nixTag}";
 
-  base = { pkgs, nix-snapshotter-parts, ... }:
+  base = { pkgs, ... }:
     let
       helloTarball = pkgs.dockerTools.buildImage {
         name = imageName;
@@ -20,7 +20,7 @@ let
         config.entrypoint = ["${pkgs.hello}/bin/hello"];
       };
 
-      hello-nix = nix-snapshotter-parts.buildImage {
+      hello-nix = pkgs.nix-snapshotter.buildImage {
         name = imageName;
         tag = nixTag;
         config.entrypoint = ["${pkgs.hello}/bin/hello"];

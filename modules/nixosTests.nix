@@ -19,7 +19,7 @@ in {
     };
   };
 
-  config.perSystem = { config, pkgs, nix-snapshotter-parts, ... }:
+  config.perSystem = { config, pkgs, ... }:
     let
       evalTest = name: module:
         (lib.nixos.evalTest {
@@ -29,9 +29,6 @@ in {
           ];
           hostPkgs = pkgs;
           node.pkgs = pkgs;
-          extraBaseModules = {
-            _module.args = { inherit nix-snapshotter-parts; };
-          };
         }).config.result;
 
       testRigs = lib.mapAttrs (name: module: evalTest name module) config.nixosTests;

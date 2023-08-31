@@ -1,98 +1,12 @@
-{ pkgs ? import <nixpkgs> { }, system }:
-let
-  l = pkgs.lib // builtins;
-
-  nix-snapshotter = pkgs.buildGoModule {
-    pname = "nix-snapshotter";
-    version = "0.0.1";
-    src = l.cleanSourceWith {
-      src = l.sourceFilesBySuffices ./. [
-        ".go"
-        "go.mod"
-        "go.sum"
-        ".tar"
-      ];
-    };
-    vendorSha256 = "sha256-l0ttbSToudTT+GloxOZE6ohGIx8/OTq2LFCi1rjk7Ec=";
-  };
-
-  buildImage = args@{
-    # The image name when exported.
-    name,
-    # The image tag when exported.
-    tag ? null,
-    # An image that is used as base image of this image.
-    fromImage ? "",
-    # A derivation (or list of derivation) to include in the layer
-    # root. The store path prefix /nix/store/hash-path is removed. The
-    # store path content is then located at the image /.
-    copyToRoot ? null,
-    # An attribute set describing an image configuration as defined in:
-    # https://github.com/opencontainers/image-spec/blob/8b9d41f48198a7d6d0a5c1a12dc2d1f7f47fc97f/specs-go/v1/config.go#L23
-    config ? {},
-  }:
-    let
-      configFile = pkgs.writeText "config-${baseNameOf name}.json" (l.toJSON config);
-      copyToRootList = l.toList (args.copyToRoot or []);
-      closureInfo = pkgs.closureInfo {
-        rootPaths = [ configFile ] ++ copyToRootList;
-      };
-      copyToRootFile = pkgs.writeText "copy-to-root-${baseNameOf name}.json" (l.toJSON copyToRootList);
-      fromImageFlag = l.optionalString (fromImage != "") "--from-image ${fromImage}";
-      image = let
-        imageName = l.toLower name;
-        imageTag =
-          if tag != null
-          then tag
-          else
-          l.head (l.strings.splitString "-" (baseNameOf image.outPath));
-      in pkgs.runCommand "image-${baseNameOf name}.json"
-      {
-        inherit imageName;
-        passthru = {
-          inherit imageTag;
-          # provide a cheap to evaluate image reference for use with external tools like docker
-          # DO NOT use as an input to other derivations, as there is no guarantee that the image
-          # reference will exist in the store.
-          imageRefUnsafe = l.unsafeDiscardStringContext "${imageName}:${imageTag}";
-          copyToRegistry = copyToRegistry image;
-          copyToOCIArchive = copyToOCIArchive image;
-        };
-      }
-      ''
-        ${nix-snapshotter}/bin/nix2container build \
-        ${fromImageFlag} \
-        ${configFile} \
-        ${closureInfo}/store-paths \
-        ${copyToRootFile} \
-        $out
-      '';
-    in image;
-
-  copyToRegistry = image: {
-    plainHTTP ? false
-  }:
-    let
-      plainHTTPFlag = if plainHTTP then "--plain-http" else "";
-
-    in pkgs.writeShellScriptBin "copy-to-registry" ''
-      echo "Copy ${image.imageName}:${image.imageTag} to Docker Registry"
-      ${nix-snapshotter}/bin/nix2container push \
-      ${plainHTTPFlag} \
-      ${image} \
-      ${image.imageName}:${image.imageTag}
-    '';
-
-  copyToOCIArchive = image: {}:
-    pkgs.runCommand "${baseNameOf image.imageName}.tar" {} ''
-      echo "Copy ${image.imageName}:${image.imageTag} to OCI archive"
-      ${nix-snapshotter}/bin/nix2container export \
-      ${image} \
-      ${image.imageName}:${image.imageTag} \
-      $out
-    '';
-
-in
-{
-  inherit nix-snapshotter buildImage;
-}
+# For compatibility with non-flakes.
+# See: https://github.com/edolstra/flake-compat
+(import
+  (
+    let lock = builtins.fromJSON (builtins.readFile ./flake.lock); in
+    fetchTarball {
+      url = "https://github.com/edolstra/flake-compat/archive/${lock.nodes.flake-compat.locked.rev}.tar.gz";
+      sha256 = lock.nodes.flake-compat.locked.narHash;
+    }
+  )
+  { src = ./.; }
+).defaultNix
