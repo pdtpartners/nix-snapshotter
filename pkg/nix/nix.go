@@ -35,23 +35,24 @@ import (
 	"github.com/pdtpartners/nix-snapshotter/pkg/nix2container"
 )
 
-var defaultNixStore = "/nix/store"
-
-// NixBuilder is a `nix build --out-link` implementation.
-type NixBuilder func(ctx context.Context, gcRootPath, nixStorePath string) error
+// NixBuilder is a function that is able to substitute a nix store path and
+// optionally create an out-link. outLink may be empty in which case out-links
+// are not needed.
+//
+// Typically this is implemented by `nix build --out-link ${outLink} ${nixStorePath}`,
+// however it can also be done by `nix copy` and alternate implementations.
+type NixBuilder func(ctx context.Context, outLink, nixStorePath string) error
 
 // NixSnapshotterConfig is used to configure the nix snapshotter instance
 type NixSnapshotterConfig struct {
-	fuse        bool
-	nixBuilder  NixBuilder
-	nixStoreDir string
+	fuse       bool
+	nixBuilder NixBuilder
 }
 
 // NixOpt is an option to configure the nix snapshotter
 type NixOpt func(config *NixSnapshotterConfig) error
 
-// WithNixBuilder is an option to specify how to subsitute a nix store path
-// and create a GC root out-link.
+// WithNixBuilder is an option to override the default NixBuilder.
 func WithNixBuilder(nixBuilder NixBuilder) NixOpt {
 	return func(config *NixSnapshotterConfig) error {
 		config.nixBuilder = nixBuilder
@@ -59,12 +60,23 @@ func WithNixBuilder(nixBuilder NixBuilder) NixOpt {
 	}
 }
 
-// WithNixStoreDir is an option to specify the directory of the nix store
-func WithNixStoreDir(nixStoreDir string) NixOpt {
-	return func(config *NixSnapshotterConfig) error {
-		config.nixStoreDir = nixStoreDir
-		return nil
+func defaultNixBuilder(ctx context.Context, outLink, nixStorePath string) error {
+	args := []string{"build"}
+	if outLink == "" {
+		args = append(args, "--no-link")
+	} else {
+		args = append(args, "--out-link", outLink)
 	}
+	args = append(args, "nixStorePath")
+
+	_, err := exec.Command("nix", args...).Output()
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) {
+		log.G(ctx).
+			WithField("nixStorePath", nixStorePath).
+			Debugf("Failed to create gc root:\n%s", string(exitErr.Stderr))
+	}
+	return err
 }
 
 // WithFuseOverlayfs changes the overlay mount type used to fuse-overlayfs, an
@@ -82,25 +94,7 @@ type nixSnapshotter struct {
 	asyncRemove bool
 	root        string
 	fuse        bool
-	nixStoreDir string
 	nixBuilder  NixBuilder
-}
-
-func defaultNixBuilder(ctx context.Context, gcRootPath, nixStorePath string) error {
-	_, err := exec.Command(
-		"nix",
-		"build",
-		"--out-link",
-		gcRootPath,
-		nixStorePath,
-	).Output()
-	var exitErr *exec.ExitError
-	if errors.As(err, &exitErr) {
-		log.G(ctx).
-			WithField("nixStorePath", nixStorePath).
-			Debugf("Failed to create gc root:\n%s", string(exitErr.Stderr))
-	}
-	return err
 }
 
 // NewSnapshotter returns a Snapshotter which uses overlayfs. The overlayfs
@@ -108,8 +102,7 @@ func defaultNixBuilder(ctx context.Context, gcRootPath, nixStorePath string) err
 // the root.
 func NewSnapshotter(root string, opts ...interface{}) (snapshots.Snapshotter, error) {
 	config := NixSnapshotterConfig{
-		nixBuilder:  defaultNixBuilder,
-		nixStoreDir: defaultNixStore,
+		nixBuilder: defaultNixBuilder,
 	}
 	overlayOpts := []overlay.Opt{}
 	for _, opt := range opts {
@@ -153,7 +146,6 @@ func NewSnapshotter(root string, opts ...interface{}) (snapshots.Snapshotter, er
 		ms:          ms,
 		asyncRemove: false,
 		root:        root,
-		nixStoreDir: config.nixStoreDir,
 		fuse:        config.fuse,
 		nixBuilder:  config.nixBuilder,
 	}, nil
@@ -219,10 +211,9 @@ func (o *nixSnapshotter) prepareNixGCRoots(ctx context.Context, key string, labe
 
 		// nix build with a store path fetches a store path from the configured
 		// substituters, if it doesn't already exist.
-		nixHash := labels[labelKey]
-		gcRootPath := filepath.Join(gcRootsDir, nixHash)
-		nixStorePath := filepath.Join(o.nixStoreDir, nixHash)
-		err = o.nixBuilder(ctx, gcRootPath, nixStorePath)
+		nixStorePath := labels[labelKey]
+		outLink := filepath.Join(gcRootsDir, filepath.Base(nixStorePath))
+		err = o.nixBuilder(ctx, outLink, nixStorePath)
 		if err != nil {
 			return err
 		}
@@ -401,18 +392,17 @@ func (o *nixSnapshotter) withNixBindMounts(ctx context.Context, key string, moun
 			}
 
 			// Avoid duplicate mounts.
-			nixHash := info.Labels[labelKey]
-			_, ok := pathsSeen[nixHash]
+			nixStorePath := info.Labels[labelKey]
+			_, ok := pathsSeen[nixStorePath]
 			if ok {
 				continue
 			}
-			pathsSeen[nixHash] = struct{}{}
+			pathsSeen[nixStorePath] = struct{}{}
 
-			storePath := filepath.Join(o.nixStoreDir, nixHash)
 			mounts = append(mounts, mount.Mount{
-				Source: storePath,
 				Type:   "bind",
-				Target: storePath,
+				Source: nixStorePath,
+				Target: nixStorePath,
 				Options: []string{
 					"ro",
 					"rbind",
