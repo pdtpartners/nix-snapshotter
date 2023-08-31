@@ -1,32 +1,27 @@
+{ lib, ... }:
 {
-  perSystem = { pkgs, nix-snapshotter-parts, ... }:
-    let
-      inherit (nix-snapshotter-parts)
-        nix-snapshotter
-      ;
-
-    in {
-      packages = {
-        inherit nix-snapshotter;
-        default = nix-snapshotter;
-      };
-
-      devShells.default = pkgs.mkShell {
-        packages = [
-          pkgs.containerd
-          pkgs.cri-tools
-          pkgs.delve
-          pkgs.gdb
-          pkgs.golangci-lint
-          pkgs.gopls
-          pkgs.gotools
-          pkgs.kind
-          pkgs.kubectl
-          pkgs.rootlesskit
-          pkgs.runc
-          pkgs.slirp4netns
-          pkgs.nerdctl
-        ] ++ nix-snapshotter.nativeBuildInputs;
-      };
+  perSystem = { pkgs, ... }: {
+    packages = {
+      inherit (pkgs) nix-snapshotter;
+      default = pkgs.nix-snapshotter;
     };
+
+    devShells.default = pkgs.mkShell {
+      packages = [
+        pkgs.containerd
+        pkgs.cri-tools
+        pkgs.delve
+        pkgs.gdb
+        pkgs.golangci-lint
+        pkgs.gopls
+        pkgs.gotools
+        pkgs.kind
+        pkgs.kubectl
+        pkgs.rootlesskit
+        pkgs.runc
+        pkgs.slirp4netns
+        pkgs.nerdctl
+      ] ++ pkgs.nix-snapshotter.nativeBuildInputs;
+    };
+  };
 }

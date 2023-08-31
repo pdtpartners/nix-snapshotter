@@ -42,7 +42,7 @@ let
   });
 
 in {
-  nodes.machine = { config, nix-snapshotter-parts, ... }:
+  nodes.machine = { config, ... }:
     let
       cfg = config.services.kubernetes;
 
@@ -55,7 +55,7 @@ in {
           --set KUBECONFIG "/etc/${cfg.pki.etcClusterAdminKubeconfig}"
       '';
 
-      redisImage = nix-snapshotter-parts.buildImage {
+      redisImage = pkgs.nix-snapshotter.buildImage {
         name = redisImageName;
         tag = "latest";
         config.entrypoint = ["${pkgs.redis}/bin/redis-server"];
