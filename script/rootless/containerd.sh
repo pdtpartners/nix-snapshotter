@@ -1,5 +1,6 @@
-REPO_DIR=$(git rev-parse --show-toplevel)
-CONFIG_FILE="${REPO_DIR}/build/containerd/config.toml"
+#!/bin/bash
+
+source "${BASH_SOURCE%/*}/common.sh"
 
 rootlesskit \
     --net=slirp4netns \
@@ -9,4 +10,4 @@ rootlesskit \
     --copy-up=/var/lib \
     --port-driver=slirp4netns \
     --state-dir=$REPO_DIR/build/rootlesskit-containerd \
-    sh -c "containerd --config ${CONFIG_FILE}"
+    sh -c "containerd --config ${CONTAINERD_CONFIG_FILE}"
