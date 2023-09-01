@@ -1,12 +1,9 @@
-REPO_DIR=$(git rev-parse --show-toplevel)
-CONFIG_FILE="${REPO_DIR}/build/nix-snapshotter/nix-snapshotter.toml"
+#!/bin/bash
 
-if [ -f $CONFIG_FILE ]; then
-    exit 0
-fi
+source "${BASH_SOURCE%/*}/common.sh"
 
-mkdir -p $(dirname $CONFIG_FILE)
-cat <<EOM > $CONFIG_FILE
+mkdir -p $(dirname $NIX_SNAPSHOTTER_CONFIG_FILE)
+cat <<EOM > $NIX_SNAPSHOTTER_CONFIG_FILE
 address = "${REPO_DIR}/build/nix-snapshotter/nix-snapshotter.sock"
 root    = "${REPO_DIR}/build/containerd/root/io.containerd.snapshotter.v1.nix"
 EOM

@@ -1,12 +1,9 @@
-REPO_DIR=$(git rev-parse --show-toplevel)
-CONFIG_FILE="${REPO_DIR}/build/containerd/config.toml"
+#!/bin/bash
 
-if [ -f $CONFIG_FILE ]; then
-    exit 0
-fi
+source "${BASH_SOURCE%/*}/common.sh"
 
-mkdir -p $(dirname $CONFIG_FILE)
-cat <<EOM > $CONFIG_FILE
+mkdir -p $(dirname $CONTAINERD_CONFIG_FILE)
+cat <<EOM > $CONTAINERD_CONFIG_FILE
 version = 2
 root = "$REPO_DIR/build/containerd/root"
 state = "$REPO_DIR/build/containerd/state"
