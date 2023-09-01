@@ -82,7 +82,7 @@ $ make start-nix-snapshotter
 ```
 
 In a final terminal, run `make run-hello` will run a pre-built image from
-DockerHub `ghcr.io/pdtpartners/hello` which packages `pkgs.hello` from nixpkgs.
+the GitHub Container Registry `ghcr.io/pdtpartners/hello` with packages `pkgs.hello` from nixpkgs.
 
 ```sh
 $ make run-hello
@@ -111,7 +111,7 @@ $ make run-redis
 ## Example image
 
 There is an example container image for use with this snapshotter pushed to
-DockerHub as `ghcr.io/pdtpartners/hello`:
+the GitHub Container Registry as `ghcr.io/pdtpartners/hello`:
 
 ```
 {
@@ -149,7 +149,7 @@ DockerHub as `ghcr.io/pdtpartners/hello`:
 - However, on registry side, non-distributable layers only allowed if
   descriptor "URLs" is also non-zero. The URL must be http or https scheme and
   without a fragment. And it must also pass an "allow" and "deny" regex which is
-  all denied by registry defaults. It is unclear what is allowed on Docker Hub,
+  all denied by registry defaults. It is unclear what is allowed on the GitHub Container Registry,
   and what is allowed on Artifactory registries.
 - So we don't end up using non-distributable images.
 - There are also "foreign" rootfs layers `application/vnd.docker.image.rootfs.foreign.*`,
