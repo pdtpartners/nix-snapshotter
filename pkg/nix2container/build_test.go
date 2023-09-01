@@ -43,9 +43,9 @@ func TestBuild(t *testing.T) {
 		{
 			"store_paths",
 			types.Image{
-				Architecture: runtime.GOARCH,
-				OS:           runtime.GOOS,
-				StorePaths:   []string{"/some/file/location1", "/some/file/location2"},
+				Architecture:  runtime.GOARCH,
+				OS:            runtime.GOOS,
+				NixStorePaths: []string{"/some/file/location1", "/some/file/location2"},
 			},
 		},
 		{
@@ -72,11 +72,11 @@ func TestBuild(t *testing.T) {
 						"/some/file/location1",
 					},
 				},
-				Architecture: runtime.GOARCH,
-				OS:           runtime.GOOS,
-				StorePaths:   []string{"/some/file/location2", "/some/file/location3"},
-				CopyToRoots:  []string{"/some/file/location4", "/some/file/location5"},
-				BaseImage:    "someImage",
+				Architecture:  runtime.GOARCH,
+				OS:            runtime.GOOS,
+				NixStorePaths: []string{"/some/file/location2", "/some/file/location3"},
+				CopyToRoots:   []string{"/some/file/location4", "/some/file/location5"},
+				BaseImage:     "someImage",
 			},
 		},
 	} {
@@ -98,13 +98,13 @@ func TestBuild(t *testing.T) {
 			copyToRootsPath := writeOut("copyToRoots", &tc.sourceImage.CopyToRoots)
 
 			// Is read in a different format to imageConfig and copyToRoots
-			storePathsPath := filepath.Join(testDir, "storePaths")
-			f, err := os.Create(storePathsPath)
+			closurePath := filepath.Join(testDir, "storePaths")
+			f, err := os.Create(closurePath)
 			require.NoError(t, err)
 			defer f.Close()
 
 			writer := bufio.NewWriter(f)
-			for _, path := range tc.sourceImage.StorePaths {
+			for _, path := range tc.sourceImage.NixStorePaths {
 				_, err = writer.WriteString(path + "\n")
 				require.NoError(t, err)
 			}
@@ -112,7 +112,7 @@ func TestBuild(t *testing.T) {
 			require.NoError(t, err)
 
 			buildImagePath := filepath.Join(testDir, "buildImage")
-			err = Build(configPath, storePathsPath, copyToRootsPath, buildImagePath, WithFromImage(tc.sourceImage.BaseImage))
+			err = Build(configPath, closurePath, copyToRootsPath, buildImagePath, WithFromImage(tc.sourceImage.BaseImage))
 			require.NoError(t, err)
 
 			// Load back in sourceImage and compare to source

@@ -85,11 +85,11 @@ func TestAddBlob(t *testing.T) {
 							"/some/file/location1",
 						},
 					},
-					Architecture: runtime.GOARCH,
-					OS:           runtime.GOOS,
-					StorePaths:   []string{"/some/file/location2", "/some/file/location3"},
-					CopyToRoots:  []string{"/some/file/location4", "/some/file/location5"},
-					BaseImage:    "someImage",
+					Architecture:  runtime.GOARCH,
+					OS:            runtime.GOOS,
+					NixStorePaths: []string{"/some/file/location2", "/some/file/location3"},
+					CopyToRoots:   []string{"/some/file/location4", "/some/file/location5"},
+					BaseImage:     "someImage",
 				}
 				desc, err := provider.AddBlob("image", testImage)
 				require.NoError(t, err)
@@ -99,7 +99,7 @@ func TestAddBlob(t *testing.T) {
 			[]ocispec.Descriptor{
 				{
 					MediaType: "image",
-					Size:      309,
+					Size:      313,
 				},
 			},
 		},

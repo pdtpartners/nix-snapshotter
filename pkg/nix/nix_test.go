@@ -27,10 +27,9 @@ func newSnapshotterWithOpts(opts ...interface{}) testsuite.SnapshotterFunc {
 }
 
 type testCase struct {
-	name        string
-	nixStoreDir string
-	nixHashes   []string
-	extraLabels map[string]string
+	name          string
+	nixStorePaths []string
+	extraLabels   map[string]string
 }
 
 func TestNixSnapshotter(t *testing.T) {
@@ -40,24 +39,23 @@ func TestNixSnapshotter(t *testing.T) {
 		},
 		{
 			name: "basic",
-			nixHashes: []string{
-				"34xlpp3j3vy7ksn09zh44f1c04w77khf-libunistring-1.0",
-				"4nlgxhb09sdr51nc9hdm8az5b08vzkgx-glibc-2.35-163",
-				"5mh5019jigj0k14rdnjam1xwk5avn1id-libidn2-2.3.2",
-				"g2m8kfw7kpgpph05v2fxcx4d5an09hl3-hello-2.12.1",
+			nixStorePaths: []string{
+				"/nix/store/34xlpp3j3vy7ksn09zh44f1c04w77khf-libunistring-1.0",
+				"/nix/store/4nlgxhb09sdr51nc9hdm8az5b08vzkgx-glibc-2.35-163",
+				"/nix/store/5mh5019jigj0k14rdnjam1xwk5avn1id-libidn2-2.3.2",
+				"/nix/store/g2m8kfw7kpgpph05v2fxcx4d5an09hl3-hello-2.12.1",
 			},
 			extraLabels: map[string]string{
 				nix2container.NixLayerAnnotation: "true",
 			},
 		},
 		{
-			name:        "custom nix store dir",
-			nixStoreDir: "/some/very/strange/storage/location",
-			nixHashes: []string{
-				"34xlpp3j3vy7ksn09zh44f1c04w77khf-libunistring-1.0",
-				"4nlgxhb09sdr51nc9hdm8az5b08vzkgx-glibc-2.35-163",
-				"5mh5019jigj0k14rdnjam1xwk5avn1id-libidn2-2.3.2",
-				"g2m8kfw7kpgpph05v2fxcx4d5an09hl3-hello-2.12.1",
+			name: "custom nix store dir",
+			nixStorePaths: []string{
+				"/other/nix/store/34xlpp3j3vy7ksn09zh44f1c04w77khf-libunistring-1.0",
+				"/other/nix/store/4nlgxhb09sdr51nc9hdm8az5b08vzkgx-glibc-2.35-163",
+				"/other/nix/store/5mh5019jigj0k14rdnjam1xwk5avn1id-libidn2-2.3.2",
+				"/other/nix/store/g2m8kfw7kpgpph05v2fxcx4d5an09hl3-hello-2.12.1",
 			},
 			extraLabels: map[string]string{
 				nix2container.NixLayerAnnotation: "true",
@@ -65,20 +63,20 @@ func TestNixSnapshotter(t *testing.T) {
 		},
 		{
 			name: "with no nix layer annotation",
-			nixHashes: []string{
-				"34xlpp3j3vy7ksn09zh44f1c04w77khf-libunistring-1.0",
-				"4nlgxhb09sdr51nc9hdm8az5b08vzkgx-glibc-2.35-163",
-				"5mh5019jigj0k14rdnjam1xwk5avn1id-libidn2-2.3.2",
-				"g2m8kfw7kpgpph05v2fxcx4d5an09hl3-hello-2.12.1",
+			nixStorePaths: []string{
+				"/nix/store/34xlpp3j3vy7ksn09zh44f1c04w77khf-libunistring-1.0",
+				"/nix/store/4nlgxhb09sdr51nc9hdm8az5b08vzkgx-glibc-2.35-163",
+				"/nix/store/5mh5019jigj0k14rdnjam1xwk5avn1id-libidn2-2.3.2",
+				"/nix/store/g2m8kfw7kpgpph05v2fxcx4d5an09hl3-hello-2.12.1",
 			},
 		},
 		{
 			name: "with irrelevant labels",
-			nixHashes: []string{
-				"34xlpp3j3vy7ksn09zh44f1c04w77khf-libunistring-1.0",
-				"4nlgxhb09sdr51nc9hdm8az5b08vzkgx-glibc-2.35-163",
-				"5mh5019jigj0k14rdnjam1xwk5avn1id-libidn2-2.3.2",
-				"g2m8kfw7kpgpph05v2fxcx4d5an09hl3-hello-2.12.1",
+			nixStorePaths: []string{
+				"/nix/store/34xlpp3j3vy7ksn09zh44f1c04w77khf-libunistring-1.0",
+				"/nix/store/4nlgxhb09sdr51nc9hdm8az5b08vzkgx-glibc-2.35-163",
+				"/nix/store/5mh5019jigj0k14rdnjam1xwk5avn1id-libidn2-2.3.2",
+				"/nix/store/g2m8kfw7kpgpph05v2fxcx4d5an09hl3-hello-2.12.1",
 			},
 			extraLabels: map[string]string{
 				"labelToBeIgnored":               "ValueToBeIgnored",
@@ -91,7 +89,7 @@ func TestNixSnapshotter(t *testing.T) {
 			ctx := context.Background()
 
 			labels := map[string]string{}
-			for idx, value := range tc.nixHashes {
+			for idx, value := range tc.nixStorePaths {
 				labels[nix2container.NixStorePrefixAnnotation+strconv.Itoa(idx)] = value
 			}
 			for idx, value := range tc.extraLabels {
@@ -107,11 +105,7 @@ func TestNixSnapshotter(t *testing.T) {
 func testBindMounts(ctx context.Context, t *testing.T, tc testCase, labels map[string]string) {
 	key := "test"
 	root := t.TempDir()
-	opts := []interface{}{}
-	if tc.nixStoreDir != "" {
-		opts = append(opts, WithNixStoreDir(tc.nixStoreDir))
-	}
-	snapshotterFunc := newSnapshotterWithOpts(opts...)
+	snapshotterFunc := newSnapshotterWithOpts()
 	snapshotter, _, err := snapshotterFunc(ctx, root)
 	require.NoError(t, err)
 	s := snapshotter.(*nixSnapshotter)
@@ -125,17 +119,13 @@ func testBindMounts(ctx context.Context, t *testing.T, tc testCase, labels map[s
 	mounts, err := s.withNixBindMounts(ctx, key, []mount.Mount{})
 	require.NoError(t, err)
 
-	nixStoreDir := defaultNixStore
-	if tc.nixStoreDir != "" {
-		nixStoreDir = tc.nixStoreDir
-	}
 	expectedMounts := []mount.Mount{}
-	for _, nixStore := range tc.nixHashes {
+	for _, nixStorePath := range tc.nixStorePaths {
 		expectedMounts = append(expectedMounts,
 			mount.Mount{
 				Type:    "bind",
-				Source:  filepath.Join(nixStoreDir, nixStore),
-				Target:  filepath.Join(nixStoreDir, nixStore),
+				Source:  nixStorePath,
+				Target:  nixStorePath,
 				Options: []string{"ro", "rbind"},
 			})
 	}
@@ -146,18 +136,14 @@ func testGCRoots(ctx context.Context, t *testing.T, tc testCase, labels map[stri
 	key := "test"
 	root := t.TempDir()
 
-	var gcRootPaths, nixStorePaths []string
-	testBuilder := func(ctx context.Context, gcRootPath, nixStorePath string) error {
-		gcRootPaths = append(gcRootPaths, gcRootPath)
+	var outLinks, nixStorePaths []string
+	testBuilder := func(ctx context.Context, outLink, nixStorePath string) error {
+		outLinks = append(outLinks, outLink)
 		nixStorePaths = append(nixStorePaths, nixStorePath)
 		return nil
 	}
 
-	opts := []interface{}{WithNixBuilder(testBuilder)}
-	if tc.nixStoreDir != "" {
-		opts = append(opts, WithNixStoreDir(tc.nixStoreDir))
-	}
-	snapshotterFunc := newSnapshotterWithOpts(opts...)
+	snapshotterFunc := newSnapshotterWithOpts(WithNixBuilder(testBuilder))
 	snapshotter, _, err := snapshotterFunc(ctx, root)
 	require.NoError(t, err)
 	s := snapshotter.(*nixSnapshotter)
@@ -173,19 +159,14 @@ func testGCRoots(ctx context.Context, t *testing.T, tc testCase, labels map[stri
 	})
 	require.NoError(t, err)
 
-	nixStoreDir := defaultNixStore
-	if tc.nixStoreDir != "" {
-		nixStoreDir = tc.nixStoreDir
-	}
-
 	if labels[nix2container.NixLayerAnnotation] == "true" {
-		require.Equal(t, len(tc.nixHashes), len(gcRootPaths))
-		for idx := 0; idx < len(tc.nixHashes); idx += 1 {
-			testutil.IsIdentical(t, gcRootPaths[idx], filepath.Join(root, "gcroots", id, tc.nixHashes[idx]))
-			testutil.IsIdentical(t, nixStorePaths[idx], filepath.Join(nixStoreDir, tc.nixHashes[idx]))
+		require.Equal(t, len(tc.nixStorePaths), len(outLinks))
+		for idx := 0; idx < len(tc.nixStorePaths); idx += 1 {
+			outLink := filepath.Join(root, "gcroots", id, filepath.Base(tc.nixStorePaths[idx]))
+			testutil.IsIdentical(t, outLinks[idx], outLink)
+			testutil.IsIdentical(t, nixStorePaths[idx], tc.nixStorePaths[idx])
 		}
 	} else {
-		require.Equal(t, 0, len(gcRootPaths))
+		require.Equal(t, 0, len(outLinks))
 	}
-
 }

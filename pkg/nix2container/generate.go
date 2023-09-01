@@ -33,7 +33,7 @@ const (
 
 	// NixStorePrefixAnnotation is a prefix for remote snapshot OCI annotations
 	// for each nix store path that the layer will need.
-	NixStorePrefixAnnotation = "containerd.io/snapshot/nix/store."
+	NixStorePrefixAnnotation = "containerd.io/snapshot/nix-store-path."
 )
 
 // Generate adds a nix-snapshotter container image to provider and returns its
@@ -51,7 +51,7 @@ func Generate(ctx context.Context, image types.Image, provider *InmemoryProvider
 
 	// Generate and add layer to provider.
 	buf := new(bytes.Buffer)
-	diffID, err := writeNixClosureLayer(ctx, buf, image.StorePaths, image.CopyToRoots)
+	diffID, err := writeNixClosureLayer(ctx, buf, image.NixStorePaths, image.CopyToRoots)
 	if err != nil {
 		return
 	}
@@ -66,9 +66,9 @@ func Generate(ctx context.Context, image types.Image, provider *InmemoryProvider
 	layerDesc.Annotations = map[string]string{
 		NixLayerAnnotation: "true",
 	}
-	for i, storePath := range image.StorePaths {
+	for i, nixStorePath := range image.NixStorePaths {
 		key := NixStorePrefixAnnotation + strconv.Itoa(i)
-		layerDesc.Annotations[key] = filepath.Base(storePath)
+		layerDesc.Annotations[key] = nixStorePath
 	}
 	mfst.Layers = append(mfst.Layers, layerDesc)
 
@@ -257,20 +257,20 @@ func parseNixImageJSON(ctx context.Context, provider *InmemoryProvider, imagePat
 // Each store path in copyToRoots will also be walked to generate symlinks
 // relative to root. Note that these symlinks will be broken until the
 // containerd-shim finally mounts what nix-snapshotter has generated.
-func writeNixClosureLayer(ctx context.Context, w io.Writer, storePaths, copyToRoots []string) (digest.Digest, error) {
+func writeNixClosureLayer(ctx context.Context, w io.Writer, nixStorePaths, copyToRoots []string) (digest.Digest, error) {
 	root, err := os.MkdirTemp(getTempDir(), "nix2container-root")
 	if err != nil {
 		return "", fmt.Errorf("failed to create temp dir: %w", err)
 	}
 	defer os.RemoveAll(root)
 
-	for _, storePath := range storePaths {
-		fi, err := os.Stat(storePath)
+	for _, nixStorePath := range nixStorePaths {
+		fi, err := os.Stat(nixStorePath)
 		if err != nil {
 			return "", err
 		}
 
-		relStorePath := filepath.Join(root, storePath)
+		relStorePath := filepath.Join(root, nixStorePath)
 		if !fi.IsDir() {
 			relStorePath = filepath.Dir(relStorePath)
 		}
