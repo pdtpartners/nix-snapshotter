@@ -2,7 +2,7 @@
 {
   # Provide overlay to add `nix-snapshotter`.
   flake.overlays.default = self: super: {
-    nix-snapshotter = self.callPackage ../package.nix {};
+    nix-snapshotter = self.callPackage ../../package.nix {};
 
     # Apply patch on containerd to fix `ctr image import` issue not
     # working with remote snapshotters depending on `WithPullUnpack`
@@ -10,7 +10,7 @@
     # See: https://github.com/containerd/containerd/pull/9028
     containerd = super.containerd.overrideAttrs(o: {
       patches = (o.patches or []) ++ [
-        ../script/patches/containerd-unpacker-wait.patch
+        ../../script/patches/containerd-unpacker-wait.patch
       ];
     });
   };
