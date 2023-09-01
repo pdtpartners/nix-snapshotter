@@ -119,20 +119,21 @@ DockerHub as `ghcr.io/pdtpartners/hello`:
   "mediaType": "application/vnd.oci.image.manifest.v1+json",
   "config": {
     "mediaType": "application/vnd.oci.image.config.v1+json",
-    "digest": "sha256:d0b29db9c2d41192481511b7ed1aea271708290a4b74c0f7caf02be54c083d7b",
+    "digest": "sha256:fc237fee0c406884552ec8202fdcbd1350829ccdc5b47951f59e2e1c75d734d1",
     "size": 311
   },
   "layers": [
     {
       "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
-      "digest": "sha256:fa013ec743e03c288f6a8ab8b15ebe1eb9f56dc290b668f16aee263fe29dd600",
-      "size": 317,
+      "digest": "sha256:126ab0b174a8f4dcdcde9b6a2675ecee0ab107127d0a96fe885938128d2884da",
+      "size": 343,
       "annotations": {
         "containerd.io/snapshot/nix-layer": "true",
-        "containerd.io/snapshot/nix/store.0": "34xlpp3j3vy7ksn09zh44f1c04w77khf-libunistring-1.0",
-        "containerd.io/snapshot/nix/store.1": "4nlgxhb09sdr51nc9hdm8az5b08vzkgx-glibc-2.35-163",
-        "containerd.io/snapshot/nix/store.2": "5mh5019jigj0k14rdnjam1xwk5avn1id-libidn2-2.3.2",
-        "containerd.io/snapshot/nix/store.3": "g2m8kfw7kpgpph05v2fxcx4d5an09hl3-hello-2.12.1"
+        "containerd.io/snapshot/nix-store-path.0": "/nix/store/3n58xw4373jp0ljirf06d8077j15pc4j-glibc-2.37-8",
+        "containerd.io/snapshot/nix-store-path.1": "/nix/store/fz2c8qahxza5ygy4yvwdqzbck1bs3qag-libidn2-2.3.4",
+        "containerd.io/snapshot/nix-store-path.2": "/nix/store/q7hi3rvpfgc232qkdq2dacmvkmsrnldg-libunistring-1.1",
+        "containerd.io/snapshot/nix-store-path.3": "/nix/store/ryvnrp5n6kqv3fl20qy2xgcgdsza7i0m-xgcc-12.3.0-libgcc",
+        "containerd.io/snapshot/nix-store-path.4": "/nix/store/s66mzxpvicwk07gjbjfw9izjfa797vsw-hello-2.12.1"
       }
     }
   ]

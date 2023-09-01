@@ -25,7 +25,7 @@ func WithFromImage(fromImage string) BuildOpt {
 }
 
 // Build writes an image JSON to the nix out path.
-func Build(configPath, storePathsPath, copyToRootPath, outPath string, opts ...BuildOpt) error {
+func Build(configPath, closurePath, copyToRootPath, outPath string, opts ...BuildOpt) error {
 	var bOpts BuildOpts
 	for _, opt := range opts {
 		opt(&bOpts)
@@ -47,7 +47,7 @@ func Build(configPath, storePathsPath, copyToRootPath, outPath string, opts ...B
 		return err
 	}
 
-	image.StorePaths, err = readStorePaths(configPath, storePathsPath)
+	image.NixStorePaths, err = readClosure(configPath, closurePath)
 	if err != nil {
 		return err
 	}
@@ -70,25 +70,25 @@ func Build(configPath, storePathsPath, copyToRootPath, outPath string, opts ...B
 	return os.WriteFile(outPath, dt, 0o644)
 }
 
-func readStorePaths(configPath, storePathsPath string) ([]string, error) {
-	f, err := os.Open(storePathsPath)
+func readClosure(configPath, closurePath string) ([]string, error) {
+	f, err := os.Open(closurePath)
 	if err != nil {
 		return nil, err
 	}
 	defer f.Close()
 
-	var storePaths []string
+	var nixStorePaths []string
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
-		storePath := scanner.Text()
-		if storePath == configPath {
+		nixStorePath := scanner.Text()
+		if nixStorePath == configPath {
 			continue
 		}
-		storePaths = append(storePaths, storePath)
+		nixStorePaths = append(nixStorePaths, nixStorePath)
 	}
 	if scanner.Err() != nil {
 		return nil, scanner.Err()
 	}
 
-	return storePaths, nil
+	return nixStorePaths, nil
 }
