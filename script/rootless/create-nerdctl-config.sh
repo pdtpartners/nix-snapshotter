@@ -1,12 +1,9 @@
-REPO_DIR=$(git rev-parse --show-toplevel)
-CONFIG_FILE="${REPO_DIR}/build/nerdctl/nerdctl.toml"
+#!/bin/bash
 
-if [ -f $CONFIG_FILE ]; then
-    exit 0
-fi
+source "${BASH_SOURCE%/*}/common.sh"
 
-mkdir -p $(dirname $CONFIG_FILE)
-cat <<EOM > $CONFIG_FILE
+mkdir -p $(dirname $NERDCTL_TOML)
+cat <<EOM > $NERDCTL_TOML
 address         = "${REPO_DIR}/build/containerd/containerd.sock"
 snapshotter     = "nix"
 data_root       = "${REPO_DIR}/build/nerdctl/root/"
