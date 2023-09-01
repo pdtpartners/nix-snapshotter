@@ -6,8 +6,9 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"github.com/pdtpartners/nix-snapshotter/types"
+
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
+	"github.com/pdtpartners/nix-snapshotter/types"
 	"github.com/stretchr/testify/require"
 )
 
@@ -38,7 +39,7 @@ func TestDetectImageType(t *testing.T) {
 				},
 				Architecture: "amd64",
 				OS:           "linux",
-				StorePaths: []string{
+				NixStorePaths: []string{
 					"/nix/store/34xlpp3j3vy7ksn09zh44f1c04w77khf-libunistring-1.0",
 					"/nix/store/4nlgxhb09sdr51nc9hdm8az5b08vzkgx-glibc-2.35-163",
 					"/nix/store/5mh5019jigj0k14rdnjam1xwk5avn1id-libidn2-2.3.2",

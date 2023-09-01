@@ -5,12 +5,12 @@ import (
 )
 
 type Image struct {
-	Config       ocispec.ImageConfig `json:"config"`
-	BaseImage    string              `json:"base-image,omitempty"`
-	Architecture string              `json:"architecture"`
-	OS           string              `json:"os"`
-	StorePaths   []string            `json:"store-paths,omitempty"`
-	CopyToRoots  []string            `json:"copy-to-roots,omitempty"`
+	Config        ocispec.ImageConfig `json:"config"`
+	BaseImage     string              `json:"base-image,omitempty"`
+	Architecture  string              `json:"architecture"`
+	OS            string              `json:"os"`
+	NixStorePaths []string            `json:"nix-store-paths,omitempty"`
+	CopyToRoots   []string            `json:"copy-to-roots,omitempty"`
 }
 
 type OCIManifest struct {

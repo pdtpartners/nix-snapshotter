@@ -121,7 +121,7 @@ func serve(ctx context.Context, cfg *config.Config) error {
 		return fmt.Errorf("failed to remove %q: %w", cfg.Address, err)
 	}
 
-	sn, err := nix.NewSnapshotter(cfg.Root, nix.WithNixStoreDir("/nix/store"))
+	sn, err := nix.NewSnapshotter(cfg.Root)
 	if err != nil {
 		return err
 	}

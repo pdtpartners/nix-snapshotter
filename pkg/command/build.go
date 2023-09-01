@@ -2,6 +2,7 @@ package command
 
 import (
 	"fmt"
+
 	"github.com/pdtpartners/nix-snapshotter/pkg/nix2container"
 	cli "github.com/urfave/cli/v2"
 )
@@ -21,7 +22,7 @@ var buildCommand = &cli.Command{
 		}
 
 		args := c.Args()
-		configPath, storePathsPath, copyToRootPath, outPath := args.Get(0), args.Get(1), args.Get(2), args.Get(3)
+		configPath, closurePath, copyToRootPath, outPath := args.Get(0), args.Get(1), args.Get(2), args.Get(3)
 
 		var opts []nix2container.BuildOpt
 		if c.IsSet("from-image") {
@@ -32,10 +33,10 @@ var buildCommand = &cli.Command{
 			"nix2container build --from-image %q %s %s %s %s\n",
 			c.String("from-image"),
 			configPath,
-			storePathsPath,
+			closurePath,
 			copyToRootPath,
 			outPath,
 		)
-		return nix2container.Build(configPath, storePathsPath, copyToRootPath, outPath, opts...)
+		return nix2container.Build(configPath, closurePath, copyToRootPath, outPath, opts...)
 	},
 }
