@@ -7,6 +7,7 @@ let
 
     in lib.nixosSystem {
       inherit system;
+      specialArgs = { inherit lib; };
       modules = [
         {
           _module.args = {
@@ -26,17 +27,17 @@ in {
     services.nix-snapshotter.enable = true;
     ```
   */
-  flake.nixosModules = {
+  flake.nixosModules = rec {
     default = {
       imports = [
-        self.nixosModules.nix-snapshotter
-        self.nixosModules.nix-snapshotter-rootless
+        nix-snapshotter
+        nix-snapshotter-rootless
       ];
     };
 
-    nix-snapshotter = import ./nix-snapshotter.nix;
-    nix-snapshotter-rootless = import ./nix-snapshotter-rootless.nix;
-    containerd-rootless = import ./containerd-rootless.nix;
+    nix-snapshotter = ./nix-snapshotter.nix;
+    nix-snapshotter-rootless = ./nix-snapshotter-rootless.nix;
+    containerd-rootless = ./containerd-rootless.nix;
   };
 
   /* NixOS config for a VM to quickly try out nix-snapshotter.
