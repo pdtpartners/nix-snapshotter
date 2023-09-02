@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
-	"encoding/json"
 	"io"
 	"io/fs"
 	"os"
@@ -15,6 +14,8 @@ import (
 	"testing/fstest"
 	"time"
 
+	"github.com/containerd/containerd/content"
+	"github.com/containerd/containerd/content/local"
 	specs "github.com/opencontainers/image-spec/specs-go"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
@@ -26,7 +27,7 @@ import (
 func TestInitializeManifest(t *testing.T) {
 	type testCase struct {
 		name         string
-		setup        func(outPath string) (bool, error)
+		setup        func(t *testing.T, store content.Store) *types.Image
 		expectedMfst ocispec.Manifest
 		expectedCfg  ocispec.Image
 	}
@@ -34,8 +35,8 @@ func TestInitializeManifest(t *testing.T) {
 	for _, tc := range []testCase{
 		{
 			"empty",
-			func(outPath string) (bool, error) {
-				return false, nil
+			func(t *testing.T, store content.Store) *types.Image {
+				return &types.Image{}
 			},
 			ocispec.Manifest{
 				MediaType: ocispec.MediaTypeImageManifest,
@@ -52,8 +53,10 @@ func TestInitializeManifest(t *testing.T) {
 		},
 		{
 			"oci_tarball",
-			func(outPath string) (bool, error) {
-				return true, os.WriteFile(outPath, helloWorldTarball, 0o444)
+			func(t *testing.T, store content.Store) *types.Image {
+				return &types.Image{
+					BaseImage: writeEmptyImage(t, store),
+				}
 			},
 			ocispec.Manifest{
 				MediaType: ocispec.MediaTypeImageManifest,
@@ -73,53 +76,15 @@ func TestInitializeManifest(t *testing.T) {
 				},
 			},
 		},
-		{
-			"nix2container_image",
-			func(outPath string) (bool, error) {
-				image := types.Image{}
-				dt, err := json.MarshalIndent(&image, "", "  ")
-				if err != nil {
-					return false, err
-				}
-				return true, os.WriteFile(outPath, dt, 0o444)
-			},
-			ocispec.Manifest{
-				MediaType: ocispec.MediaTypeImageManifest,
-				Versioned: specs.Versioned{
-					SchemaVersion: 2,
-				},
-				Layers: []v1.Descriptor{
-					{
-						MediaType: "application/vnd.oci.image.layer.v1.tar+gzip",
-						Annotations: map[string]string{
-							"containerd.io/snapshot/nix-layer": "true"},
-					},
-				},
-				Annotations: make(map[string]string),
-			},
-			ocispec.Image{
-				RootFS: ocispec.RootFS{
-					Type: "layers",
-				},
-			},
-		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			testDir, err := os.MkdirTemp(getTempDir(), "nix2container-test")
+			testDir := t.TempDir()
+			store, err := local.NewStore(filepath.Join(testDir, "store"))
 			require.NoError(t, err)
-			defer os.RemoveAll(testDir)
-
-			outPath := filepath.Join(testDir, "out")
-			wroteImg, err := tc.setup(outPath)
-			require.NoError(t, err)
-			img := types.Image{}
-			if wroteImg {
-				img.BaseImage = outPath
-			}
 
 			ctx := context.Background()
-			provider := NewInmemoryProvider()
-			mfst, cfg, err := initializeManifest(ctx, img, provider)
+			img := tc.setup(t, store)
+			mfst, cfg, err := initializeManifest(ctx, img, store)
 			require.NoError(t, err)
 
 			//Reset for ease of testing
@@ -247,10 +212,7 @@ func TestWriteNixClosureLayer(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			testDir, err := os.MkdirTemp(getTempDir(), "nix2container-test")
-			require.NoError(t, err)
-			defer os.RemoveAll(testDir)
-
+			testDir := t.TempDir()
 			dirMapper := func(placeholderName string) string {
 				if placeholderName == "TEST_DIR" {
 					return string(testDir)
@@ -280,7 +242,7 @@ func TestWriteNixClosureLayer(t *testing.T) {
 			}
 
 			buf := new(bytes.Buffer)
-			_, err = writeNixClosureLayer(ctx, buf, tc.storePaths, tc.copyToRoots)
+			_, err := writeNixClosureLayer(ctx, buf, tc.storePaths, tc.copyToRoots)
 			require.NoError(t, err)
 
 			// Convert Tar to file system
@@ -288,7 +250,7 @@ func TestWriteNixClosureLayer(t *testing.T) {
 			require.NoError(t, err)
 			fsOut := []string{}
 
-			//Verify epoch 0 and file perms
+			// Verify epoch 0 and file perms
 			for path, attrs := range tempFs {
 				fsOut = append(fsOut, "/"+path)
 				require.Equal(t, attrs.ModTime, time.Unix(0, 0))
@@ -343,7 +305,6 @@ func newMapFSFromTar(tarBytes []byte) (fstest.MapFS, error) {
 			Mode:    fs.FileMode(cur.Mode),
 			ModTime: cur.ModTime,
 		}
-
 	}
 
 	return files, nil

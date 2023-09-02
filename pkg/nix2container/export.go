@@ -4,13 +4,13 @@ import (
 	"context"
 	"io"
 
+	"github.com/containerd/containerd/content"
 	"github.com/containerd/containerd/images/archive"
 	"github.com/pdtpartners/nix-snapshotter/types"
 )
 
-func Export(ctx context.Context, image types.Image, ref string, w io.Writer) error {
-	provider := NewInmemoryProvider()
-	desc, err := Generate(ctx, image, provider)
+func Export(ctx context.Context, store content.Store, image *types.Image, ref string, w io.Writer) error {
+	desc, err := Generate(ctx, image, store)
 	if err != nil {
 		return err
 	}
@@ -19,5 +19,5 @@ func Export(ctx context.Context, image types.Image, ref string, w io.Writer) err
 		archive.WithManifest(desc, ref),
 	}
 
-	return archive.Export(ctx, provider, w, exportOpts...)
+	return archive.Export(ctx, store, w, exportOpts...)
 }

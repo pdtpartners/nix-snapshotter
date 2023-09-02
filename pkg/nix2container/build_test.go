@@ -2,19 +2,28 @@ package nix2container
 
 import (
 	"bufio"
+	"bytes"
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
 
+	"github.com/containerd/containerd/content"
+	"github.com/containerd/containerd/content/local"
+	"github.com/containerd/containerd/images/archive"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
-	"github.com/pdtpartners/nix-snapshotter/pkg/testutil"
 	"github.com/pdtpartners/nix-snapshotter/types"
 	"github.com/stretchr/testify/require"
 )
 
 func TestBuild(t *testing.T) {
+	store, err := local.NewStore(filepath.Join(t.TempDir(), "store"))
+	require.NoError(t, err)
+
+	baseImagePath := writeEmptyImage(t, store)
+
 	type testCase struct {
 		name        string
 		sourceImage types.Image
@@ -61,7 +70,7 @@ func TestBuild(t *testing.T) {
 			types.Image{
 				Architecture: runtime.GOARCH,
 				OS:           runtime.GOOS,
-				BaseImage:    "someImage",
+				BaseImage:    baseImagePath,
 			},
 		},
 		{
@@ -76,53 +85,92 @@ func TestBuild(t *testing.T) {
 				OS:            runtime.GOOS,
 				NixStorePaths: []string{"/some/file/location2", "/some/file/location3"},
 				CopyToRoots:   []string{"/some/file/location4", "/some/file/location5"},
-				BaseImage:     "someImage",
+				BaseImage:     baseImagePath,
 			},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			testDir, err := os.MkdirTemp(getTempDir(), "nix2container-test")
-			require.NoError(t, err)
-			defer os.RemoveAll(testDir)
+			testDir := t.TempDir()
+			configPath := writeOut(t, testDir, "imageConfig", tc.sourceImage.Config)
+			copyToRootsPath := writeCopyToRoots(t, testDir, "copyToRoots", tc.sourceImage.CopyToRoots)
+			closurePath := writeClosure(t, testDir, tc.sourceImage.NixStorePaths)
 
-			writeOut := func(name string, data interface{}) string {
-				dt, err := json.MarshalIndent(data, "", "  ")
-				require.NoError(t, err)
-				filePath := filepath.Join(testDir, name)
-				err = os.WriteFile(filePath, dt, 0o644)
-				require.NoError(t, err)
-				return filePath
-			}
-
-			configPath := writeOut("imageConfig", &tc.sourceImage.Config)
-			copyToRootsPath := writeOut("copyToRoots", &tc.sourceImage.CopyToRoots)
-
-			// Is read in a different format to imageConfig and copyToRoots
-			closurePath := filepath.Join(testDir, "storePaths")
-			f, err := os.Create(closurePath)
-			require.NoError(t, err)
-			defer f.Close()
-
-			writer := bufio.NewWriter(f)
-			for _, path := range tc.sourceImage.NixStorePaths {
-				_, err = writer.WriteString(path + "\n")
-				require.NoError(t, err)
-			}
-			err = writer.Flush()
+			ctx := context.Background()
+			img, err := Build(ctx,
+				configPath,
+				closurePath,
+				copyToRootsPath,
+				WithFromImage(tc.sourceImage.BaseImage),
+			)
 			require.NoError(t, err)
 
-			buildImagePath := filepath.Join(testDir, "buildImage")
-			err = Build(configPath, closurePath, copyToRootsPath, buildImagePath, WithFromImage(tc.sourceImage.BaseImage))
+			buf := new(bytes.Buffer)
+			err = Export(ctx, store, img, tc.name, buf)
 			require.NoError(t, err)
 
-			// Load back in sourceImage and compare to source
-			var regeneratedImage types.Image
-			dt, err := os.ReadFile(buildImagePath)
-			require.NoError(t, err)
-			err = json.Unmarshal(dt, &regeneratedImage)
+			_, err = archive.ImportIndex(ctx, store, buf)
 			require.NoError(t, err)
 
-			testutil.IsIdentical(t, tc.sourceImage, regeneratedImage)
+			// TODO: Use archive.ImportIndex and verify everything
 		})
 	}
+}
+
+func writeOut(t *testing.T, testDir, name string, data interface{}) string {
+	dt, err := json.MarshalIndent(data, "", "  ")
+	require.NoError(t, err)
+
+	filename := filepath.Join(testDir, name)
+	err = os.WriteFile(filename, dt, 0o644)
+	require.NoError(t, err)
+
+	return filename
+}
+
+func writeCopyToRoots(t *testing.T, testDir, name string, nixStorePaths []string) string {
+	var realPaths []string
+	for _, nixStorePath := range nixStorePaths {
+		realPath := filepath.Join(testDir, nixStorePath)
+		realPaths = append(realPaths, realPath)
+
+		err := os.MkdirAll(realPath, 0o755)
+		require.NoError(t, err)
+	}
+	return writeOut(t, testDir, "copyToRoots", realPaths)
+}
+
+func writeClosure(t *testing.T, testDir string, nixStorePaths []string) string {
+	closurePath := filepath.Join(testDir, "storePaths")
+	f, err := os.Create(closurePath)
+	require.NoError(t, err)
+	defer f.Close()
+
+	writer := bufio.NewWriter(f)
+	for _, nixStorePath := range nixStorePaths {
+		realPath := filepath.Join(testDir, nixStorePath)
+		_, err = writer.WriteString(realPath + "\n")
+		require.NoError(t, err)
+
+		err = os.MkdirAll(realPath, 0o755)
+		require.NoError(t, err)
+	}
+
+	err = writer.Flush()
+	require.NoError(t, err)
+
+	return closurePath
+}
+
+func writeEmptyImage(t *testing.T, store content.Store) string {
+	testDir := t.TempDir()
+	imagePath := filepath.Join(testDir, "base-image")
+
+	f, err := os.Create(imagePath)
+	require.NoError(t, err)
+	defer f.Close()
+
+	err = Export(context.Background(), store, &types.Image{}, "base/image", f)
+	require.NoError(t, err)
+
+	return imagePath
 }

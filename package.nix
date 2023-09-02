@@ -39,63 +39,58 @@ let
   }:
     let
       configFile = writeText "config-${baseNameOf name}.json" (builtins.toJSON config);
+
       copyToRootList = lib.toList (args.copyToRoot or []);
+
       runtimeClosureInfo = closureInfo {
         rootPaths = [ configFile ] ++ copyToRootList;
       };
-      copyToRootFile = writeText "copy-to-root-${baseNameOf name}.json" (builtins.toJSON copyToRootList);
+
+      copyToRootFile =
+        writeText
+          "copy-to-root-${baseNameOf name}.json"
+          (builtins.toJSON copyToRootList);
+
       fromImageFlag = lib.optionalString (fromImage != "") "--from-image ${fromImage}";
-      image = let
-        imageName = lib.toLower name;
-        imageTag =
-          if tag != null
-          then tag
-          else
-          builtins.head (lib.strings.splitString "-" (baseNameOf image.outPath));
-      in runCommand "image-${baseNameOf name}.json"
-      {
-        inherit imageName;
-        passthru = {
-          inherit imageTag;
-          # provide a cheap to evaluate image reference for use with external tools like docker
-          # DO NOT use as an input to other derivations, as there is no guarantee that the image
-          # reference will exist in the store.
-          imageRefUnsafe = builtins.unsafeDiscardStringContext "${imageName}:${imageTag}";
-          copyToRegistry = copyToRegistry image;
-          copyToOCIArchive = copyToOCIArchive image;
-        };
-      }
-      ''
-        ${nix-snapshotter}/bin/nix2container build \
-        ${fromImageFlag} \
-        ${configFile} \
-        ${runtimeClosureInfo}/store-paths \
-        ${copyToRootFile} \
-        $out
-      '';
+
+      image =
+        let
+          imageName = lib.toLower name;
+
+          imageTag =
+            if tag != null then tag
+            else builtins.head (lib.strings.splitString "-" (baseNameOf image.outPath));
+        in runCommand "nix-image-${baseNameOf name}.tar" {
+          passthru = {
+            inherit imageName;
+            inherit imageTag;
+            copyToRegistry = copyToRegistry image;
+          };
+        } ''
+          ${nix-snapshotter}/bin/nix2container build \
+            --config "${configFile}" \
+            --closure "${runtimeClosureInfo}/store-paths" \
+            --copy-to-root "${copyToRootFile}" \
+            ${fromImageFlag} \
+            ${imageName}:${imageTag} \
+            $out
+        '';
+
     in image;
 
   copyToRegistry = image: {
-    plainHTTP ? false
+    imageName ? image.imageName,
+    imageTag ? image.imageTag,
+    plainHTTP ? false,
   }:
     let
       plainHTTPFlag = if plainHTTP then "--plain-http" else "";
 
     in writeShellScriptBin "copy-to-registry" ''
-      echo "Copy ${image.imageName}:${image.imageTag} to Docker Registry"
       ${nix-snapshotter}/bin/nix2container push \
-      ${plainHTTPFlag} \
-      ${image} \
-      ${image.imageName}:${image.imageTag}
-    '';
-
-  copyToOCIArchive = image: {}:
-    runCommand "${baseNameOf image.imageName}.tar" {} ''
-      echo "Copy ${image.imageName}:${image.imageTag} to OCI archive"
-      ${nix-snapshotter}/bin/nix2container export \
-      ${image} \
-      ${image.imageName}:${image.imageTag} \
-      $out
+        --ref "${imageName}:${imageTag}" \
+        ${plainHTTPFlag} \
+        ${image}
     '';
 
 in nix-snapshotter
