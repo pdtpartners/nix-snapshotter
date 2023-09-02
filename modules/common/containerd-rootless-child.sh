@@ -41,7 +41,7 @@ for i in "${!mountSources[@]}"; do
   # Remove the *symlinks* for the existing files in the parent namespace if any,
   # so that we can create our own files in our mount namespace.
   # The actual files in the parent namespace are *not removed* by this rm command.
-  rm -f "$mountPoint"
+  rm -rf "$mountPoint"
 
   echo >&2 Bind mounting ${mountSource} to ${mountPoint} inside mount namespace
   mkdir -p "$mountSource" "$mountPoint"

@@ -29,14 +29,21 @@ var buildCommand = &cli.Command{
 			Name:  "copy-to-root",
 			Usage: "Path to a JSON describing copy to root config",
 		},
+		&cli.StringFlag{
+			Name:  "ref",
+			Usage: "Specify an alternate image name.",
+		},
 	},
 	Action: func(c *cli.Context) error {
-		if c.NArg() != 2 {
-			return fmt.Errorf("must provide exactly 2 args")
+		if c.NArg() != 1 {
+			return fmt.Errorf("must provide exactly 1 arg")
 		}
 
-		args := c.Args()
-		ref, outPath := args.Get(0), args.Get(1)
+		outPath := c.Args().Get(0)
+		ref := "nix:0"+outPath+":latest"
+		if c.IsSet("ref") {
+			ref = c.String("ref")
+		}
 
 		var opts []nix2container.BuildOpt
 		if c.IsSet("from-image") {
