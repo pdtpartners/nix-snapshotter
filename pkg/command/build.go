@@ -2,41 +2,78 @@ package command
 
 import (
 	"fmt"
+	"os"
 
+	"github.com/containerd/containerd/content/local"
 	"github.com/pdtpartners/nix-snapshotter/pkg/nix2container"
 	cli "github.com/urfave/cli/v2"
 )
 
 var buildCommand = &cli.Command{
 	Name:  "build",
-	Usage: "builds a container image JSON for nix store paths",
+	Usage: "builds a nix-snapshotter image as a OCI archive",
 	Flags: []cli.Flag{
 		&cli.StringFlag{
 			Name:  "from-image",
-			Usage: "base image to use",
+			Usage: "Specify a base image to build layer ontop of",
+		},
+		&cli.StringFlag{
+			Name:  "config",
+			Usage: "Path to an OCI image config JSON",
+		},
+		&cli.StringFlag{
+			Name:  "closure",
+			Usage: "Path to a newline delimited list of runtime inputs",
+		},
+		&cli.StringFlag{
+			Name:  "copy-to-root",
+			Usage: "Path to a JSON describing copy to root config",
 		},
 	},
 	Action: func(c *cli.Context) error {
-		if c.NArg() != 4 {
-			return fmt.Errorf("must provide exactly 4 args")
+		if c.NArg() != 2 {
+			return fmt.Errorf("must provide exactly 2 args")
 		}
 
 		args := c.Args()
-		configPath, closurePath, copyToRootPath, outPath := args.Get(0), args.Get(1), args.Get(2), args.Get(3)
+		ref, outPath := args.Get(0), args.Get(1)
 
 		var opts []nix2container.BuildOpt
 		if c.IsSet("from-image") {
 			opts = append(opts, nix2container.WithFromImage(c.String("from-image")))
 		}
 
-		fmt.Printf(
-			"nix2container build --from-image %q %s %s %s %s\n",
-			c.String("from-image"),
-			configPath,
-			closurePath,
-			copyToRootPath,
-			outPath,
+		ctx := c.Context
+		img, err := nix2container.Build(ctx,
+			c.String("config"),
+			c.String("closure"),
+			c.String("copy-to-root"),
+			opts...,
 		)
-		return nix2container.Build(configPath, closurePath, copyToRootPath, outPath, opts...)
+		if err != nil {
+			return err
+		}
+
+		f, err := os.Create(outPath)
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if cerr := f.Close(); err != nil {
+				err = cerr
+			}
+		}()
+
+		root, err := os.MkdirTemp(nix2container.TempDir(), "nix2container-build")
+		if err != nil {
+			return err
+		}
+
+		store, err := local.NewStore(root)
+		if err != nil {
+			return err
+		}
+
+		return nix2container.Export(ctx, store, img, ref, f)
 	},
 }

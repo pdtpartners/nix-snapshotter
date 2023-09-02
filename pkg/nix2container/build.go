@@ -2,10 +2,12 @@ package nix2container
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"os"
 	"runtime"
 
+	"github.com/containerd/containerd/log"
 	"github.com/pdtpartners/nix-snapshotter/types"
 )
 
@@ -24,50 +26,53 @@ func WithFromImage(fromImage string) BuildOpt {
 	}
 }
 
-// Build writes an image JSON to the nix out path.
-func Build(configPath, closurePath, copyToRootPath, outPath string, opts ...BuildOpt) error {
+// Build builds an image specification.
+func Build(ctx context.Context, configPath, closurePath, copyToRootPath string, opts ...BuildOpt) (*types.Image, error) {
 	var bOpts BuildOpts
 	for _, opt := range opts {
 		opt(&bOpts)
 	}
 
-	image := types.Image{
+	image := &types.Image{
 		Architecture: runtime.GOARCH,
 		OS:           runtime.GOOS,
 		BaseImage:    bOpts.FromImage,
 	}
+	log.G(ctx).
+		WithField("arch", image.Architecture).
+		WithField("os", image.OS).
+		WithField("base-image", image.BaseImage).
+		Infof("Building image")
 
 	dt, err := os.ReadFile(configPath)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	err = json.Unmarshal(dt, &image.Config)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	image.NixStorePaths, err = readClosure(configPath, closurePath)
 	if err != nil {
-		return err
+		return nil, err
 	}
+	log.G(ctx).
+		WithField("closure-count", len(image.NixStorePaths)).
+		Infof("Read runtime inputs from closure file")
 
 	dt, err = os.ReadFile(copyToRootPath)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	err = json.Unmarshal(dt, &image.CopyToRoots)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	dt, err = json.MarshalIndent(image, "", "  ")
-	if err != nil {
-		return err
-	}
-
-	return os.WriteFile(outPath, dt, 0o644)
+	return image, nil
 }
 
 func readClosure(configPath, closurePath string) ([]string, error) {

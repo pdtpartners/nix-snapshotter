@@ -18,7 +18,9 @@ import (
 
 	"github.com/containerd/containerd/archive"
 	"github.com/containerd/containerd/archive/compression"
+	"github.com/containerd/containerd/content"
 	"github.com/containerd/containerd/platforms"
+	"github.com/containerd/containerd/remotes"
 	cfs "github.com/containerd/continuity/fs"
 	digest "github.com/opencontainers/go-digest"
 	specs "github.com/opencontainers/image-spec/specs-go"
@@ -36,20 +38,29 @@ const (
 	NixStorePrefixAnnotation = "containerd.io/snapshot/nix-store-path."
 )
 
-// Generate adds a nix-snapshotter container image to provider and returns its
+// TempDir returns the location of a temporary dir or XDG_RUNTIME_DIR if it is
+// defined.
+func TempDir() string {
+	if xdg := os.Getenv("XDG_RUNTIME_DIR"); xdg != "" {
+		return xdg
+	}
+	return os.TempDir()
+}
+
+// Generate adds a nix-snapshotter container image to store and returns its
 // descriptor.
-func Generate(ctx context.Context, image types.Image, provider *InmemoryProvider) (desc ocispec.Descriptor, err error) {
+func Generate(ctx context.Context, image *types.Image, store content.Store) (desc ocispec.Descriptor, err error) {
 	// Initialize the manifest and manifest config from its base image.
 	var (
 		mfst ocispec.Manifest
 		cfg  ocispec.Image
 	)
-	mfst, cfg, err = initializeManifest(ctx, image, provider)
+	mfst, cfg, err = initializeManifest(ctx, image, store)
 	if err != nil {
 		return
 	}
 
-	// Generate and add layer to provider.
+	// Generate and add layer to store.
 	buf := new(bytes.Buffer)
 	diffID, err := writeNixClosureLayer(ctx, buf, image.NixStorePaths, image.CopyToRoots)
 	if err != nil {
@@ -58,7 +69,7 @@ func Generate(ctx context.Context, image types.Image, provider *InmemoryProvider
 
 	cfg.RootFS.DiffIDs = append(cfg.RootFS.DiffIDs, diffID)
 
-	layerDesc, err := provider.AddBlob(ocispec.MediaTypeImageLayerGzip, buf.Bytes())
+	layerDesc, err := writeBlob(ctx, store, ocispec.MediaTypeImageLayerGzip, buf.Bytes())
 	if err != nil {
 		return
 	}
@@ -72,19 +83,40 @@ func Generate(ctx context.Context, image types.Image, provider *InmemoryProvider
 	}
 	mfst.Layers = append(mfst.Layers, layerDesc)
 
-	// Add manifest config to provider.
-	configDesc, err := provider.AddBlob(ocispec.MediaTypeImageConfig, &cfg)
+	// Add manifest config to store.
+	configDesc, err := writeBlob(ctx, store, ocispec.MediaTypeImageConfig, &cfg)
 	if err != nil {
 		return
 	}
 	mfst.Config = configDesc
-	// Add manifest to provider.
-	return provider.AddBlob(mfst.MediaType, &mfst)
+
+	// Add manifest to store.
+	return writeBlob(ctx, store, mfst.MediaType, &mfst)
+}
+
+func writeBlob(ctx context.Context, store content.Store, mediaType string, v interface{}) (ocispec.Descriptor, error) {
+	blob, ok := v.([]byte)
+	if !ok {
+		var err error
+		blob, err = json.MarshalIndent(v, "", "  ")
+		if err != nil {
+			return ocispec.Descriptor{}, err
+		}
+	}
+
+	desc := ocispec.Descriptor{
+		MediaType: mediaType,
+		Digest:    digest.FromBytes(blob),
+		Size:      int64(len(blob)),
+	}
+
+	ref := remotes.MakeRefKey(ctx, desc)
+	return desc, content.WriteBlob(ctx, store, ref, bytes.NewReader(blob), desc)
 }
 
 // initializeManifest initializes a manifest and manifest config based on the
 // image's base image.
-func initializeManifest(ctx context.Context, image types.Image, provider *InmemoryProvider) (ocispec.Manifest, ocispec.Image, error) {
+func initializeManifest(ctx context.Context, image *types.Image, store content.Store) (ocispec.Manifest, ocispec.Image, error) {
 	mfst := ocispec.Manifest{
 		MediaType: ocispec.MediaTypeImageManifest,
 		Versioned: specs.Versioned{
@@ -107,28 +139,9 @@ func initializeManifest(ctx context.Context, image types.Image, provider *Inmemo
 	// If the base image is non-empty, add the base image's layers, annotations
 	// and diff IDs to the new image's manifest and manifest config.
 	if image.BaseImage != "" {
-		imageType, err := DetectImageType(image.BaseImage)
+		baseMfst, baseCfg, err := parseOCITarball(ctx, store, image.BaseImage)
 		if err != nil {
 			return mfst, cfg, err
-		}
-
-		var (
-			baseMfst ocispec.Manifest
-			baseCfg  ocispec.Image
-		)
-		switch imageType {
-		case ImageTypeNix:
-			baseMfst, baseCfg, err = parseNixImageJSON(ctx, provider, image.BaseImage)
-			if err != nil {
-				return mfst, cfg, err
-			}
-		case ImageTypeOCITarball:
-			baseMfst, baseCfg, err = parseOCITarball(ctx, provider, image.BaseImage)
-			if err != nil {
-				return mfst, cfg, err
-			}
-		default:
-			return mfst, cfg, fmt.Errorf("unknown image type at %s", image.BaseImage)
 		}
 
 		// Inherit layers, annotations and diff IDs from base image.
@@ -144,9 +157,9 @@ func initializeManifest(ctx context.Context, image types.Image, provider *Inmemo
 
 // parseOCITarball extracts a ocispec.Manifest and ocispec.Image from an OCI
 // archive tarball at the given tarballPath.
-func parseOCITarball(ctx context.Context, provider *InmemoryProvider, tarballPath string) (mfst ocispec.Manifest, cfg ocispec.Image, err error) {
+func parseOCITarball(ctx context.Context, store content.Store, tarballPath string) (mfst ocispec.Manifest, cfg ocispec.Image, err error) {
 	// Untar OCI tarball into temp directory.
-	root, err := os.MkdirTemp(getTempDir(), "nix2container-root")
+	root, err := os.MkdirTemp(TempDir(), "nix2container-oci")
 	if err != nil {
 		return mfst, cfg, fmt.Errorf("failed to create temp dir: %w", err)
 	}
@@ -195,12 +208,12 @@ func parseOCITarball(ctx context.Context, provider *InmemoryProvider, tarballPat
 		return
 	}
 
-	mfst.Config, err = provider.AddBlob(ocispec.MediaTypeImageConfig, dt)
+	mfst.Config, err = writeBlob(ctx, store, ocispec.MediaTypeImageConfig, dt)
 	if err != nil {
 		return
 	}
 
-	// Load layers into provider.
+	// Load layers into store.
 	for _, layer := range ociMfst.Layers {
 		layerPath := filepath.Join(root, layer)
 		dt, err = os.ReadFile(layerPath)
@@ -209,44 +222,12 @@ func parseOCITarball(ctx context.Context, provider *InmemoryProvider, tarballPat
 		}
 
 		var desc ocispec.Descriptor
-		desc, err = provider.AddBlob(ocispec.MediaTypeImageLayer, dt)
+		desc, err = writeBlob(ctx, store, ocispec.MediaTypeImageLayer, dt)
 		if err != nil {
 			return
 		}
 		mfst.Layers = append(mfst.Layers, desc)
 	}
-	return
-}
-
-// parseNixImageJSON generates the base image from the given imagePath. Since
-// image contents are only generated at push time, this is done on the fly for
-// its base images recursively. Nix store path contents aren't actually
-// packaged into docker layers, so this is cheap and avoids writing to the nix
-// store.
-func parseNixImageJSON(ctx context.Context, provider *InmemoryProvider, imagePath string) (mfst ocispec.Manifest, cfg ocispec.Image, err error) {
-	dt, err := os.ReadFile(imagePath)
-	if err != nil {
-		return
-	}
-
-	var image types.Image
-	err = json.Unmarshal(dt, &image)
-	if err != nil {
-		return
-	}
-
-	desc, err := Generate(ctx, image, provider)
-	if err != nil {
-		return
-	}
-	fmt.Printf("Generated image from %s with %s\n", imagePath, desc.Digest)
-
-	err = unmarshalFromProvider(ctx, provider, desc, &mfst)
-	if err != nil {
-		return
-	}
-
-	err = unmarshalFromProvider(ctx, provider, mfst.Config, &cfg)
 	return
 }
 
@@ -258,7 +239,7 @@ func parseNixImageJSON(ctx context.Context, provider *InmemoryProvider, imagePat
 // relative to root. Note that these symlinks will be broken until the
 // containerd-shim finally mounts what nix-snapshotter has generated.
 func writeNixClosureLayer(ctx context.Context, w io.Writer, nixStorePaths, copyToRoots []string) (digest.Digest, error) {
-	root, err := os.MkdirTemp(getTempDir(), "nix2container-root")
+	root, err := os.MkdirTemp(TempDir(), "nix2container-closure")
 	if err != nil {
 		return "", fmt.Errorf("failed to create temp dir: %w", err)
 	}
@@ -335,13 +316,6 @@ func tarDir(ctx context.Context, w io.Writer, root string, gzip bool) (digest.Di
 		return "", cwErr
 	}
 	return dgstr.Digest(), nil
-}
-
-func getTempDir() string {
-	if xdg := os.Getenv("XDG_RUNTIME_DIR"); xdg != "" {
-		return xdg
-	}
-	return os.TempDir()
 }
 
 // rootFileInfo is a wrapped fs.FileInfo that forces Uid and Gid to be 0.

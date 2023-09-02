@@ -1,9 +1,6 @@
 { lib, config, pkgs, modulesPath, examples, ... }:
 let
-  preloadContainerdImages =
-    builtins.map
-      (image: image.copyToOCIArchive {})
-      (lib.attrValues examples);
+  preloadContainerdImages = lib.attrValues examples;
 
 in {
   imports = [

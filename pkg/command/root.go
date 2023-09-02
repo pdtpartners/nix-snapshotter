@@ -3,20 +3,41 @@ package command
 import (
 	"context"
 
+	"github.com/containerd/containerd/log"
+	"github.com/sirupsen/logrus"
 	cli "github.com/urfave/cli/v2"
 )
+
+var defaultLogLevel = logrus.InfoLevel
 
 func NewApp(ctx context.Context) *cli.App {
 	return &cli.App{
 		Name:  "nix2container",
 		Usage: "convert nix store paths into a container image",
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:    "log-level",
+				Aliases: []string{"l"},
+				Value:   defaultLogLevel.String(),
+				Usage:   "Set the logging level [trace, debug, info, warn, error, fatal, panic]",
+			},
+		},
 		Before: func(c *cli.Context) error {
-			c.Context = ctx
+			lvl, err := logrus.ParseLevel(c.String("log-level"))
+			if err != nil {
+				return err
+			}
+			logrus.SetLevel(lvl)
+
+			logrus.SetFormatter(&logrus.TextFormatter{
+				FullTimestamp:   true,
+				TimestampFormat: log.RFC3339NanoFixed,
+			})
+			c.Context = log.WithLogger(ctx, log.L)
 			return nil
 		},
 		Commands: []*cli.Command{
 			buildCommand,
-			exportCommand,
 			pushCommand,
 		},
 	}
