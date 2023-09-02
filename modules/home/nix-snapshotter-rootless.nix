@@ -1,9 +1,5 @@
 { config, lib, ... }:
 let
-  inherit (lib.home-manager)
-    convertServiceToNixOS
-  ;
-
   cfg = config.services.nix-snapshotter.rootless;
 
   ns-lib = config.services.nix-snapshotter.lib;
@@ -16,7 +12,7 @@ in {
 
   config = lib.mkIf cfg.enable (lib.mkMerge [
     {
-      environment.extraInit =
+      home.sessionVariablesExtra =
         (lib.optionalString cfg.setContainerdSnapshotter ''
           if [ -z "$CONTAINERD_SNAPSHOTTER" ]; then
             export CONTAINERD_SNAPSHOTTER="nix"
@@ -29,13 +25,13 @@ in {
         '');
 
       systemd.user.services.nix-snapshotter = lib.recursiveUpdate
-        (convertServiceToNixOS (ns-lib.mkRootlessNixSnapshotterService cfg))
-        { inherit (cfg) path; };
+        (ns-lib.mkRootlessNixSnapshotterService cfg)
+        { Service.Environment = "PATH=${lib.makeBinPath cfg.path}"; };
     }
-    {
+    (lib.mkIf (cfg.preloadContainerdImages != []) {
       systemd.user.services.preload-containerd-images = lib.recursiveUpdate
-        (convertServiceToNixOS (ns-lib.mkRootlessPreloadContainerdImageService cfg))
-        { environment.CONTAINERD_ADDRESS = "%t/containerd/containerd.sock"; };
-    }
+        (ns-lib.mkRootlessPreloadContainerdImageService cfg)
+        { Service.Environment = "CONTAINERD_ADDRESS=%t/containerd/containerd.sock"; };
+    })
   ]);
 }

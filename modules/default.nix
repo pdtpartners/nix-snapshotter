@@ -1,10 +1,7 @@
 {
   imports = [
-    ./examples.nix
-    ./linters.nix
+    ./flake
+    ./home
     ./nixos
-    ./nixosTests.nix
-    ./overlays.nix
-    ./packages.nix
   ];
 }
