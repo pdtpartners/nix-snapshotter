@@ -53,13 +53,9 @@
           )
           examples;
 
-      imageArchives =
+      buildImages =
         lib.mapAttrs'
-          (name: image:
-            lib.nameValuePair
-              ("archive-" + name)
-              (image.copyToOCIArchive {})
-          )
+          (name: image: lib.nameValuePair ("image-" + name) image)
           examples;
 
     in {
@@ -68,9 +64,6 @@
 
       apps = pushImages;
 
-      packages = lib.mkMerge [
-        { inherit (examples) hello redis redisWithShell; }
-        imageArchives
-      ];
+      packages = buildImages;
     };
 }

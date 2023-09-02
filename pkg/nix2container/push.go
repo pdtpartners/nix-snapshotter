@@ -2,12 +2,15 @@ package nix2container
 
 import (
 	"context"
+	"os"
 
+	"github.com/containerd/containerd/content"
+	"github.com/containerd/containerd/images/archive"
+	"github.com/containerd/containerd/log"
 	"github.com/containerd/containerd/platforms"
 	"github.com/containerd/containerd/reference/docker"
 	"github.com/containerd/containerd/remotes"
 	"github.com/pdtpartners/nix-snapshotter/pkg/dockerconfigresolver"
-	"github.com/pdtpartners/nix-snapshotter/types"
 )
 
 type PushOpt func(*PushConfig)
@@ -23,14 +26,19 @@ func WithPlainHTTP() PushOpt {
 }
 
 // Push generates a nix-snapshotter image and pushes it to a remote.
-func Push(ctx context.Context, image types.Image, ref string, opts ...PushOpt) error {
+func Push(ctx context.Context, store content.Store, archivePath, ref string, opts ...PushOpt) error {
 	cfg := &PushConfig{}
 	for _, opt := range opts {
 		opt(cfg)
 	}
 
-	provider := NewInmemoryProvider()
-	desc, err := Generate(ctx, image, provider)
+	f, err := os.Open(archivePath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	desc, err := archive.ImportIndex(ctx, store, f)
 	if err != nil {
 		return err
 	}
@@ -40,8 +48,9 @@ func Push(ctx context.Context, image types.Image, ref string, opts ...PushOpt) e
 		return err
 	}
 
+	log.G(ctx).WithField("ref", ref).Info("Pushing nix image to registry")
 	// Push image and its blobs to a registry.
-	return remotes.PushContent(ctx, pusher, desc, provider, nil, platforms.All, nil)
+	return remotes.PushContent(ctx, pusher, desc, store, nil, platforms.All, nil)
 }
 
 // newPusher returns a remotes.Pusher that automatically authenticates

@@ -26,9 +26,9 @@ jobs:
       matrix:
         package:
           - nix-snapshotter
-          - hello
-          - redis
-          - redisWithShell
+          - image-hello
+          - image-redis
+          - image-redisWithShell
     steps:
       - uses: actions/checkout@v3
       - name: Setup Nix
