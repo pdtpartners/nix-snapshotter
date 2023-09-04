@@ -132,10 +132,10 @@ let
 
       archives = cfg.preloadContainerdImages;
 
-      ctr-preload = pkgs.writeShellScriptBin "ctr-preload" (
+      preload = pkgs.writeShellScriptBin "preload" (
         lib.concatStringsSep "\n"
           (builtins.map
-            (archive: ''${pkgs.containerd}/bin/ctr -n "${namespace}" image import --snapshotter nix --local=false ${archive}'' )
+            (archive: ''${pkgs.nix-snapshotter}/bin/nix2container -n "${namespace}" load ${archive}'' )
             archives
           )
       );
@@ -148,7 +148,7 @@ let
 
       Service = {
         Type = "oneshot";
-        ExecStart = "${ctr-preload}/bin/ctr-preload";
+        ExecStart = "${preload}/bin/preload";
         RemainAfterExit = true;
       };
     };

@@ -18,6 +18,7 @@ import (
 	"github.com/urfave/cli/v2"
 	"golang.org/x/sys/unix"
 	"google.golang.org/grpc"
+	runtime "k8s.io/cri-api/pkg/apis/runtime/v1"
 )
 
 var (
@@ -121,14 +122,21 @@ func serve(ctx context.Context, cfg *config.Config) error {
 		return fmt.Errorf("failed to remove %q: %w", cfg.Address, err)
 	}
 
+	rpc := grpc.NewServer()
+	if cfg.ImageService.Enable {
+		imageService, err := nix.NewImageService(ctx, cfg.ImageService.ContainerdAddress)
+		if err != nil {
+			return err
+		}
+		runtime.RegisterImageServiceServer(rpc, imageService)
+	}
+
 	sn, err := nix.NewSnapshotter(cfg.Root)
 	if err != nil {
 		return err
 	}
 
 	service := snapshotservice.FromSnapshotter(sn)
-
-	rpc := grpc.NewServer()
 	snapshotsapi.RegisterSnapshotsServer(rpc, service)
 
 	l, err := net.Listen("unix", cfg.Address)

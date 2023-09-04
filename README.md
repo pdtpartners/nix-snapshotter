@@ -29,7 +29,7 @@ Password: root
 nerdctl run ghcr.io/pdtpartners/hello
 
 # Running pkgs.redis image with kubernetes & nix-snapshotter
-kubectl apply -f /etc/kubernetes/redis.yaml
+kubectl apply -f /etc/kubernetes/redis/
 
 # Wait a few seconds and a kubernetes service will be ready to forward port
 # 30000 to the redis pod, so you can test it out with a `ping` command.

@@ -11,9 +11,9 @@ import (
 
 func TestConfig(t *testing.T) {
 	type testCase struct {
-		name     string
-		setup    func(ctx context.Context, testDir string) (*Config, error)
-		expected *Config
+		name  string
+		setup func(ctx context.Context, testDir string) (*Config, error)
+		delta *Config
 	}
 
 	for _, tc := range []testCase{
@@ -22,7 +22,7 @@ func TestConfig(t *testing.T) {
 			func(ctx context.Context, testDir string) (*Config, error) {
 				return New(), nil
 			},
-			New(),
+			&Config{},
 		},
 		{
 			"merge",
@@ -35,7 +35,6 @@ func TestConfig(t *testing.T) {
 			},
 			&Config{
 				Address: "/run/foobar/foobar.sock",
-				Root:    defaultRoot,
 			},
 		},
 		{
@@ -54,7 +53,6 @@ func TestConfig(t *testing.T) {
 			},
 			&Config{
 				Address: "/run/foobar/foobar.sock",
-				Root:    defaultRoot,
 			},
 		},
 		{
@@ -76,13 +74,14 @@ func TestConfig(t *testing.T) {
 
 				flagCfg := &Config{
 					Address: "/run/barbaz/barbaz.sock",
+					Root:    "/var/lib/barbaz",
 				}
 
 				return cfg, cfg.Merge(flagCfg)
 			},
 			&Config{
 				Address: "/run/barbaz/barbaz.sock",
-				Root:    defaultRoot,
+				Root:    "/var/lib/barbaz",
 			},
 		},
 	} {
@@ -92,7 +91,12 @@ func TestConfig(t *testing.T) {
 			testDir := t.TempDir()
 			actual, err := tc.setup(context.Background(), testDir)
 			require.NoError(t, err)
-			require.Equal(t, tc.expected, actual)
+
+			expected := New()
+			err = expected.Merge(tc.delta)
+			require.NoError(t, err)
+
+			require.Equal(t, expected, actual)
 		})
 	}
 }

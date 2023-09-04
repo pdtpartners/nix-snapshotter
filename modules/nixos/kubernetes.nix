@@ -7,6 +7,7 @@
   services.kubernetes = {
     roles = ["master" "node"];
     masterAddress = "localhost";
+    kubelet.extraOpts = "--image-service-endpoint unix:///run/nix-snapshotter/nix-snapshotter.sock";
   };
 
   # Do not take over cni/net.d as nerdctl wants it writeable as well.

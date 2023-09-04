@@ -41,6 +41,11 @@
         };
       };
 
+      buildImages =
+        lib.mapAttrs'
+          (name: image: lib.nameValuePair ("image-" + name) image)
+          examples;
+
       pushImages =
         lib.mapAttrs'
           (name: image: 
@@ -53,16 +58,26 @@
           )
           examples;
 
-      buildImages =
-        lib.mapAttrs'
-          (name: image: lib.nameValuePair ("image-" + name) image)
+      loadImages =
+        let
+          address = ''$XDG_RUNTIME_DIR/containerd/containerd.sock'';
+
+        in lib.mapAttrs'
+          (name: image: 
+            lib.nameValuePair
+              ("load-" + name)
+              {
+                type = "app";
+                program = "${image.copyToContainerd { inherit address; }}/bin/copy-to-containerd";
+              }
+          )
           examples;
 
     in {
       # Load example images into VM.
       _module.args = { inherit examples; };
 
-      apps = pushImages;
+      apps = lib.mkMerge[ pushImages loadImages ];
 
       packages = buildImages;
     };

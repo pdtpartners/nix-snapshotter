@@ -18,17 +18,30 @@ let
         ".tar"
       ];
     };
-    vendorSha256 = "sha256-l0ttbSToudTT+GloxOZE6ohGIx8/OTq2LFCi1rjk7Ec=";
+    vendorSha256 = "sha256-ueFljSZhF3mskBbZJTbA8QjikPqcaijMOCUk3drtYXc=";
     passthru = { inherit buildImage; };
   };
 
+  # buildImage is analogous to the `docker build` command, in that it can be
+  # used to build an OCI image archive that can be loaded into containerd. Note
+  # Note that nix-snapshotter is a containerd plugin, so nix-snapshotter images
+  # will only work with containerd.
   buildImage = args@{
-    # The image name when exported.
+    # The image name when exported. When resolvedByNix is enabled, this is
+    # treated as just the package name to help identify the nix store path.
     name,
-    # The image tag when exported.
+    # The image tag when exported. By default, this is the hash of the
+    # derivation outPath.
     tag ? null,
-    # An image that is used as base image of this image.
-    fromImage ? "",
+    # If enabled, the OCI archive will be generated with a special image
+    # reference in the format of "nix:0/nix/store/*.tar", which is resolvable
+    # by nix-snapshotter if configured as the CRI image-service without a
+    # Docker Registry.
+    resolvedByNix ? false,
+    # An image that is used as base image of this image. Any image can be used
+    # as a fromImage, including non-nix images and images built with
+    # pkgs.dockerTools.buildImage.
+    fromImage ? null,
     # A derivation (or list of derivation) to include in the layer
     # root. The store path prefix /nix/store/hash-path is removed. The
     # store path content is then located at the image /.
@@ -38,7 +51,9 @@ let
     config ? {},
   }:
     let
-      configFile = writeText "config-${baseNameOf name}.json" (builtins.toJSON config);
+      baseName = baseNameOf name;
+
+      configFile = writeText "config-${baseName}.json" (builtins.toJSON config);
 
       copyToRootList = lib.toList (args.copyToRoot or []);
 
@@ -48,10 +63,10 @@ let
 
       copyToRootFile =
         writeText
-          "copy-to-root-${baseNameOf name}.json"
+          "copy-to-root-${baseName}.json"
           (builtins.toJSON copyToRootList);
 
-      fromImageFlag = lib.optionalString (fromImage != "") "--from-image ${fromImage}";
+      fromImageFlag = lib.optionalString (fromImage != null) ''--from-image "${fromImage}"'';
 
       image =
         let
@@ -60,27 +75,36 @@ let
           imageTag =
             if tag != null then tag
             else builtins.head (lib.strings.splitString "-" (baseNameOf image.outPath));
-        in runCommand "nix-image-${baseNameOf name}.tar" {
+
+          imageRef = if resolvedByNix then "nix:0${image.outPath}" else "${imageName}:${imageTag}";
+
+          refFlag = lib.optionalString (!resolvedByNix) ''--ref "${imageRef}"'';
+
+        in runCommand "nix-image-${baseName}.tar" {
           passthru = {
-            inherit imageName;
-            inherit imageTag;
+            inherit name;
+            tag = imageTag;
+            # For kubernetes pod spec.
+            image = imageRef;
             copyToRegistry = copyToRegistry image;
+            copyToContainerd = copyToContainerd image;
           };
         } ''
           ${nix-snapshotter}/bin/nix2container build \
             --config "${configFile}" \
             --closure "${runtimeClosureInfo}/store-paths" \
             --copy-to-root "${copyToRootFile}" \
+            ${refFlag} \
             ${fromImageFlag} \
-            ${imageName}:${imageTag} \
             $out
         '';
 
     in image;
 
+  # Copies an OCI archive to an OCI registry.
   copyToRegistry = image: {
-    imageName ? image.imageName,
-    imageTag ? image.imageTag,
+    imageName ? image.name,
+    imageTag ? image.tag,
     plainHTTP ? false,
   }:
     let
@@ -91,6 +115,25 @@ let
         --ref "${imageName}:${imageTag}" \
         ${plainHTTPFlag} \
         ${image}
+    '';
+
+  # Copies an OCI archive into containerd's image store.
+  copyToContainerd = image: args@{
+    address ? null,
+    namespace ? null,
+  }:
+    let
+      addressFlag =
+        if args?address then "--address ${address}" else "";
+
+      namespaceFlag =
+        if args?namespace then "--namespace ${namespace}" else "";
+
+    in writeShellScriptBin "copy-to-containerd" ''
+      ${nix-snapshotter}/bin/nix2container \
+        ${addressFlag} \
+        ${namespaceFlag} \
+        load ${image}
     '';
 
 in nix-snapshotter
