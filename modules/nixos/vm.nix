@@ -8,8 +8,9 @@ in {
     # is only intended to be used as a VM. Using vmVariant will emit assertion
     # errors regarding `fileSystems."/"` and `boot.loader.grub.device`.
     (modulesPath + "/virtualisation/qemu-vm.nix")
-    # ./kubernetes.nix
-    ./k3s.nix
+    ./kubernetes.nix
+    # ./k3s.nix
+    ./redis-spec.nix
   ];
 
   # Enable rootful & rootless nix-snapshotter. This also starts rootful &
@@ -25,16 +26,13 @@ in {
     inherit preloadContainerdImages;
   };
 
-  # Provide an example kubernetes config for redis using a nix-snapshotter
-  # image.
-  environment.etc."kubernetes/redis.yaml".source = ../../script/k8s/redis.yaml;
-
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
 
   environment.systemPackages = with pkgs; [
     containerd
     cri-tools
     git
+    jq
     kubectl
     nerdctl
     nix-snapshotter

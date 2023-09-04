@@ -21,6 +21,20 @@ func NewApp(ctx context.Context) *cli.App {
 				Value:   defaultLogLevel.String(),
 				Usage:   "Set the logging level [trace, debug, info, warn, error, fatal, panic]",
 			},
+			&cli.StringFlag{
+				Name:    "address",
+				Aliases: []string{"a"},
+				Value:   "/run/containerd/containerd.sock",
+				Usage:   "containerd address",
+				EnvVars: []string{"CONTAINERD_ADDRESS"},
+			},
+			&cli.StringFlag{
+				Name:    "namespace",
+				Aliases: []string{"n"},
+				Value:   "default",
+				Usage:   "containerd namespace",
+				EnvVars: []string{"CONTAINERD_NAMESPACE"},
+			},
 		},
 		Before: func(c *cli.Context) error {
 			lvl, err := logrus.ParseLevel(c.String("log-level"))
@@ -39,6 +53,7 @@ func NewApp(ctx context.Context) *cli.App {
 		Commands: []*cli.Command{
 			buildCommand,
 			pushCommand,
+			loadCommand,
 		},
 	}
 }

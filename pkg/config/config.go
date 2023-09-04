@@ -12,14 +12,21 @@ import (
 )
 
 var (
-	defaultAddress = "/run/nix-snapshotter/nix-snapshotter.sock"
-	defaultRoot    = "/var/lib/containerd/io.containerd.snapshotter.v1.nix"
+	defaultAddress           = "/run/nix-snapshotter/nix-snapshotter.sock"
+	defaultRoot              = "/var/lib/containerd/io.containerd.snapshotter.v1.nix"
+	defaultContainerdAddress = "/run/containerd/containerd.sock"
 )
 
 // Config provides nix-snapshotter configuration data.
 type Config struct {
-	Address string `toml:"address"`
-	Root    string `toml:"root"`
+	Address      string             `toml:"address"`
+	Root         string             `toml:"root"`
+	ImageService ImageServiceConfig `toml:"image_service"`
+}
+
+type ImageServiceConfig struct {
+	Enable            bool   `toml:"enable"`
+	ContainerdAddress string `toml:"containerd_address"`
 }
 
 // New returns a default config.
@@ -27,6 +34,10 @@ func New() *Config {
 	return &Config{
 		Address: defaultAddress,
 		Root:    defaultRoot,
+		ImageService: ImageServiceConfig{
+			Enable:            true,
+			ContainerdAddress: defaultContainerdAddress,
+		},
 	}
 }
 
