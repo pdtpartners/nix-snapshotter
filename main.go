@@ -49,7 +49,7 @@ annotations. At runtime, the container rootfs will be backed by a read-writable
 overlayfs root along with bind mounts for every nix store path required.`
 
 	// Allow flags to override config attributes.
-	flagCfg := config.New()
+	flagCfg := &config.Config{}
 	app.Flags = []cli.Flag{
 		&cli.StringFlag{
 			Name:    "log-level",

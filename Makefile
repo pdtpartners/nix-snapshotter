@@ -31,10 +31,10 @@ start-containerd: build/containerd/config.toml
 start-nix-snapshotter: nix-snapshotter build/nerdctl/nix-snapshotter.toml
 	bash ./script/rootless/nix-snapshotter.sh
 
-load-hello:
+load-hello: nix2container
 	bash ./script/rootless/load-image.sh hello
 
-load-redis:
+load-redis: nix2container
 	bash ./script/rootless/load-image.sh redis
 
 run-hello: build/nerdctl/nerdctl.toml load-hello
