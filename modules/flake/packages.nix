@@ -1,27 +1,28 @@
 { lib, ... }:
 {
   perSystem = { pkgs, ... }: {
-    packages = {
+    packages = rec {
       inherit (pkgs) nix-snapshotter;
-      default = pkgs.nix-snapshotter;
+      default = nix-snapshotter;
     };
 
     devShells.default = pkgs.mkShell {
-      packages = [
-        pkgs.containerd
-        pkgs.cri-tools
-        pkgs.delve
-        pkgs.gdb
-        pkgs.golangci-lint
-        pkgs.gopls
-        pkgs.gotools
-        pkgs.kind
-        pkgs.kubectl
-        pkgs.rootlesskit
-        pkgs.runc
-        pkgs.slirp4netns
-        pkgs.nerdctl
-      ] ++ pkgs.nix-snapshotter.nativeBuildInputs;
+      packages = with pkgs; [
+        containerd
+        cri-tools
+        delve
+        gdb
+        golangci-lint
+        gopls
+        gotools
+        kind
+        kubectl
+        redis
+        rootlesskit
+        runc
+        slirp4netns
+        nerdctl
+      ] ++ nix-snapshotter.nativeBuildInputs;
     };
   };
 }
