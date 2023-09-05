@@ -1,9 +1,5 @@
 { config, lib, ... }:
 let
-  inherit (lib.home-manager)
-    convertServiceToNixOS
-  ;
-
   cfg = config.services.nix-snapshotter.rootless;
 
   ns-lib = config.services.nix-snapshotter.lib;
@@ -29,12 +25,12 @@ in {
         '');
 
       systemd.user.services.nix-snapshotter = lib.recursiveUpdate
-        (convertServiceToNixOS (ns-lib.mkRootlessNixSnapshotterService cfg))
+        (ns-lib.convertServiceToNixOS (ns-lib.mkRootlessNixSnapshotterService cfg))
         { inherit (cfg) path; };
     }
     {
       systemd.user.services.preload-containerd-images = lib.recursiveUpdate
-        (convertServiceToNixOS (ns-lib.mkRootlessPreloadContainerdImageService cfg))
+        (ns-lib.convertServiceToNixOS (ns-lib.mkRootlessPreloadContainerdImageService cfg))
         { environment.CONTAINERD_ADDRESS = "%t/containerd/containerd.sock"; };
     }
   ]);
