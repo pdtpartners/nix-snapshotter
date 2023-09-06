@@ -3,6 +3,7 @@
 # nix-snapshotter
 
 [![ci][ci-badge]][ci]
+[![Go Report Card][go-report-card-badge]][go-report-card]
 
 Brings native understanding of Nix packages to [containerd](https://github.com/containerd/containerd).
 
@@ -279,6 +280,8 @@ details.
 
 [ci-badge]: https://github.com/pdtpartners/nix-snapshotter/actions/workflows/ci.yml/badge.svg
 [ci]: https://github.com/pdtpartners/nix-snapshotter/actions?query=workflow%3ACI
+[go-report-card-badge]: https://goreportcard.com/badge/github.com/pdtpartners/nix-snapshotter
+[go-report-card]: https://goreportcard.com/report/github.com/pdtpartners/nix-snapshotter
 [home-manager]: https://github.com/nix-community/home-manager
 [manual-install]: docs/manual-install.md
 [nix-command]: https://zero-to-nix.com/concepts/nix#unified-cli
