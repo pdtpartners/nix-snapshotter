@@ -21,9 +21,12 @@ in {
 
   config.perSystem = { config, pkgs', nix-snapshotter-parts, ... }:
     let
-      evalTest = module:
+      evalTest = name: module:
         (lib.nixos.evalTest {
-          imports = [ module ];
+          imports = [
+            { inherit name; }
+            module
+          ];
           hostPkgs = pkgs';
           node.pkgs = pkgs';
           extraBaseModules = {
@@ -31,7 +34,7 @@ in {
           };
         }).config.result;
 
-      testRigs = lib.mapAttrs (_: module: evalTest module) config.nixosTests;
+      testRigs = lib.mapAttrs (name: module: evalTest name module) config.nixosTests;
 
       /* For each nixosTest, add an `apps` target that allows the use of
          `machine.shell_interact()` for developing tests.
