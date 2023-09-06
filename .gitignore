@@ -16,6 +16,7 @@
 
 # nix
 result*
+nixos.qcow2
 
 # direnv
 .direnv/
