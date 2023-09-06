@@ -3,6 +3,7 @@ package testutil
 import (
 	"testing"
 
+	"github.com/containerd/containerd/pkg/testutil"
 	"github.com/google/go-cmp/cmp"
 )
 
@@ -12,3 +13,5 @@ func IsIdentical(t *testing.T, x interface{}, y interface{}) {
 		t.Fatalf(diff)
 	}
 }
+
+var RequiresRoot = testutil.RequiresRoot

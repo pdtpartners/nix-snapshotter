@@ -13,7 +13,7 @@ let
         ".tar"
       ];
     };
-    vendorSha256 = "sha256-C7XICC0WWLE5VsiKsJvjfHVIJKlRAgIRjIny3eRgnbw=";
+    vendorSha256 = "sha256-jrGON5tvAxGYjo+px296P5hAWDkWop4uugtR3YbyQzI=";
   };
 
   buildImage = args@{
