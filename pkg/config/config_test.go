@@ -2,7 +2,7 @@ package config
 
 import (
 	"context"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -44,7 +44,7 @@ func TestConfig(t *testing.T) {
 
 				config := []byte(`address = "/run/foobar/foobar.sock"`)
 				configPath := filepath.Join(testDir, "config.toml")
-				err := ioutil.WriteFile(configPath, config, 0o755)
+				err := os.WriteFile(configPath, config, 0o755)
 				if err != nil {
 					return nil, err
 				}
@@ -62,7 +62,7 @@ func TestConfig(t *testing.T) {
 
 				config := []byte(`address = "/run/foobar/foobar.sock"`)
 				configPath := filepath.Join(testDir, "config.toml")
-				err := ioutil.WriteFile(configPath, config, 0o755)
+				err := os.WriteFile(configPath, config, 0o755)
 				if err != nil {
 					return nil, err
 				}
