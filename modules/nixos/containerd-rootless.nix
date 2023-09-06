@@ -1,10 +1,8 @@
 { config, lib, ... }:
 let
-  inherit (lib.home-manager)
-    convertServiceToNixOS
-  ;
-
   cfg = config.virtualisation.containerd.rootless;
+
+  ns-lib = config.services.nix-snapshotter.lib;
 
   proxyEnv = config.networking.proxy.envVars;
 
@@ -19,7 +17,7 @@ in {
     '';
 
     systemd.user.services.containerd = lib.recursiveUpdate
-      (convertServiceToNixOS (cfg.lib.mkRootlessContainerdService cfg))
+      (ns-lib.convertServiceToNixOS (cfg.lib.mkRootlessContainerdService cfg))
       { environment = proxyEnv; };
   };
 }
