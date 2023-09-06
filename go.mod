@@ -3,7 +3,7 @@ module github.com/pdtpartners/nix-snapshotter
 go 1.18
 
 require (
-	github.com/containerd/containerd v1.7.2
+	github.com/containerd/containerd v1.7.1-0.20230817182844-23c95359aa63
 	github.com/containerd/continuity v0.4.2-0.20230616210509-1e0d26eb2381
 	github.com/coreos/go-systemd/v22 v22.5.0
 	github.com/google/go-cmp v0.5.9
@@ -126,5 +126,3 @@ require (
 )
 
 replace github.com/opencontainers/runtime-tools => github.com/opencontainers/runtime-tools v0.0.0-20221026201742-946c877fa809
-
-replace github.com/containerd/containerd => github.com/pdtpartners/containerd v1.7.2-nix
