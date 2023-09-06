@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func newSnapshotterWithOpts(opts ...interface{}) testsuite.SnapshotterFunc {
+func newSnapshotterWithOpts(opts ...NixOpt) testsuite.SnapshotterFunc {
 	return func(ctx context.Context, root string) (snapshots.Snapshotter, func() error, error) {
 		snapshotter, err := NewSnapshotter(root, opts...)
 		if err != nil {

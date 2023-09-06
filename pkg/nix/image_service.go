@@ -25,10 +25,7 @@ func NewImageService(ctx context.Context, containerdAddr string, opts ...NixOpt)
 		nixBuilder: defaultNixBuilder,
 	}
 	for _, opt := range opts {
-		err := opt(&config)
-		if err != nil {
-			return nil, err
-		}
+		opt(&config)
 	}
 
 	client, err := containerd.New(containerdAddr)

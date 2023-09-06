@@ -45,18 +45,18 @@ type NixBuilder func(ctx context.Context, outLink, nixStorePath string) error
 
 // NixConfig is used to configure the nix snapshotter instance
 type NixConfig struct {
-	fuse       bool
-	nixBuilder NixBuilder
+	fuse        bool
+	nixBuilder  NixBuilder
+	overlayOpts []overlay.Opt
 }
 
 // NixOpt is an option to configure the nix snapshotter
-type NixOpt func(config *NixConfig) error
+type NixOpt func(config *NixConfig)
 
 // WithNixBuilder is an option to override the default NixBuilder.
 func WithNixBuilder(nixBuilder NixBuilder) NixOpt {
-	return func(config *NixConfig) error {
+	return func(config *NixConfig) {
 		config.nixBuilder = nixBuilder
-		return nil
 	}
 }
 
@@ -83,9 +83,16 @@ func defaultNixBuilder(ctx context.Context, outLink, nixStorePath string) error 
 // FUSE implementation for overlayfs.
 //
 // See: https://github.com/containers/fuse-overlayfs
-func WithFuseOverlayfs(config *NixConfig) error {
-	config.fuse = true
-	return nil
+func WithFuseOverlayfs() NixOpt {
+	return func(config *NixConfig) {
+		config.fuse = true
+	}
+}
+
+func WithOverlayOpts(opts ...overlay.Opt) NixOpt {
+	return func(config *NixConfig) {
+		config.overlayOpts = append(config.overlayOpts, opts...)
+	}
 }
 
 type nixSnapshotter struct {
@@ -100,43 +107,21 @@ type nixSnapshotter struct {
 // NewSnapshotter returns a Snapshotter which uses overlayfs. The overlayfs
 // diffs are stored under the provided root. A metadata file is stored under
 // the root.
-func NewSnapshotter(root string, opts ...interface{}) (snapshots.Snapshotter, error) {
+func NewSnapshotter(root string, opts ...NixOpt) (snapshots.Snapshotter, error) {
 	config := NixConfig{
 		nixBuilder: defaultNixBuilder,
 	}
-	overlayOpts := []overlay.Opt{}
 	for _, opt := range opts {
-		switch safeOpt := opt.(type) {
-		// Checking the NixOpt here does not work for some cases
-		case func(config *NixConfig) error:
-			if err := safeOpt(&config); err != nil {
-				return nil, err
-			}
-		// But it does for others (when a func explicitly returns NixOpt like
-		// WithNixBuilder)
-		case NixOpt:
-			if err := safeOpt(&config); err != nil {
-				return nil, err
-			}
-
-		// Checking the overlay.Opt here does not work but expanding does.
-		// However if func returns an opt then only overlay.opt works
-		case func(config *overlay.SnapshotterConfig) error:
-			overlayOpts = append(overlayOpts, safeOpt)
-		case overlay.Opt:
-			overlayOpts = append(overlayOpts, safeOpt)
-
-		default:
-			return nil, fmt.Errorf("Unexpected opt type: %T", safeOpt)
-		}
+		opt(&config)
 	}
 
 	ms, err := storage.NewMetaStore(filepath.Join(root, "metadata.db"))
 	if err != nil {
 		return nil, err
 	}
-	overlayOpts = append(overlayOpts, overlay.WithMetaStore(ms))
-	overlaySnapshotter, err := overlay.NewSnapshotter(root, overlayOpts...)
+	config.overlayOpts = append(config.overlayOpts, overlay.WithMetaStore(ms))
+
+	overlaySnapshotter, err := overlay.NewSnapshotter(root, config.overlayOpts...)
 	if err != nil {
 		return nil, err
 	}
