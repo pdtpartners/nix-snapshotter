@@ -45,14 +45,12 @@ pre-configured.
 > `docker run --rm -it nixpkgs/nix-flakes`:
 >
 > ```sh
-> git clone https://github.com/pdtpartners/nix-snapshotter.git
-> cd nix-snapshotter
-> nix run .#vm
+> nix run github:pdtpartners/nix-snapshotter#vm
 > ```
 > </details>
 
 ```sh
-nix run ".#vm"
+nix run "github:pdtpartners/nix-snapshotter#vm"
 nixos login: root # (Ctrl-a then x to quit)
 Password: root
 
@@ -271,6 +269,56 @@ larger changes first to get feedback on the idea.
 Please read [CONTRIBUTING](CONTRIBUTING.md) for development tips and
 more details on contributing guidelines.
 
+## FAQ
+
+1. What's the difference between this and [pkgs.dockerTools.buildImage][dockerTools]?
+
+<details>
+<summary>Answer</summary>
+
+The upstream `buildImage` streams Nix packages into tarballs, compresses them
+and pushes them to an OCI registry. Since there is a limit to number of layers
+in an image, a heuristic is used to put popular packages together. There is
+large amount of duplication between your Nix binary cache and the Docker
+Registry tarballs, and even between images that share packages as the layers may
+duplicate common packages due to the heuristic-based layering strategy.
+
+With `pkgs.nix-snapshotter.buildImage`, containerd natively understand Nix
+packages, so everything is pulled at package granularity without the layer
+limit. This means all the container content is either already in your host nix
+store or fetched from your Nix binary cache.
+</details>
+
+2. What's the difference between this and [Nixery][nixery]?
+
+<details>
+<summary>Answer</summary>
+
+Nixery exposes an API (in the form of an OCI registry) to dynamically build
+Nix-based images, but still uses the same layering strategy as upstream's
+`pkgs.dockerTools.buildImage` (see above). So Nixery suffers from the same
+inefficiency in duplication. However, Nixery can totally start building
+nix-snapshotter images so we can have a Docker Registry that can dynamically
+build native Nix images.
+
+</details>
+
+3. What's the difference between this and a nix-in-docker?
+
+<details>
+<summary>Answer</summary>
+
+If you run nix inside a container (e.g. `nixos/nix` or `nixpkgs/nix-flake`)
+then you are indeed fetching packages using the Nix store. However, each
+container will have its own Nix store instead of de-duplicating at the host
+level.
+
+nix-snapshotter is intended to live on the host system (sibling to containerd
+and/or kubelet) so that multiple containers running different images can share
+the underlying packages from the same Nix store.
+
+</details>
+
 ## License
 
 The source code developed for nix-snapshotter is licensed under MIT License.
@@ -281,6 +329,8 @@ details.
 
 [ci-badge]: https://github.com/pdtpartners/nix-snapshotter/actions/workflows/ci.yml/badge.svg
 [ci]: https://github.com/pdtpartners/nix-snapshotter/actions?query=workflow%3ACI
+[docker]: https://www.docker.com/
+[dockerTools]: https://nixos.org/manual/nixpkgs/stable/#ssec-pkgs-dockerTools-buildImage
 [go-reference-badge]: https://pkg.go.dev/badge/github.com/pdtpartners/nix-snapshotter.svg
 [go-reference]: https://pkg.go.dev/github.com/pdtpartners/nix-snapshotter
 [go-report-card-badge]: https://goreportcard.com/badge/github.com/pdtpartners/nix-snapshotter
@@ -288,8 +338,8 @@ details.
 [home-manager]: https://github.com/nix-community/home-manager
 [manual-install]: docs/manual-install.md
 [nix-command]: https://zero-to-nix.com/concepts/nix#unified-cli
+[nixery]: https://nixery.dev/
 [nix-flake]: https://zero-to-nix.com/concepts/flakes
 [nix]: https://nixos.org/
 [nix-installer]: https://zero-to-nix.com/start/install
 [nixos]: https://zero-to-nix.com/concepts/nixos
-[docker]: https://www.docker.com/
