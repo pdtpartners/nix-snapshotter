@@ -2,6 +2,7 @@
 
 # nix-snapshotter
 
+[![Go Reference][go-reference-badge][go-reference]
 [![ci][ci-badge]][ci]
 [![Go Report Card][go-report-card-badge]][go-report-card]
 
@@ -280,6 +281,8 @@ details.
 
 [ci-badge]: https://github.com/pdtpartners/nix-snapshotter/actions/workflows/ci.yml/badge.svg
 [ci]: https://github.com/pdtpartners/nix-snapshotter/actions?query=workflow%3ACI
+[go-reference-badge]: https://pkg.go.dev/badge/github.com/pdtpartners/nix-snapshotter.svg
+[go-reference]: https://pkg.go.dev/github.com/pdtpartners/nix-snapshotter
 [go-report-card-badge]: https://goreportcard.com/badge/github.com/pdtpartners/nix-snapshotter
 [go-report-card]: https://goreportcard.com/report/github.com/pdtpartners/nix-snapshotter
 [home-manager]: https://github.com/nix-community/home-manager
