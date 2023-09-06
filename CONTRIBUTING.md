@@ -129,26 +129,6 @@ driver directly on your host. This allows you to use the handy
 `shell_interact()` method on the [machine object][machine-object] inside the
 NixOS `testScript` to spawn a shell at that step.
 
-## Implementation notes
-- Despite not needing actual layer contents, each layer must have a non-zero
-  size and valid digest on the registry side.
-- Can get past upload requirements using "Non-Distributable" images.
-  See: https://github.com/opencontainers/image-spec/blob/main/layer.md#non-distributable-layers
-- Non-distributable images have media type `application/vnd.oci.image.layer.nondistributable.*`
-- However, on registry side, non-distributable layers only allowed if
-  descriptor "URLs" is also non-zero. The URL must be http or https scheme and
-  without a fragment. And it must also pass an "allow" and "deny" regex which is
-  all denied by registry defaults. It is unclear what is allowed on the GitHub Container Registry,
-  and what is allowed on Artifactory registries.
-- So we don't end up using non-distributable images.
-- There are also "foreign" rootfs layers `application/vnd.docker.image.rootfs.foreign.*`,
-  but this isn't supported by the distribution/distribution reference implementation.
-  It is supported by containerd, but we need to upload to a registry so its a
-  non-starter.
-- We end up just using a regular OCI layer, with annotations.
-- For remote snapshots, it need at least one layer that has
-  `application/vnd.oci.image.layer.*` prefix for unpacker to unpack remotely.
-
+[machine-object]: https://nixos.org/manual/nixos/stable/#ssec-machine-objects
 [rootless-containers]: https://rootlesscontaine.rs/getting-started/common/
 [rootlesskit]: https://github.com/rootless-containers/rootlesskit
-[machine-object]: https://nixos.org/manual/nixos/stable/#ssec-machine-objects

@@ -89,6 +89,60 @@ directory for each Nix store path. Technically we can do this during unpack,
 but since it's tiny, it is simpler to just build it and store it in the Nix
 store.
 
+## Image Service
+
+The [Container Runtime Interface][cri] is an abstraction to allow the kubelet
+(kubernete's primary node agent) to use a wide variety of container runtimes.
+The protocol buffers API include two gRPC services, `RuntimeService` and
+`ImageService`. `RuntimeService` is for the container runtime. `ImageService`
+provides RPCs to pull images. containerd supports both gRPC services.
+
+nix-snapshotter also provides two gRPC services, `SnapshotsServer` and
+`ImageService`. `SnapshotsServer` provides the remote snapshot plugin.
+`ImageService` proxies all RPCs except `PullImage` back to containerd in
+order to resolve special Nix image references.
+
+Since we want to maintain compatibility with regular images, a special prefix
+is necessary to distinguish Nix image references. Leading slash (`/`) is not
+valid for image references, so we use `nix:0` instead for the `<host>:<port>`
+portion of the image reference regex. `0` is an unbindable port, so it won't
+conflict with anything else, but it's arbitrary.
+
+```json
+{
+  "apiVersion": "v1",
+  "kind": "Pod",
+  "metadata": {
+    "labels": {
+      "name": "redis"
+    },
+    "name": "redis"
+  },
+  "spec": {
+    "containers": [
+      {
+        "args": [
+          "--protected-mode",
+          "no"
+        ],
+        "image": "nix:0/nix/store/f8b1hia3hcqwa5d46anzy3cszi3s6ybk-nix-image-redis.tar",
+        "name": "redis",
+        "ports": [
+          {
+            "containerPort": 6379,
+            "name": "client"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+For pure Nix images, this means we can have fully declarative Kubernetes
+resources, down to the image specification. The Kubernetes resource can be
+defined fully as a Nix expression and deployed without a Docker Registry.
+
 ## Implementation quirks
 
 If we decide move the mountpoints tarball generation to unpack time, note that
@@ -104,14 +158,21 @@ without a fragment. It must also pass an "allow" and "deny" regex which is
 defaulted to deny all, which makes it a non-starter.
 
 There is also `foreign` layers with media type
-`application/vnd.docker.image.rootfs.foreign.*` but it has been superseded
-by non-distributable layers.
+`application/vnd.docker.image.rootfs.foreign.*` but it has been
+[superseded][superseded] by non-distributable layers. They are not supported
+by the Docker Registry implementation but are supported for containerd.
+
+We cannot put annotations on the image manifest itself, because containerd
+requires at least one layer that has `application/vnd.oci.image.layer.` prefix
+for the unpacker to unpack to a [remote snapshot][remote-snapshotter].
 
 [containerd]: https://github.com/containerd/containerd
-[remote-snapshotter]: https://github.com/containerd/containerd/blob/v1.7.2/docs/remote-snapshotter.md
-[plugin-architecture]: https://github.com/containerd/containerd/blob/v1.7.2/docs/PLUGINS.md
-[snapshotter]: https://github.com/containerd/containerd/blob/v1.7.2/docs/snapshotters/README.md
-[oci-spec]: https://github.com/opencontainers/image-spec
-[lowerdir-limit]: https://github.com/moby/moby/issues/26380
+[cri]: https://github.com/kubernetes/cri-api
 [distribution]: https://github.com/distribution/distribution
+[lowerdir-limit]: https://github.com/moby/moby/issues/26380
 [nondistributable]: https://github.com/opencontainers/image-spec/blob/v1.0.2/layer.md#non-distributable-layers
+[oci-spec]: https://github.com/opencontainers/image-spec
+[plugin-architecture]: https://github.com/containerd/containerd/blob/v1.7.2/docs/PLUGINS.md
+[remote-snapshotter]: https://github.com/containerd/containerd/blob/v1.7.2/docs/remote-snapshotter.md
+[snapshotter]: https://github.com/containerd/containerd/blob/v1.7.2/docs/snapshotters/README.md
+[superseded]: https://github.com/opencontainers/image-spec/pull/233
