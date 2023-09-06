@@ -2,7 +2,7 @@
 
 # nix-snapshotter
 
-[![Go Reference][go-reference-badge][go-reference]
+[![Go Reference][go-reference-badge]][go-reference]
 [![ci][ci-badge]][ci]
 [![Go Report Card][go-report-card-badge]][go-report-card]
 
@@ -41,8 +41,8 @@ pre-configured.
 > <details>
 > <summary>Trying without Nix installed</summary>
 >
-> If you have [docker]() or another OCI runtime installed, you can run the
-> `nixpkgs/nix-flakes` image.
+> If you have [docker][docker] or another OCI runtime installed, you can run
+> `docker run --rm -it nixpkgs/nix-flakes`:
 >
 > ```sh
 > git clone https://github.com/pdtpartners/nix-snapshotter.git
@@ -292,3 +292,4 @@ details.
 [nix]: https://nixos.org/
 [nix-installer]: https://zero-to-nix.com/start/install
 [nixos]: https://zero-to-nix.com/concepts/nixos
+[docker]: https://www.docker.com/
