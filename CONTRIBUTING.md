@@ -19,7 +19,7 @@ usually faster compiling locally rather than inside of Nix. Any new features
 should include accompanying Golang unit tests.
 
 This project uses [direnv](https://github.com/direnv/direnv) to enter a
-development environment. Otherwise, you can use `nix develop` as a replacement.
+development environment. Otherwise, you can use `nix develop` directly.
 
 ```sh
 git clone https://github.com/pdtpartners/nix-snapshotter.git
@@ -41,7 +41,7 @@ configured to use nix-snapshotter.
 make start-containerd
 ```
 
-Then in second terminal, run `make start-nix-snapshotter`, a containerd proxy
+Then in the second terminal, run `make start-nix-snapshotter`, a containerd proxy
 plugin that provides a snapshotter that natively understands nix store paths
 as well as regular image layers.
 
@@ -49,7 +49,7 @@ as well as regular image layers.
 make start-nix-snapshotter
 ```
 
-In a final terminal, run `make run-hello` will run a pre-built image from
+In the final terminal, run `make run-hello` will run a pre-built image from
 `ghcr.io/pdtpartners/hello` with packages `pkgs.hello` from nixpkgs.
 
 ```sh
@@ -57,7 +57,7 @@ make run-hello
 ```
 
 You can also try `make run-redis` which runs `pkgs.redis` from nixpkgs, which
-also publishes ports to `:6379`, so you can try connecting to it via
+also listens on port `:6379`, so you can try connecting to it via
 `redis-cli`.
 
 ```sh
@@ -86,7 +86,7 @@ cd tmp
 tar -xvf ../result
 ```
 
-## Developing with NixOS VM
+## Developing with a NixOS VM
 
 When working on the NixOS / Home Manager modules, or changes related to
 Kubernetes, it's much easier to iterate inside the NixOS VM. New module options

@@ -16,8 +16,8 @@ Brings native understanding of Nix packages to [containerd](https://github.com/c
 
 ## Key features
 
-- Rather than download image layers, packages come directly from Nix store.
-- Packages can be fetched from binary cache or built on the fly if necessary.
+- Rather than download image layers, packages come directly from the Nix store.
+- Packages can be fetched from a binary cache or built on the fly if necessary.
 - Backwards compatible with existing non-Nix images.
 - Nix layers can be interleaved with normal layers.
 - Allows Kubernetes to resolve image manifests from Nix too.

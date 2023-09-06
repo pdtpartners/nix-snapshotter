@@ -15,7 +15,7 @@ a pretty recent version because we depend on bug fixes that we upstreamed.
 
 nix-snapshotter also leverages [remote snapshotter][remote-snapshotter]
 features to take over the mechanism of unpacking layers during image pull. This
-allows nix-snapshotter to look at the layer's annotations where we keep the Nix
+allows nix-snapshotter to look at the layer's annotations, which is where we keep the Nix
 store paths to create GC roots (substituting from a binary cache if necessary).
 An unpacked layer is known as a `snapshot`, which allows branching if used as
 a base image. Each Nix snapshot has a corresponding `gcroots` directory where
@@ -59,8 +59,8 @@ Here is an example Nix image manifest pushed to `ghcr.io/pdtpartners/hello`:
 ## Garbage collection
 
 Containerd and Nix both have their own reference-counting garbage collector.
-All snapshotter implementations reference blobs in some way to avoid
-collecting. nix-snapshotter instead reference nix store paths by the way of
+Most snapshotter implementations reference blobs in some way to avoid
+collecting. nix-snapshotter instead references nix store paths by the way of
 Nix GC roots.
 
 When containerd GC runs, deleted snapshots will remove the corresponding Nix
@@ -79,8 +79,8 @@ have simultaneously, we'll be testing nix-snapshotter with large Nix closures to
 test the boundaries.
 
 Regardless of whether there is a regular layer involved, nix-snapshotter will
-create an overlayfs mount to provide a read-writable container rootfs. If the
-container is created with a readonly rootfs, then the overlayfs mount is
+create an overlayfs mount to provide a read-write container rootfs. If the
+container is created with a read-only rootfs, then the overlayfs mount is
 omitted.
 
 Since each mount requires a mountpoint to exist prior to the syscall, as part
