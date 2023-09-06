@@ -261,6 +261,58 @@ easy installation.
 
   See the [manual installation docs][manual-install].
 
+## Usage
+
+See [package.nix](package.nix) for the Nix interface. You can also repeat the
+asciinema demo above in
+[examples/declarative-k8s.nix](examples/declarative-k8s.nix).
+
+```nix
+pkgs = import nixpkgs {
+  overlays = [ nix-snapshotter.overlays.default ];
+};
+
+# Builds a native Nix image but intended for an OCI-compliant registry.
+redis = pkgs.nix-snapshotter.buildImage {
+  name = "ghcr.io/pdtpartners/redis";
+  tag = "latest";
+  config.entrypoint = [ "${pkgs.redis}/bin/redis-server" ];
+};
+
+# Running "${redis.copyToRegistry {}}/bin/copy-to-registry" will copy it to
+# an OCI-compliant Registry. It will try to use your Docker credentials to push
+# if the target is DockerHub.
+
+# Builds a native Nix image with a special image reference. When running
+# the kubelet with `--image-service-endpoint` pointing to nix-snapshotter, then
+# it can resolve the image reference to this Nix package.
+redis' = pkgs.nix-snapshotter.buildImage {
+  name = "redis";
+  resolvedByNix = true;
+  config.entrypoint = [ "${pkgs.redis}/bin/redis-server" ];
+};
+
+# Fully declarative Kubernetes Pod, down to the image specification and its
+# contents.
+redisPod = pkgs.writeText "redis-pod.json" (builtins.toJSON {
+  apiVersion = "v1";
+  kind = "Pod";
+  metadata = {
+    name = "redis";
+    labels.name = "redis";
+  };
+  spec.containers = [{
+    name = "redis";
+    args = [ "--protected-mode" "no" ];
+    image = "nix:0${redis'}";
+    ports = [{
+      name = "client";
+      containerPort = 6379;
+    }];
+  }];
+});
+```
+
 ## Contributing
 
 Pull requests are welcome for any changes. Consider opening an issue to discuss
