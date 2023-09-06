@@ -6,10 +6,6 @@ let
     types
   ;
 
-  inherit (lib.home-manager)
-    convertServiceToNixOS
-  ;
-
   cfg = config.services.nix-snapshotter;
 
   ns-lib = cfg.lib;
@@ -57,7 +53,7 @@ in {
       };
 
       systemd.services.nix-snapshotter = lib.recursiveUpdate
-        (convertServiceToNixOS ns-lib.mkNixSnapshotterService)
+        (ns-lib.convertServiceToNixOS ns-lib.mkNixSnapshotterService)
         {
           inherit (cfg) path;
           description = "nix-snapshotter - containerd snapshotter that understands nix store paths natively";
@@ -69,7 +65,7 @@ in {
     }
     (lib.mkIf (cfg.preloadContainerdImages != []) {
       systemd.services.preload-containerd-images = lib.recursiveUpdate
-        (convertServiceToNixOS (ns-lib.mkPreloadContainerdImageService cfg))
+        (ns-lib.convertServiceToNixOS (ns-lib.mkPreloadContainerdImageService cfg))
         {
           description = "Preload images to containerd";
           wantedBy = [ "multi-user.target" ];
