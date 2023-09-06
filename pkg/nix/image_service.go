@@ -14,18 +14,30 @@ import (
 	runtime "k8s.io/cri-api/pkg/apis/runtime/v1"
 )
 
+// ImageServiceConfig is used to configure the image service instance.
+type ImageServiceConfig struct {
+	Config
+}
+
+// ImageServiceOpt is an option for NewImageService.
+type ImageServiceOpt interface {
+	SetImageServiceOpt(cfg *ImageServiceConfig)
+}
+
 type imageService struct {
 	client             *containerd.Client
 	imageServiceClient runtime.ImageServiceClient
 	nixBuilder         NixBuilder
 }
 
-func NewImageService(ctx context.Context, containerdAddr string, opts ...NixOpt) (runtime.ImageServiceServer, error) {
-	config := NixConfig{
-		nixBuilder: defaultNixBuilder,
+func NewImageService(ctx context.Context, containerdAddr string, opts ...ImageServiceOpt) (runtime.ImageServiceServer, error) {
+	cfg := ImageServiceConfig{
+		Config: Config{
+			nixBuilder: defaultNixBuilder,
+		},
 	}
 	for _, opt := range opts {
-		opt(&config)
+		opt.SetImageServiceOpt(&cfg)
 	}
 
 	client, err := containerd.New(containerdAddr)
@@ -36,7 +48,7 @@ func NewImageService(ctx context.Context, containerdAddr string, opts ...NixOpt)
 	return &imageService{
 		client:             client,
 		imageServiceClient: runtime.NewImageServiceClient(client.Conn()),
-		nixBuilder:         config.nixBuilder,
+		nixBuilder:         cfg.nixBuilder,
 	}, nil
 }
 
