@@ -40,7 +40,7 @@ func App() *cli.App {
 	app.Usage = "A containerd snapshotter that understands nix store paths natively"
 	app.Description = `nix-snapshotter is a containerd proxy snapshotter whose
 daemon can be started using this command. Containerd communicates with proxy
-snapshotters over GRPC, so this daemon will start a GRPC server listening on
+snapshotters over gRPC, so this daemon will start a gRPC server listening on
 a unix domain socket.
 
 This snapshotter depends on access to a "nix" binary to substitute store paths
@@ -66,7 +66,7 @@ overlayfs root along with bind mounts for every nix store path required.`
 		&cli.StringFlag{
 			Name:        "address",
 			Aliases:     []string{"a"},
-			Usage:       "Address for nix-snapshotter's GRPC server",
+			Usage:       "Address for nix-snapshotter's gRPC server",
 			Destination: &flagCfg.Address,
 		},
 		&cli.StringFlag{
