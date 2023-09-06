@@ -68,12 +68,19 @@ let
       '';
     in image;
 
-  copyToRegistry = image: pkgs.writeShellScriptBin "copy-to-registry" ''
-    echo "Copy to Docker registry image ${image.imageName}:${image.imageTag}"
-    ${nix-snapshotter}/bin/nix2container push \
-    ${image} \
-    ${image.imageName}:${image.imageTag}
-  '';
+  copyToRegistry = image: {
+    plainHTTP ? false
+  }:
+    let
+      plainHTTPFlag = if plainHTTP then "--plain-http" else "";
+
+    in pkgs.writeShellScriptBin "copy-to-registry" ''
+      echo "Copy to Docker registry image ${image.imageName}:${image.imageTag}"
+      ${nix-snapshotter}/bin/nix2container push \
+      ${plainHTTPFlag} \
+      ${image} \
+      ${image.imageName}:${image.imageTag}
+    '';
 
 in
 {
