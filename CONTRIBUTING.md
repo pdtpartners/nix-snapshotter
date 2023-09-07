@@ -30,7 +30,7 @@ direnv allow # or `nix develop`
 There is a `Makefile` for testing locally via rootless mode. This lets us run
 containerd without root, but may need some setup on your machine.
 
-> **Note**
+> [!NOTE]
 > See [Rootless Containers][rootless-containers] for the prerequisites.
 
 Start three terminals inside the development environment. In the first one,
@@ -64,7 +64,7 @@ also listens on port `:6379`, so you can try connecting to it via
 make run-redis
 ```
 
-> **Note**
+> [!NOTE]
 > Everything should be scoped to the git ignored `./build` directory, so a
 > simple `make clean` should reset any persistent state.
 

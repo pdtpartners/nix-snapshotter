@@ -52,7 +52,7 @@ Here is an example Nix image manifest pushed to `ghcr.io/pdtpartners/hello`:
 }
 ```
 
-> **Note**
+> [!NOTE]
 > This manifest respects the [OCI specification][oci-spec], so we're able to
 > push it to any OCI-compliant registry.
 
