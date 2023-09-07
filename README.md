@@ -34,7 +34,7 @@ Brings native understanding of Nix packages to [containerd](https://github.com/c
 The easiest way to try this out is run a NixOS VM with everything
 pre-configured.
 
-> **Note**
+> [!NOTE]
 > You'll need [Nix][nix] installed with [flake support][nix-flake] and [unified CLI][nix-command] enabled,
 > which comes pre-enabled with [Determinate Nix Installer][nix-installer].
 >
@@ -87,7 +87,7 @@ nerdctl run ghcr.io/pdtpartners/hello
 [NixOS][nixos] and [Home Manager][home-manager] modules are provided for
 easy installation.
 
-> **Note**
+> [!IMPORTANT]
 > Requires at least nixpkgs 23.05+
 
 - **Home Manager**
@@ -313,7 +313,7 @@ redisPod = pkgs.writeText "redis-pod.json" (builtins.toJSON {
 });
 ```
 
-> **Note**
+> [!NOTE]
 > If you want to understand how `nix:0` gets resolved, take a look at the docs
 > for [Image Service][image-service].
 
@@ -327,7 +327,7 @@ more details on contributing guidelines.
 
 ## FAQ
 
-> **Note**
+> [!IMPORTANT]
 > To understand how it works behind the scenes, see the
 > [Architecture][architecture] docs for more details.
 
