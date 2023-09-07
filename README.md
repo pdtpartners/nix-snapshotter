@@ -11,7 +11,7 @@ Brings native understanding of Nix packages to [containerd](https://github.com/c
 [Key features](#key-features) •
 [Getting started](#getting-started) •
 [Installation](#installation) •
-[Architecture](docs/architecture.md) •
+[Architecture][architecture] •
 [Contributing](CONTRIBUTING.md)
 
 </div>
@@ -313,6 +313,10 @@ redisPod = pkgs.writeText "redis-pod.json" (builtins.toJSON {
 });
 ```
 
+> **Note**
+> If you want to understand how `nix:0` gets resolved, take a look at the docs
+> for [Image Service][image-service].
+
 ## Contributing
 
 Pull requests are welcome for any changes. Consider opening an issue to discuss
@@ -322,6 +326,10 @@ Please read [CONTRIBUTING](CONTRIBUTING.md) for development tips and
 more details on contributing guidelines.
 
 ## FAQ
+
+> **Note**
+> To understand how it works behind the scenes, see the
+> [Architecture][architecture] docs for more details.
 
 1. What's the difference between this and [pkgs.dockerTools.buildImage][dockerTools]?
 
@@ -371,6 +379,38 @@ the underlying packages from the same Nix store.
 
 </details>
 
+4. What's the difference between this and [nix2container][nix2container]?
+
+<details>
+<summary>Answer</summary>
+
+nix2container improves upon `pkgs.dockerTools.buildImage` in a few ways. First
+it does something similar to `pkgs.dockerTools.streamLayeredImage` where it
+avoids writing Nix layer tarballs to Nix store and builds them JIT when
+exporting, like with it's passthru attribute `copyToRegistry`. This avoids
+writing Nix layer tarballs into the Nix store unnecessarily.
+
+Secondly, it separates out image metadata and layer metadata. This means that
+when updating the image config, layers don't need to be rebuilt. Thirdly, each
+layer metadata is in its own Nix package, so only updated layers need to be
+rebuilt.
+
+Lastly, the layer metadata is a JSON that contains the Nix store paths along
+with the digest which is computed from the layer tarball which is thrown away.
+This lets the tool `skopeo` to only copy non-existing layers, which then builds
+the requested layer tarballs again JIT.
+
+nix2container is a great improvement, but still suffers same problems pointed
+out in the `pkgs.dockerTools.buildImage` section. It duplicates data between
+Nix binary cache and Docker Registry, and it duplicates packages between layers
+due to using a similar heuristic-based strategy.
+
+`pkgs.nix-snapshotter.buildImage` has all the same improvements, except that
+we do write the final image back to the Nix store since it's tiny and allows us
+to resolve image manifests via a Nix package.
+
+</details>
+
 ## License
 
 The source code developed for nix-snapshotter is licensed under MIT License.
@@ -379,6 +419,7 @@ This project also contains modified portions of other projects that are
 licensed under the terms of Apache License 2.0. See [NOTICE](NOTICE) for more
 details.
 
+[architecture]: docs/architecture.md
 [ci-badge]: https://github.com/pdtpartners/nix-snapshotter/actions/workflows/ci.yml/badge.svg
 [ci]: https://github.com/pdtpartners/nix-snapshotter/actions?query=workflow%3ACI
 [docker]: https://www.docker.com/
@@ -388,7 +429,9 @@ details.
 [go-report-card-badge]: https://goreportcard.com/badge/github.com/pdtpartners/nix-snapshotter
 [go-report-card]: https://goreportcard.com/report/github.com/pdtpartners/nix-snapshotter
 [home-manager]: https://github.com/nix-community/home-manager
+[image-service]: docs/architecture.md#image-service
 [manual-install]: docs/manual-install.md
+[nix2container]: https://github.com/nlewo/nix2container
 [nix-command]: https://zero-to-nix.com/concepts/nix#unified-cli
 [nixery]: https://nixery.dev/
 [nix-flake]: https://zero-to-nix.com/concepts/flakes
