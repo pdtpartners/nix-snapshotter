@@ -7,7 +7,7 @@ on:
 
 jobs:
   publish-image:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     permissions: 
       packages: write
       contents: read

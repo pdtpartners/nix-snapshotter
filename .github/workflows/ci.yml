@@ -8,7 +8,7 @@ on:
 
 jobs:
   lint:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         linter:
@@ -21,7 +21,7 @@ jobs:
         run: nix run .#lint-${{ matrix.linter }}
 
   build:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         package:
