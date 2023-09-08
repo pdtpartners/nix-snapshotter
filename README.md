@@ -112,7 +112,6 @@ easy installation.
     outputs = { nixpkgs, home-manager, nix-snapshotter, ... }: {
       homeConfigurations.myuser = home-manager.lib.homeManagerConfiguration {
         pkgs = import nixpkgs { system = "x86_64-linux"; };
-        };
         modules = [
           {
             home = {
@@ -129,7 +128,7 @@ easy installation.
           }
           ({ pkgs, ... }: {
             # (1) Import home-manager module.
-            imports = [ nix-snapshotter-rootless ];
+            imports = [ nix-snapshotter.rootless ];
 
             # (2) Add overlay.
             nixpkgs.overlays = [ nix-snapshotter.overlays.default ];
