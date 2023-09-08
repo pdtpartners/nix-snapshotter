@@ -128,7 +128,7 @@ easy installation.
           }
           ({ pkgs, ... }: {
             # (1) Import home-manager module.
-            imports = [ nix-snapshotter.rootless ];
+            imports = [ nix-snapshotter.homeModules.nix-snapshotter-rootless ];
 
             # (2) Add overlay.
             nixpkgs.overlays = [ nix-snapshotter.overlays.default ];
