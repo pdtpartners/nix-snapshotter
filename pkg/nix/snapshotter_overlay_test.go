@@ -18,9 +18,9 @@ import (
 	"github.com/containerd/containerd/pkg/testutil"
 	"github.com/containerd/containerd/snapshots"
 	"github.com/containerd/containerd/snapshots/overlay"
+	"github.com/containerd/containerd/snapshots/overlay/overlayutils"
 	"github.com/containerd/containerd/snapshots/storage"
 	"github.com/containerd/containerd/snapshots/testsuite"
-	"github.com/docker/docker/daemon/graphdriver/overlayutils"
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
 )
