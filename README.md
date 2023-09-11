@@ -354,9 +354,10 @@ store or fetched from your Nix binary cache.
 <summary>Answer</summary>
 
 Nixery exposes an API (in the form of an OCI registry) to dynamically build
-Nix-based images, but still uses the same layering strategy as upstream's
-`pkgs.dockerTools.buildImage` (see above). So Nixery suffers from the same
-inefficiency in duplication. However, Nixery can totally start building
+Nix-based images. It has an [improved layering design][nixery-layers] compared
+to upstream `pkgs.dockerTools.buildImage` but is still fundamentally a
+heuristics- based layering strategy (see above), so it still suffers from the
+same inefficiency in duplication. However, Nixery can totally start building
 nix-snapshotter images so we can have a Docker Registry that can dynamically
 build native Nix images.
 
@@ -433,6 +434,7 @@ details.
 [nix2container]: https://github.com/nlewo/nix2container
 [nix-command]: https://zero-to-nix.com/concepts/nix#unified-cli
 [nixery]: https://nixery.dev/
+[nixery-layers]: https://tazj.in/blog/nixery-layers
 [nix-flake]: https://zero-to-nix.com/concepts/flakes
 [nix]: https://nixos.org/
 [nix-installer]: https://zero-to-nix.com/start/install
