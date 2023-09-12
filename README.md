@@ -359,7 +359,8 @@ to upstream `pkgs.dockerTools.buildImage` but is still fundamentally a
 heuristics- based layering strategy (see above), so it still suffers from the
 same inefficiency in duplication. However, Nixery can totally start building
 nix-snapshotter images so we can have a Docker Registry that can dynamically
-build native Nix images.
+build native Nix images. See this [Nixery issue][nixery-issue] to follow along
+the progress.
 
 </details>
 
@@ -434,6 +435,7 @@ details.
 [nix2container]: https://github.com/nlewo/nix2container
 [nix-command]: https://zero-to-nix.com/concepts/nix#unified-cli
 [nixery]: https://nixery.dev/
+[nixery-issue]: https://github.com/tazjin/nixery/issues/160
 [nixery-layers]: https://tazj.in/blog/nixery-layers
 [nix-flake]: https://zero-to-nix.com/concepts/flakes
 [nix]: https://nixos.org/
