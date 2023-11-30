@@ -55,6 +55,8 @@ in {
     };
   };
 
+  users.groups.rootless = {};
+
   virtualisation = {
     memorySize = 4096;
     cores = 4;
