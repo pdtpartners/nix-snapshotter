@@ -18,7 +18,7 @@ let
         ".tar"
       ];
     };
-    vendorSha256 = "sha256-gK7FAK6RQ9hL3K4PY2f2z4nBDBJXRctUZbVHuVqOIYE=";
+    vendorHash = "sha256-gK7FAK6RQ9hL3K4PY2f2z4nBDBJXRctUZbVHuVqOIYE=";
     passthru = { inherit buildImage; };
   };
 
