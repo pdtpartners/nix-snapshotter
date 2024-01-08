@@ -55,7 +55,7 @@ func defaultNixBuilder(ctx context.Context, outLink, nixStorePath string) error 
 	} else {
 		args = append(args, "--out-link", outLink)
 	}
-	args = append(args, "nixStorePath")
+	args = append(args, nixStorePath)
 
 	_, err := exec.Command("nix", args...).Output()
 	var exitErr *exec.ExitError
