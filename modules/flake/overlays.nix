@@ -16,11 +16,15 @@
   };
 
   perSystem = { system, ... }: {
-    _module.args.pkgs = import inputs.nixpkgs {
+    _module.args.pkgs = let
+      # Creates a k3s overlay to get a recent version with the --image-service-endpoint flag
+      nixpkgs-unstable = import inputs.nixpkgs-unstable {inherit system;};
+      k3sOverlay = final: prev: {k3s = nixpkgs-unstable.k3s;};
+    in import inputs.nixpkgs {
       inherit system;
       # Apply default overlay to provide nix-snapshotter for NixOS tests &
       # configurations.
-      overlays = [ self.overlays.default ];
+      overlays = [ self.overlays.default k3sOverlay];
     };
   };
 }
