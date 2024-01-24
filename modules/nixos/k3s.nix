@@ -11,9 +11,10 @@ let
 in {
   services.k3s = {
     enable = true;
-    extraFlags = toString [
-      "--container-runtime-endpoint unix:///run/containerd/containerd.sock"
-    ];
+    configPath = pkgs.writeText "k3s_config.yaml" ''
+      container-runtime-endpoint: "unix:///run/containerd/containerd.sock"
+      image-service-endpoint: "unix:///run/nix-snapshotter/nix-snapshotter.sock"
+    '';
   };
 
   virtualisation.containerd = {
