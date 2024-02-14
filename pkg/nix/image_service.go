@@ -5,6 +5,8 @@ import (
 	"errors"
 	"os"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/containerd/containerd"
 	"github.com/containerd/containerd/content/local"
@@ -12,6 +14,10 @@ import (
 	"github.com/containerd/containerd/namespaces"
 	"github.com/pdtpartners/nix-snapshotter/pkg/nix2container"
 	runtime "k8s.io/cri-api/pkg/apis/runtime/v1"
+)
+
+var (
+	ErrNotInitialized = errors.New("Nix-snapshotter Image Service not yet initialized")
 )
 
 // ImageServiceConfig is used to configure the image service instance.
@@ -25,6 +31,7 @@ type ImageServiceOpt interface {
 }
 
 type imageService struct {
+	mu                 sync.Mutex
 	client             *containerd.Client
 	imageServiceClient runtime.ImageServiceClient
 	nixBuilder         NixBuilder
@@ -40,36 +47,69 @@ func NewImageService(ctx context.Context, containerdAddr string, opts ...ImageSe
 		opt.SetImageServiceOpt(&cfg)
 	}
 
-	client, err := containerd.New(containerdAddr)
-	if err != nil {
-		return nil, err
+	service := &imageService{
+		nixBuilder: cfg.nixBuilder,
 	}
 
-	return &imageService{
-		client:             client,
-		imageServiceClient: runtime.NewImageServiceClient(client.Conn()),
-		nixBuilder:         cfg.nixBuilder,
-	}, nil
+	go func() {
+		log.G(ctx).Debugf("Waiting for CRI service is started...")
+		for i := 0; i < 100; i++ {
+			client, err := containerd.New(containerdAddr)
+			if err == nil {
+				service.mu.Lock()
+				service.client = client
+				service.imageServiceClient = runtime.NewImageServiceClient(client.Conn())
+				service.mu.Unlock()
+				log.G(ctx).Info("Connected to backend CRI service")
+				return
+			}
+			log.G(ctx).WithError(err).Warnf("Failed to connect to CRI")
+			time.Sleep(10 * time.Second)
+		}
+		log.G(ctx).Warnf("No connection is available to CRI")
+	}()
+
+	return service, nil
+}
+
+func (is *imageService) getClient() runtime.ImageServiceClient {
+	is.mu.Lock()
+	client := is.imageServiceClient
+	is.mu.Unlock()
+	return client
 }
 
 // ListImages lists existing images.
 func (is *imageService) ListImages(ctx context.Context, req *runtime.ListImagesRequest) (*runtime.ListImagesResponse, error) {
-	return is.imageServiceClient.ListImages(ctx, req)
+	client := is.getClient()
+	if client == nil {
+		return nil, ErrNotInitialized
+	}
+	return client.ListImages(ctx, req)
 }
 
 // ImageStatus returns the status of the image. If the image is not
 // present, returns a response with ImageStatusResponse.Image set to
 // nil.
 func (is *imageService) ImageStatus(ctx context.Context, req *runtime.ImageStatusRequest) (*runtime.ImageStatusResponse, error) {
-	return is.imageServiceClient.ImageStatus(ctx, req)
+	client := is.getClient()
+	if client == nil {
+		return nil, ErrNotInitialized
+	}
+	return client.ImageStatus(ctx, req)
 }
 
 // PullImage pulls an image with authentication config.
 func (is *imageService) PullImage(ctx context.Context, req *runtime.PullImageRequest) (*runtime.PullImageResponse, error) {
+	client := is.getClient()
+	if client == nil {
+		return nil, ErrNotInitialized
+	}
+
 	ref := req.Image.Image
 	if !strings.HasPrefix(ref, "nix:0") {
 		log.G(ctx).WithField("ref", ref).Info("[image-service] Falling back to CRI pull image")
-		resp, err := is.imageServiceClient.PullImage(ctx, req)
+		resp, err := client.PullImage(ctx, req)
 		return resp, err
 	}
 	archivePath := strings.TrimSuffix(
@@ -121,10 +161,18 @@ func (is *imageService) PullImage(ctx context.Context, req *runtime.PullImageReq
 // This call is idempotent, and must not return an error if the image has
 // already been removed.
 func (is *imageService) RemoveImage(ctx context.Context, req *runtime.RemoveImageRequest) (*runtime.RemoveImageResponse, error) {
-	return is.imageServiceClient.RemoveImage(ctx, req)
+	client := is.getClient()
+	if client == nil {
+		return nil, ErrNotInitialized
+	}
+	return client.RemoveImage(ctx, req)
 }
 
 // ImageFSInfo returns information of the filesystem that is used to store images.
 func (is *imageService) ImageFsInfo(ctx context.Context, req *runtime.ImageFsInfoRequest) (*runtime.ImageFsInfoResponse, error) {
-	return is.imageServiceClient.ImageFsInfo(ctx, req)
+	client := is.getClient()
+	if client == nil {
+		return nil, ErrNotInitialized
+	}
+	return client.ImageFsInfo(ctx, req)
 }

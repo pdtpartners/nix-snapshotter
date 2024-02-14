@@ -146,7 +146,7 @@ func (o *nixSnapshotter) prepareNixGCRoots(ctx context.Context, key string, labe
 	sort.Strings(sortedLabels)
 
 	gcRootsDir := filepath.Join(o.root, "gcroots", id)
-	log.G(ctx).Infof("Preparing nix gc roots at %s", gcRootsDir)
+	log.G(ctx).Infof("[nix-snapshotter] Preparing %d nix gc roots at %s", len(sortedLabels), gcRootsDir)
 	for _, labelKey := range sortedLabels {
 		if !strings.HasPrefix(labelKey, nix2container.NixStorePrefixAnnotation) {
 			continue
@@ -166,7 +166,6 @@ func (o *nixSnapshotter) prepareNixGCRoots(ctx context.Context, key string, labe
 }
 
 func (o *nixSnapshotter) View(ctx context.Context, key, parent string, opts ...snapshots.Opt) ([]mount.Mount, error) {
-
 	mounts, err := o.Snapshotter.View(ctx, key, parent, opts...)
 	if err != nil {
 		return nil, err
@@ -342,6 +341,7 @@ func (o *nixSnapshotter) withNixBindMounts(ctx context.Context, key string, moun
 			}
 			pathsSeen[nixStorePath] = struct{}{}
 
+			log.G(ctx).Debugf("[nix-snapshotter] Bind mounting nix store path %s", nixStorePath)
 			mounts = append(mounts, mount.Mount{
 				Type:   "bind",
 				Source: nixStorePath,

@@ -2,11 +2,19 @@ package nix
 
 import (
 	"context"
-	"errors"
 	"os/exec"
+	"strings"
 
 	"github.com/containerd/containerd/log"
+	"github.com/containerd/containerd/snapshots/overlay/overlayutils"
 )
+
+// Supported returns nil when the remote snapshotter is functional on the system with the root directory.
+// Supported is not called during plugin initialization, but exposed for downstream projects which uses
+// this snapshotter as a library.
+func Supported(root string) error {
+	return overlayutils.Supported(root)
+}
 
 // Config is used to configure common options.
 type Config struct {
@@ -57,12 +65,12 @@ func defaultNixBuilder(ctx context.Context, outLink, nixStorePath string) error 
 	}
 	args = append(args, nixStorePath)
 
-	_, err := exec.Command("nix", args...).Output()
-	var exitErr *exec.ExitError
-	if errors.As(err, &exitErr) {
+	log.G(ctx).Infof("[nix-snapshotter] Calling nix %s", strings.Join(args, " "))
+	out, err := exec.Command("nix", args...).CombinedOutput()
+	if err != nil {
 		log.G(ctx).
 			WithField("nixStorePath", nixStorePath).
-			Debugf("Failed to create gc root:\n%s", string(exitErr.Stderr))
+			Errorf("Failed to create gc root: %s\n%s", err, string(out))
 	}
 	return err
 }
