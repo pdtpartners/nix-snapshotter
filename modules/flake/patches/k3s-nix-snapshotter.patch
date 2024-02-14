@@ -1,38 +1,35 @@
+commit 0484bf68aaa9cdccb9444affbafaf3f8f6fc0e2a
+Author: Edgar Lee <edgarhinshunlee@gmail.com>
+Date:   Wed Feb 14 05:27:28 2024 -0500
+
+    Add support for nix-snapshotter
+
 diff --git a/go.mod b/go.mod
-index 015993bb90..c94e9e5814 100644
+index 1b55d6cd07..18bae154b3 100644
 --- a/go.mod
 +++ b/go.mod
 @@ -6,7 +6,7 @@ replace (
  	github.com/Microsoft/hcsshim => github.com/Microsoft/hcsshim v0.11.0
  	github.com/Mirantis/cri-dockerd => github.com/k3s-io/cri-dockerd v0.3.4-k3s1 // k3s/release-1.27
- 	github.com/cloudnativelabs/kube-router/v2 => github.com/k3s-io/kube-router/v2 v2.0.1-0.20230508174102-b42e5faded1c
--	github.com/containerd/containerd => github.com/k3s-io/containerd v1.7.6-k3s1.27
+ 	github.com/cloudnativelabs/kube-router/v2 => github.com/k3s-io/kube-router/v2 v2.0.0-20230925161250-364f994b140b
+-	github.com/containerd/containerd => github.com/k3s-io/containerd v1.7.11-k3s2.27
 +	github.com/containerd/containerd => github.com/pdtpartners/containerd v1.0.1-stargz.0.20240214083438-8c533e066c1c
  	github.com/coreos/go-systemd => github.com/coreos/go-systemd v0.0.0-20190321100706-95778dfbb74e
  	github.com/docker/distribution => github.com/docker/distribution v2.8.2+incompatible
  	github.com/docker/docker => github.com/docker/docker v24.0.0-rc.2.0.20230801142700-69c9adb7d386+incompatible
-@@ -97,7 +97,7 @@ require (
- 	github.com/containerd/zfs v1.1.0
- 	github.com/coreos/go-iptables v0.6.0
- 	github.com/coreos/go-systemd v0.0.0-20191104093116-d3cd4ed1dbcf
--	github.com/docker/docker v23.0.3+incompatible
-+	github.com/docker/docker v23.0.5+incompatible
- 	github.com/erikdubbelboer/gspt v0.0.0-20190125194910-e68493906b83
- 	github.com/flannel-io/flannel v0.22.2
- 	github.com/go-bindata/go-bindata v3.1.2+incompatible
-@@ -118,9 +118,10 @@ require (
+@@ -120,9 +120,10 @@ require (
  	github.com/natefinch/lumberjack v2.0.0+incompatible
- 	github.com/onsi/ginkgo/v2 v2.9.4
- 	github.com/onsi/gomega v1.27.6
+ 	github.com/onsi/ginkgo/v2 v2.11.0
+ 	github.com/onsi/gomega v1.27.10
 -	github.com/opencontainers/runc v1.1.6
 +	github.com/opencontainers/runc v1.1.9
  	github.com/opencontainers/selinux v1.11.0
  	github.com/otiai10/copy v1.7.0
-+	github.com/pdtpartners/nix-snapshotter v0.1.2-0.20240214070632-154924c8d48c
++	github.com/pdtpartners/nix-snapshotter v0.1.2
  	github.com/pkg/errors v0.9.1
- 	github.com/rancher/dynamiclistener v0.3.6-rc2
- 	github.com/rancher/lasso v0.0.0-20221227210133-6ea88ca2fbcc
-@@ -128,7 +129,7 @@ require (
+ 	github.com/rancher/dynamiclistener v0.3.6
+ 	github.com/rancher/lasso v0.0.0-20230830164424-d684fdeb6f29
+@@ -130,7 +131,7 @@ require (
  	github.com/rancher/wharfie v0.5.3
  	github.com/rancher/wrangler v1.1.1
  	github.com/robfig/cron/v3 v3.0.1
@@ -41,15 +38,15 @@ index 015993bb90..c94e9e5814 100644
  	github.com/sirupsen/logrus v1.9.3
  	github.com/spf13/pflag v1.0.5
  	github.com/stretchr/testify v1.8.4
-@@ -167,6 +168,7 @@ require (
+@@ -169,6 +170,7 @@ require (
  require (
- 	cloud.google.com/go/compute v1.18.0 // indirect
+ 	cloud.google.com/go/compute v1.21.0 // indirect
  	cloud.google.com/go/compute/metadata v0.2.3 // indirect
 +	dario.cat/mergo v1.0.0 // indirect
  	github.com/AdaLogics/go-fuzz-headers v0.0.0-20230811130428-ced1acdcaa24 // indirect
  	github.com/AdamKorcz/go-118-fuzz-build v0.0.0-20230306123547-8075edf89bb0 // indirect
  	github.com/Azure/azure-sdk-for-go v56.3.0+incompatible // indirect
-@@ -201,7 +203,7 @@ require (
+@@ -202,7 +204,7 @@ require (
  	github.com/chai2010/gettext-go v1.0.2 // indirect
  	github.com/checkpoint-restore/go-criu/v5 v5.3.0 // indirect
  	github.com/cilium/ebpf v0.9.1 // indirect
@@ -57,9 +54,17 @@ index 015993bb90..c94e9e5814 100644
 +	github.com/container-orchestrated-devices/container-device-interface v0.6.0 // indirect
  	github.com/container-storage-interface/spec v1.7.0 // indirect
  	github.com/containerd/btrfs/v2 v2.0.0 // indirect
- 	github.com/containerd/cgroups/v3 v3.0.2 // indirect
-@@ -331,10 +333,11 @@ require (
- 	github.com/nats-io/nkeys v0.4.4 // indirect
+ 	github.com/containerd/cgroups v1.1.0 // indirect
+@@ -212,7 +214,6 @@ require (
+ 	github.com/containerd/go-cni v1.1.9 // indirect
+ 	github.com/containerd/go-runc v1.0.0 // indirect
+ 	github.com/containerd/imgcrypt v1.1.7 // indirect
+-	github.com/containerd/log v0.1.0 // indirect
+ 	github.com/containerd/nri v0.4.0 // indirect
+ 	github.com/containerd/stargz-snapshotter/estargz v0.14.3 // indirect
+ 	github.com/containerd/ttrpc v1.2.2 // indirect
+@@ -332,10 +333,11 @@ require (
+ 	github.com/nats-io/nkeys v0.4.6 // indirect
  	github.com/nats-io/nuid v1.0.1 // indirect
  	github.com/opencontainers/go-digest v1.0.0 // indirect
 -	github.com/opencontainers/image-spec v1.1.0-rc3 // indirect
@@ -71,53 +76,39 @@ index 015993bb90..c94e9e5814 100644
  	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
  	github.com/pierrec/lz4 v2.6.0+incompatible // indirect
  	github.com/pmezard/go-difflib v1.0.0 // indirect
-@@ -355,7 +358,7 @@ require (
- 	github.com/syndtr/gocapability v0.0.0-20200815063812-42c35b437635 // indirect
+@@ -357,7 +359,7 @@ require (
  	github.com/tchap/go-patricia/v2 v2.3.1 // indirect
+ 	github.com/tidwall/btree v1.6.0 // indirect
  	github.com/tmc/grpc-websocket-proxy v0.0.0-20220101234140-673ab2c3ae75 // indirect
 -	github.com/urfave/cli/v2 v2.23.5 // indirect
 +	github.com/urfave/cli/v2 v2.25.7 // indirect
  	github.com/vbatts/tar-split v0.11.5 // indirect
  	github.com/vishvananda/netns v0.0.4 // indirect
- 	github.com/vmware/govmomi v0.30.0 // indirect
-@@ -382,18 +385,18 @@ require (
- 	go.starlark.net v0.0.0-20200306205701-8dd3e2ee1dd5 // indirect
- 	go.uber.org/atomic v1.10.0 // indirect
- 	go.uber.org/multierr v1.9.0 // indirect
--	golang.org/x/mod v0.10.0 // indirect
-+	golang.org/x/mod v0.12.0 // indirect
- 	golang.org/x/oauth2 v0.8.0 // indirect
- 	golang.org/x/term v0.10.0 // indirect
- 	golang.org/x/text v0.11.0 // indirect
- 	golang.org/x/time v0.3.0 // indirect
--	golang.org/x/tools v0.8.0 // indirect
-+	golang.org/x/tools v0.11.0 // indirect
- 	golang.zx2c4.com/wireguard v0.0.0-20230325221338-052af4a8072b // indirect
+ 	github.com/vmware/govmomi v0.30.6 // indirect
+@@ -394,7 +396,7 @@ require (
  	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20230429144221-925a1e7659e6 // indirect
- 	google.golang.org/api v0.108.0 // indirect
+ 	google.golang.org/api v0.126.0 // indirect
  	google.golang.org/appengine v1.6.7 // indirect
--	google.golang.org/genproto v0.0.0-20230526161137-0005af68ea54 // indirect
--	google.golang.org/protobuf v1.30.0 // indirect
+-	google.golang.org/genproto v0.0.0-20230711160842-782d3b101e98 // indirect
 +	google.golang.org/genproto v0.0.0-20230720185612-659f7aaaa771 // indirect
-+	google.golang.org/protobuf v1.31.0 // indirect
- 	gopkg.in/gcfg.v1 v1.2.0 // indirect
+ 	google.golang.org/protobuf v1.31.0 // indirect
+ 	gopkg.in/gcfg.v1 v1.2.3 // indirect
  	gopkg.in/inf.v0 v0.9.1 // indirect
- 	gopkg.in/ini.v1 v1.67.0 // indirect
 diff --git a/go.sum b/go.sum
-index 7ac62863e5..b8758ea05a 100644
+index 8038f23cb8..9b4af4e651 100644
 --- a/go.sum
 +++ b/go.sum
-@@ -57,6 +57,8 @@ cloud.google.com/go/storage v1.10.0/go.mod h1:FLPqc6j+Ki4BU591ie1oL6qBQGu2Bl/tZ9
- cloud.google.com/go/storage v1.22.1/go.mod h1:S8N1cAStu7BOeFfE8KAQzmyyLkK8p/vmRq6kuBTW58Y=
- cloud.google.com/go/storage v1.23.0/go.mod h1:vOEEDNFnciUMhBeT6hsJIn3ieU5cFRmzeLgDvXzfIXc=
+@@ -71,6 +71,8 @@ cloud.google.com/go/storage v1.23.0/go.mod h1:vOEEDNFnciUMhBeT6hsJIn3ieU5cFRmzeL
  cloud.google.com/go/storage v1.27.0/go.mod h1:x9DOL8TK/ygDUMieqwfhdpQryTeEkhGKMi80i/iqR2s=
+ cloud.google.com/go/storage v1.28.1/go.mod h1:Qnisd4CqDdo6BGs2AD5LLnEsmSQ80wQ5ogcBBKhU86Y=
+ cloud.google.com/go/storage v1.29.0/go.mod h1:4puEjyTKnku6gfKoTfNOU/W+a9JyuVNxjpS5GBrB8h4=
 +dario.cat/mergo v1.0.0 h1:AGCNq9Evsj31mOgNPcLyXc+4PNABt905YmuqPYYpBWk=
 +dario.cat/mergo v1.0.0/go.mod h1:uNxQE+84aUszobStD9th8a29P2fMDhsBdgRYvZOxGmk=
  dmitri.shuralyov.com/gpu/mtl v0.0.0-20190408044501-666a987793e9/go.mod h1:H6x//7gZCb22OMCxBHrMx7a5I7Hp++hsVxbQ4BYO7hU=
  github.com/AdaLogics/go-fuzz-headers v0.0.0-20221206110420-d395f97c4830/go.mod h1:VzwV+t+dZ9j/H867F1M2ziD+yLHtB46oM35FxxMJ4d0=
  github.com/AdaLogics/go-fuzz-headers v0.0.0-20230106234847-43070de90fa1/go.mod h1:VzwV+t+dZ9j/H867F1M2ziD+yLHtB46oM35FxxMJ4d0=
-@@ -200,8 +202,9 @@ github.com/cncf/xds/go v0.0.0-20211001041855-01bcc9b48dfe/go.mod h1:eXthEFrGJvWH
- github.com/cncf/xds/go v0.0.0-20211011173535-cb28da3451f1/go.mod h1:eXthEFrGJvWHgFFCl3hGmgk+/aYT6PnTQLykKQRLhEs=
+@@ -216,8 +218,9 @@ github.com/cncf/xds/go v0.0.0-20230607035331-e9ce68804cb4 h1:/inchEIKaYC1Akx+H+g
+ github.com/cncf/xds/go v0.0.0-20230607035331-e9ce68804cb4/go.mod h1:eXthEFrGJvWHgFFCl3hGmgk+/aYT6PnTQLykKQRLhEs=
  github.com/cockroachdb/datadriven v1.0.2 h1:H9MtNqVoVhvd9nCBwOyDjUEdZCREqbIdCJD93PBm/jA=
  github.com/cockroachdb/datadriven v1.0.2/go.mod h1:a9RdTaap04u637JoCzcUoIcDmvwSUtcUFtT/C3kJlTU=
 -github.com/container-orchestrated-devices/container-device-interface v0.5.4 h1:PqQGqJqQttMP5oJ/qNGEg8JttlHqGY3xDbbcKb5T9E8=
@@ -127,16 +118,26 @@ index 7ac62863e5..b8758ea05a 100644
  github.com/container-storage-interface/spec v1.7.0 h1:gW8eyFQUZWWrMWa8p1seJ28gwDoN5CVJ4uAbQ+Hdycw=
  github.com/container-storage-interface/spec v1.7.0/go.mod h1:JYuzLqr9VVNoDJl44xp/8fmCOvWPDKzuGTwCoklhuqk=
  github.com/containerd/aufs v1.0.0 h1:2oeJiwX5HstO7shSrPZjrohJZLzK36wvpdmzDRkL/LY=
-@@ -629,8 +632,6 @@ github.com/jstemmer/go-junit-report v0.9.1/go.mod h1:Brl9GWCQeLvo8nXZwPNNblvFj/X
+@@ -250,8 +253,7 @@ github.com/containerd/go-runc v1.0.0 h1:oU+lLv1ULm5taqgV/CJivypVODI4SUz1znWjv3nN
+ github.com/containerd/go-runc v1.0.0/go.mod h1:cNU0ZbCgCQVZK4lgG3P+9tn9/PaJNmoDXPpoJhDR+Ok=
+ github.com/containerd/imgcrypt v1.1.7 h1:WSf9o9EQ0KGHiUx2ESFZ+PKf4nxK9BcvV/nJDX8RkB4=
+ github.com/containerd/imgcrypt v1.1.7/go.mod h1:FD8gqIcX5aTotCtOmjeCsi3A1dHmTZpnMISGKSczt4k=
+-github.com/containerd/log v0.1.0 h1:TCJt7ioM2cr/tfR8GPbGf9/VRAX8D2B4PjzCpfX540I=
+-github.com/containerd/log v0.1.0/go.mod h1:VRRf09a7mHDIRezVKTRCrOq78v577GXq3bSa3EhrzVo=
++github.com/containerd/nri v0.3.0/go.mod h1:Zw9q2lP16sdg0zYybemZ9yTDy8g7fPCIB3KXOGlggXI=
+ github.com/containerd/nri v0.4.0 h1:PjgIBm0RtUiFyEO6JqPBQZRQicbsIz41Fz/5VSC0zgw=
+ github.com/containerd/nri v0.4.0/go.mod h1:Zw9q2lP16sdg0zYybemZ9yTDy8g7fPCIB3KXOGlggXI=
+ github.com/containerd/stargz-snapshotter v0.14.4-0.20230913082252-7275d45b185c h1:Qr2w9ZeMciAfruOt2be10s4W13vQiTD3gAEqz3zxUrg=
+@@ -661,8 +663,6 @@ github.com/jstemmer/go-junit-report v0.9.1/go.mod h1:Brl9GWCQeLvo8nXZwPNNblvFj/X
  github.com/jtolds/gls v4.20.0+incompatible/go.mod h1:QJZ7F/aHp+rZTRtaJ1ow/lLfFfVYBRgL+9YlvaHOwJU=
  github.com/julienschmidt/httprouter v1.2.0/go.mod h1:SYymIcj16QtmaHHD7aYtjjsJG7VTCxuUUipMqKk8s4w=
  github.com/julienschmidt/httprouter v1.3.0/go.mod h1:JR6WtHb+2LUe8TCKY3cZOxFyyO8IZAc4RVcycCCAKdM=
--github.com/k3s-io/containerd v1.7.6-k3s1.27 h1:BGoNTvkH/rxURf5UCvE4hIDY2emZ3o1DPNlTAmCoJpI=
--github.com/k3s-io/containerd v1.7.6-k3s1.27/go.mod h1:dWUW/BzVXrFhxzfRZ1Jmr/yLlRvjryZlb1ns2SCHsgs=
+-github.com/k3s-io/containerd v1.7.11-k3s2.27 h1:p7mKeooDKqLkqiOcNUz1qFjolKOPdwGwZgdzU0GZBmw=
+-github.com/k3s-io/containerd v1.7.11-k3s2.27/go.mod h1:bqKO8PJAbtNpsqOM6fl5AICYSahNGKPH2K/YQQpk6Ts=
  github.com/k3s-io/cri-dockerd v0.3.4-k3s1 h1:eCeVCeXzf10fyanv1gniSwidBjdO83/akv+M72uEnZc=
  github.com/k3s-io/cri-dockerd v0.3.4-k3s1/go.mod h1:0KDOU8lLjp+ETJFFCcVBRQbJ8puRoDxaHBDj8C87Fk4=
  github.com/k3s-io/cri-tools v1.26.0-rc.0-k3s1 h1:yWVy9pS0T1BWBMZBPRy2Q29gaLmaGknQHSnx+HStrVM=
-@@ -934,8 +935,8 @@ github.com/opencontainers/image-spec v1.0.2/go.mod h1:BtxoFyWECRxE4U/7sNtV5W15zM
+@@ -969,8 +969,8 @@ github.com/opencontainers/image-spec v1.0.2/go.mod h1:BtxoFyWECRxE4U/7sNtV5W15zM
  github.com/opencontainers/image-spec v1.0.3-0.20211202183452-c5a74bcca799/go.mod h1:BtxoFyWECRxE4U/7sNtV5W15zMzWCbyJoFRP3s7yZA0=
  github.com/opencontainers/image-spec v1.1.0-rc2/go.mod h1:3OVijpioIKYWTqjiG0zfF6wvoJ4fAXGbjdZuI2NgsRQ=
  github.com/opencontainers/image-spec v1.1.0-rc2.0.20221005185240-3a7f492d3f1b/go.mod h1:3OVijpioIKYWTqjiG0zfF6wvoJ4fAXGbjdZuI2NgsRQ=
@@ -144,17 +145,17 @@ index 7ac62863e5..b8758ea05a 100644
 -github.com/opencontainers/image-spec v1.1.0-rc3/go.mod h1:X4pATf0uXsnn3g5aiGIsVnJBR4mxhKzfwmvK/B2NTm8=
 +github.com/opencontainers/image-spec v1.1.0-rc4 h1:oOxKUJWnFC4YGHCCMNql1x4YaDfYBTS5Y4x/Cgeo1E0=
 +github.com/opencontainers/image-spec v1.1.0-rc4/go.mod h1:X4pATf0uXsnn3g5aiGIsVnJBR4mxhKzfwmvK/B2NTm8=
- github.com/opencontainers/runc v1.1.8 h1:zICRlc+C1XzivLc3nzE+cbJV4LIi8tib6YG0MqC6OqA=
- github.com/opencontainers/runc v1.1.8/go.mod h1:CbUumNnWCuTGFukNXahoo/RFBZvDAgRh/smNYNOhA50=
+ github.com/opencontainers/runc v1.1.10 h1:EaL5WeO9lv9wmS6SASjszOeQdSctvpbu0DdBQBizE40=
+ github.com/opencontainers/runc v1.1.10/go.mod h1:+/R6+KmDlh+hOO8NkjmgkG9Qzvypzk0yXxAPYYR65+M=
  github.com/opencontainers/runtime-spec v1.0.3-0.20220909204839-494a5a6aca78 h1:R5M2qXZiK/mWPMT4VldCOiSL9HIAMuxQZWdG0CSM5+4=
-@@ -954,10 +955,16 @@ github.com/otiai10/mint v1.3.0/go.mod h1:F5AjcsTsWUqX+Na9fpHb52P8pcRX2CI6A3ctIT9
+@@ -989,10 +989,16 @@ github.com/otiai10/mint v1.3.0/go.mod h1:F5AjcsTsWUqX+Na9fpHb52P8pcRX2CI6A3ctIT9
  github.com/otiai10/mint v1.3.3 h1:7JgpsBaN0uMkyju4tbYHu0mnM55hNKVYLsXmwr15NQI=
  github.com/otiai10/mint v1.3.3/go.mod h1:/yxELlJQ0ufhjUwhshSj+wFjZ78CnZ48/1wtmBH1OTc=
  github.com/pascaldekloe/goe v0.0.0-20180627143212-57f6aae5913c/go.mod h1:lzWF7FIEvWOWxwDKqyGYQf6ZUaNfKdP144TG7ZOy1lc=
 +github.com/pdtpartners/containerd v1.0.1-stargz.0.20240214083438-8c533e066c1c h1:OWE2iwUICpISBOLVu9OpelITX4sIZwOabjbF4Vcjm8I=
 +github.com/pdtpartners/containerd v1.0.1-stargz.0.20240214083438-8c533e066c1c/go.mod h1:dWUW/BzVXrFhxzfRZ1Jmr/yLlRvjryZlb1ns2SCHsgs=
-+github.com/pdtpartners/nix-snapshotter v0.1.2-0.20240214070632-154924c8d48c h1:FdjMmoAD5rdlg2kNIGFLbfwkzV8eO32lDdB6MNAO2BM=
-+github.com/pdtpartners/nix-snapshotter v0.1.2-0.20240214070632-154924c8d48c/go.mod h1:iMHTz4uBpoXqj+xq+uCGwBwpe2Or4CqF3R40daLzlqc=
++github.com/pdtpartners/nix-snapshotter v0.1.2 h1:rbvHZ5s/L34x8UAuJxN/H6rPgo7Jmg8fk+1hAQMFEr8=
++github.com/pdtpartners/nix-snapshotter v0.1.2/go.mod h1:MKa+V5fH15XmLCDt+s8qRQeIAaadaJ3/4+/oD7f0K0k=
  github.com/pelletier/go-toml v1.2.0/go.mod h1:5z9KED0ma1S8pY6P1sdut58dfprrGBbd/94hg7ilaic=
  github.com/pelletier/go-toml v1.9.3/go.mod h1:u1nR/EPcESfeI/szUZKdtJ0xRNbUoANCkoOuaOx1Y+c=
  github.com/pelletier/go-toml v1.9.5 h1:4yBQzkHv+7BHq2PQUZF3Mx0IYxG7LsP222s7Agd3ve8=
@@ -164,10 +165,10 @@ index 7ac62863e5..b8758ea05a 100644
  github.com/peterbourgon/diskv v2.0.1+incompatible h1:UBdAOUP5p4RWqPBg048CAvpKN+vxiaj6gdUUzhl4XmI=
  github.com/peterbourgon/diskv v2.0.1+incompatible/go.mod h1:uqqh8zWWbv1HBMNONnaR/tNboyR3/BZd58JJSHlUSCU=
  github.com/peterh/liner v0.0.0-20170211195444-bf27d3ba8e1d/go.mod h1:xIteQHvHuaLYG9IFj6mSxM0fCKrs34IrEQUhOYuGPHc=
-@@ -1037,8 +1044,8 @@ github.com/rogpeppe/go-internal v1.6.1/go.mod h1:xXDCJY+GAPziupqXw64V24skbSoqbTE
+@@ -1073,8 +1079,8 @@ github.com/rogpeppe/go-internal v1.6.1/go.mod h1:xXDCJY+GAPziupqXw64V24skbSoqbTE
  github.com/rogpeppe/go-internal v1.9.0/go.mod h1:WtVeX8xhTBvf0smdhujwtBcq4Qrzq/fJaraNFVN+nFs=
- github.com/rogpeppe/go-internal v1.11.0 h1:cWPaGQEPrBb5/AsnsZesgZZ9yb1OQ+GOISoDNXVBh4M=
- github.com/rogpeppe/go-internal v1.11.0/go.mod h1:ddIwULY96R17DhadqLgMfk9H9tvdUzkipdSkR5nkCZA=
+ github.com/rogpeppe/go-internal v1.12.0 h1:exVL4IDcn6na9z1rAb56Vxr+CgyK3nn3O+epU5NdKM8=
+ github.com/rogpeppe/go-internal v1.12.0/go.mod h1:E+RYuTGaKKdloAfM02xzb0FW3Paa99yedzYV+kq4uf4=
 -github.com/rootless-containers/rootlesskit v1.0.1 h1:jepqW1txFSowKSMAEkVhWH3Oa1TCY9S400MVYe/6Iro=
 -github.com/rootless-containers/rootlesskit v1.0.1/go.mod h1:t2UAiYagxrJ+wmpFAUIZPcqsm4k2B7ve6g7lILKbloc=
 +github.com/rootless-containers/rootlesskit v1.1.1 h1:F5psKWoWY9/VjZ3ifVcaosjvFZJOagX85U22M0/EQZE=
@@ -175,7 +176,7 @@ index 7ac62863e5..b8758ea05a 100644
  github.com/rs/xid v1.5.0 h1:mKX4bl4iPYJtEIxp6CYiUuLQ/8DYMoz0PUdtGgMFRVc=
  github.com/rs/xid v1.5.0/go.mod h1:trrq9SKmegXys3aeAKXMUTdJsYXVwGY3RLcfgqegfbg=
  github.com/rubiojr/go-vhd v0.0.0-20200706105327-02e210299021 h1:if3/24+h9Sq6eDx8UUz1SO9cT9tizyIsATfB7b4D3tc=
-@@ -1139,8 +1146,8 @@ github.com/urfave/cli v1.22.4/go.mod h1:Gos4lmkARVdJ6EkW0WaNv/tZAAMe9V7XWyB60NtX
+@@ -1179,8 +1185,8 @@ github.com/urfave/cli v1.22.4/go.mod h1:Gos4lmkARVdJ6EkW0WaNv/tZAAMe9V7XWyB60NtX
  github.com/urfave/cli v1.22.12/go.mod h1:sSBEIC79qR6OvcmsD4U3KABeOTxDqQtdDnaFuUN30b8=
  github.com/urfave/cli v1.22.14 h1:ebbhrRiGK2i4naQJr+1Xj92HXZCrK7MsyTS/ob3HnAk=
  github.com/urfave/cli v1.22.14/go.mod h1:X0eDS6pD6Exaclxm99NJ3FiCDRED7vIHpx2mDOHLvkA=
@@ -186,68 +187,52 @@ index 7ac62863e5..b8758ea05a 100644
  github.com/vbatts/tar-split v0.11.2/go.mod h1:vV3ZuO2yWSVsz+pfFzDG/upWH1JhjOiEaWq6kXyQ3VI=
  github.com/vbatts/tar-split v0.11.5 h1:3bHCTIheBm1qFTcgh9oPu+nNBtX+XJIupG/vacinCts=
  github.com/vbatts/tar-split v0.11.5/go.mod h1:yZbwRsSeGjusneWgA781EKej9HF8vme8okylkAeNKLk=
-@@ -1285,8 +1292,9 @@ golang.org/x/mod v0.6.0/go.mod h1:4mET923SAdbXp2ki8ey+zGs1SLqsuM2Y0uvdZR/fUNI=
- golang.org/x/mod v0.7.0/go.mod h1:iBbtSCu2XBx23ZKBPSOrRkjjQPZFPuis4dIYUhu/chs=
- golang.org/x/mod v0.8.0/go.mod h1:iBbtSCu2XBx23ZKBPSOrRkjjQPZFPuis4dIYUhu/chs=
- golang.org/x/mod v0.9.0/go.mod h1:iBbtSCu2XBx23ZKBPSOrRkjjQPZFPuis4dIYUhu/chs=
--golang.org/x/mod v0.10.0 h1:lFO9qtOdlre5W1jxS3r/4szv2/6iXxScdzjoBMXNhYk=
- golang.org/x/mod v0.10.0/go.mod h1:iBbtSCu2XBx23ZKBPSOrRkjjQPZFPuis4dIYUhu/chs=
-+golang.org/x/mod v0.12.0 h1:rmsUpXtvNzj340zd98LZ4KntptpfRHwpFOHG188oHXc=
-+golang.org/x/mod v0.12.0/go.mod h1:iBbtSCu2XBx23ZKBPSOrRkjjQPZFPuis4dIYUhu/chs=
- golang.org/x/net v0.8.0 h1:Zrh2ngAOFYneWTAIAPethzeaQLuHwhuBkuV6ZiRnUaQ=
- golang.org/x/net v0.8.0/go.mod h1:QVkue5JL9kW//ek3r6jTKnTFis1tRmNAW2P1shuFdJc=
- golang.org/x/oauth2 v0.0.0-20180821212333-d2e6202438be/go.mod h1:N/0e6XlmueqKjAGxoOufVs8QHGRruUQn6yWY3a++T0U=
-@@ -1409,8 +1417,9 @@ golang.org/x/tools v0.2.0/go.mod h1:y4OqIKeOV/fWJetJ8bXPU1sEVniLMIyDAZWeHdV+NTA=
- golang.org/x/tools v0.4.0/go.mod h1:UE5sM2OK9E/d67R0ANs2xJizIymRP5gJU295PvKXxjQ=
- golang.org/x/tools v0.6.0/go.mod h1:Xwgl3UAJ/d3gWutnCtw505GrjyAbvKui8lOU390QaIU=
- golang.org/x/tools v0.7.0/go.mod h1:4pg6aUX35JBAogB10C9AtvVL+qowtN4pT3CGSQex14s=
--golang.org/x/tools v0.8.0 h1:vSDcovVPld282ceKgDimkRSC8kpaH1dgyc9UMzlt84Y=
- golang.org/x/tools v0.8.0/go.mod h1:JxBZ99ISMI5ViVkT1tr6tdNmXeTrcpVSD3vZ1RsRdN4=
-+golang.org/x/tools v0.11.0 h1:EMCa6U9S2LtZXLAMoWiR/R8dAQFRqbAitmbJ2UKhoi8=
-+golang.org/x/tools v0.11.0/go.mod h1:anzJrxPjNtfgiYQYirP2CPGzGLxrH2u2QBhn6Bf3qY8=
- golang.org/x/xerrors v0.0.0-20190717185122-a985d3407aa7/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
- golang.org/x/xerrors v0.0.0-20191011141410-1b5146add898/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
- golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
-@@ -1447,8 +1456,9 @@ google.golang.org/protobuf v1.28.0/go.mod h1:HV8QOd/L58Z+nl8r43ehVNZIU/HEI6OcFqw
- google.golang.org/protobuf v1.28.1/go.mod h1:HV8QOd/L58Z+nl8r43ehVNZIU/HEI6OcFqwMG9pJV4I=
- google.golang.org/protobuf v1.29.0/go.mod h1:HV8QOd/L58Z+nl8r43ehVNZIU/HEI6OcFqwMG9pJV4I=
- google.golang.org/protobuf v1.29.1/go.mod h1:HV8QOd/L58Z+nl8r43ehVNZIU/HEI6OcFqwMG9pJV4I=
--google.golang.org/protobuf v1.30.0 h1:kPPoIgf3TsEvrm0PFe15JQ+570QVxYzEvvHqChK+cng=
- google.golang.org/protobuf v1.30.0/go.mod h1:HV8QOd/L58Z+nl8r43ehVNZIU/HEI6OcFqwMG9pJV4I=
-+google.golang.org/protobuf v1.31.0 h1:g0LDEJHgrBl9N9r17Ru3sqWhkIx2NB67okBHPwC7hs8=
-+google.golang.org/protobuf v1.31.0/go.mod h1:HV8QOd/L58Z+nl8r43ehVNZIU/HEI6OcFqwMG9pJV4I=
- gopkg.in/alecthomas/kingpin.v2 v2.2.6/go.mod h1:FMv+mEhP44yOT+4EoQTLFTRgOQ1FBLkstjWtayDeSgw=
- gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
- gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
-@@ -1492,8 +1502,8 @@ gopkg.in/yaml.v3 v3.0.1 h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=
+@@ -1260,7 +1266,7 @@ go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.13.0 h1:Any/nVxaoMq1T2w0W85
+ go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.13.0/go.mod h1:46vAP6RWfNn7EKov73l5KBFlNxz8kYlxR1woU+bJ4ZY=
+ go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.13.0 h1:Wz7UQn7/eIqZVDJbuNEM6PmqeA71cWXrWcXekP5HZgU=
+ go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.13.0/go.mod h1:OhH1xvgA5jZW2M/S4PcvtDlFE1VULRRBsibBrKuJQGI=
+-go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.19.0/go.mod h1:oVdCUtjq9MK9BlS7TtucsQwUcXcymNiEDjgDD2jMtZU=
++go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.14.0/go.mod h1:+N7zNjIJv4K+DeX67XXET0P+eIciESgaFDBqh+ZJFS4=
+ go.opentelemetry.io/otel/metric v0.32.1 h1:ftff5LSBCIDwL0UkhBuDg8j9NNxx2IusvJ18q9h6RC4=
+ go.opentelemetry.io/otel/metric v0.32.1/go.mod h1:iLPP7FaKMAD5BIxJ2VX7f2KTuz//0QK2hEUyti5psqQ=
+ go.opentelemetry.io/otel/sdk v1.13.0 h1:BHib5g8MvdqS65yo2vV1s6Le42Hm6rrw08qU6yz5JaM=
+@@ -1488,6 +1494,7 @@ google.golang.org/cloud v0.0.0-20151119220103-975617b05ea8/go.mod h1:0H1ncTHf11K
+ google.golang.org/genproto v0.0.0-20220502173005-c8bf987b8c21 h1:hrbNEivu7Zn1pxvHk6MBrq9iE22woVILTHqexqBxe6I=
+ google.golang.org/genproto v0.0.0-20220502173005-c8bf987b8c21/go.mod h1:RAyBrSAP7Fh3Nc84ghnVLDPuV51xc9agzmm4Ph6i0Q4=
+ google.golang.org/genproto/googleapis/api v0.0.0-20230525234020-1aefcd67740a/go.mod h1:ts19tUU+Z0ZShN1y3aPyq2+O3d5FUNNgT6FtOzmrNn8=
++google.golang.org/genproto/googleapis/api v0.0.0-20230525234035-dd9d682886f9/go.mod h1:vHYtlOoi6TsQ3Uk2yxR7NI5z8uoV+3pZtR4jmHIkRig=
+ google.golang.org/genproto/googleapis/api v0.0.0-20230526203410-71b5a4ffd15e/go.mod h1:vHYtlOoi6TsQ3Uk2yxR7NI5z8uoV+3pZtR4jmHIkRig=
+ google.golang.org/genproto/googleapis/api v0.0.0-20230530153820-e85fd2cbaebc/go.mod h1:vHYtlOoi6TsQ3Uk2yxR7NI5z8uoV+3pZtR4jmHIkRig=
+ google.golang.org/genproto/googleapis/api v0.0.0-20230711160842-782d3b101e98/go.mod h1:rsr7RhLuwsDKL7RmgDDCUc6yaGr1iqceVb5Wv6f6YvQ=
+@@ -1554,8 +1561,8 @@ gopkg.in/yaml.v3 v3.0.1 h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=
  gopkg.in/yaml.v3 v3.0.1/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
  gotest.tools/v3 v3.0.2/go.mod h1:3SzNCllyD9/Y+b5r9JIKQ474KzkZyqLqEfYqMsX94Bk=
  gotest.tools/v3 v3.0.3/go.mod h1:Z7Lb0S5l+klDB31fvDQX8ss/FlKDxtlFlw3Oa8Ymbl8=
 -gotest.tools/v3 v3.4.0 h1:ZazjZUfuVeZGLAmlKKuyv3IKP5orXcwtOwDQH6YVr6o=
  gotest.tools/v3 v3.4.0/go.mod h1:CtbdzLSsqVhDgMtKsx03ird5YTGB3ar27v0u/yKBW5g=
-+gotest.tools/v3 v3.5.0 h1:Ljk6PdHdOhAb5aDMWXjDLMMhph+BpztA4v1QdqEW2eY=
++gotest.tools/v3 v3.5.1 h1:EENdUnS3pdur5nybKYIh2Vfgc8IUNBjxDPSjtiJcOzU=
  honnef.co/go/tools v0.0.0-20190418001031-e561f6794a2a/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
  honnef.co/go/tools v0.0.1-2019.2.3/go.mod h1:a3bituU0lyd329TUQxRnasdCoJDkEUEAqEt0JzvZhAg=
  honnef.co/go/tools v0.0.1-2020.1.3/go.mod h1:X/FiERA/W4tHapMX5mGpAtMSVEeEUOyHaw9vFzvIQ3k=
 diff --git a/pkg/agent/config/config.go b/pkg/agent/config/config.go
-index ee02becf87..0539c049f3 100644
+index c3cdf316b8..2c1e6ed25d 100644
 --- a/pkg/agent/config/config.go
 +++ b/pkg/agent/config/config.go
-@@ -546,6 +546,12 @@ func get(ctx context.Context, envInfo *cmds.Agent, proxy proxy.Proxy) (*config.N
- 					nodeConfig.Containerd.Root)
+@@ -553,6 +553,12 @@ func get(ctx context.Context, envInfo *cmds.Agent, proxy proxy.Proxy) (*config.N
+ 						nodeConfig.Containerd.Root)
+ 				}
+ 				nodeConfig.AgentConfig.ImageServiceSocket = "/run/containerd-stargz-grpc/containerd-stargz-grpc.sock"
++			case "nix":
++				if err := containerd.NixSupported(nodeConfig.Containerd.Root); err != nil {
++					return nil, errors.Wrapf(err, "\"nix\" snapshotter cannot be enabled for %q, try using \"overlayfs\" or \"native\"",
++						nodeConfig.Containerd.Root)
++				}
++				nodeConfig.AgentConfig.ImageServiceSocket = "/run/k3s/nix-snapshotter/nix-snapshotter.sock"
  			}
- 			nodeConfig.AgentConfig.ImageServiceSocket = "/run/containerd-stargz-grpc/containerd-stargz-grpc.sock"
-+		case "nix":
-+			if err := containerd.NixSupported(nodeConfig.Containerd.Root); err != nil {
-+				return nil, errors.Wrapf(err, "\"nix\" snapshotter cannot be enabled for %q, try using \"overlayfs\" or \"native\"",
-+					nodeConfig.Containerd.Root)
-+			}
-+			nodeConfig.AgentConfig.ImageServiceSocket = "/run/k3s/nix-snapshotter/nix-snapshotter.sock"
- 		}
- 	}
- 	nodeConfig.Containerd.Opt = filepath.Join(envInfo.DataDir, "agent", "containerd")
+ 		} else {
+ 			nodeConfig.AgentConfig.ImageServiceSocket = nodeConfig.ContainerRuntimeEndpoint
 diff --git a/pkg/agent/containerd/config_linux.go b/pkg/agent/containerd/config_linux.go
-index 559d966dec..02c19281e3 100644
+index 4a5cd21dfe..ae43adc899 100644
 --- a/pkg/agent/containerd/config_linux.go
 +++ b/pkg/agent/containerd/config_linux.go
 @@ -18,6 +18,7 @@ import (
@@ -258,7 +243,7 @@ index 559d966dec..02c19281e3 100644
  	"github.com/pkg/errors"
  	"github.com/rancher/wharfie/pkg/registries"
  	"github.com/sirupsen/logrus"
-@@ -120,3 +121,7 @@ func FuseoverlayfsSupported(root string) error {
+@@ -127,3 +128,7 @@ func FuseoverlayfsSupported(root string) error {
  func StargzSupported(root string) error {
  	return stargz.Supported(root)
  }
@@ -267,7 +252,7 @@ index 559d966dec..02c19281e3 100644
 +	return nix.Supported(root)
 +}
 diff --git a/pkg/agent/containerd/config_windows.go b/pkg/agent/containerd/config_windows.go
-index 6efbb7a148..2f48418f9a 100644
+index 6efbb7a148..8cd64a52bc 100644
 --- a/pkg/agent/containerd/config_windows.go
 +++ b/pkg/agent/containerd/config_windows.go
 @@ -85,3 +85,7 @@ func FuseoverlayfsSupported(root string) error {
@@ -276,10 +261,10 @@ index 6efbb7a148..2f48418f9a 100644
  }
 +
 +func NixSupported(root string) error {
-+	return errors.Wrapf(util2.ErrUnsupportedPlatform, "nix is not supported")
++	return errors.Wrapf(util3.ErrUnsupportedPlatform, "nix is not supported")
 +}
 diff --git a/pkg/agent/templates/templates_linux.go b/pkg/agent/templates/templates_linux.go
-index 4d0c52fc42..83cdb4909c 100644
+index 66f8ee1080..263317055a 100644
 --- a/pkg/agent/templates/templates_linux.go
 +++ b/pkg/agent/templates/templates_linux.go
 @@ -35,7 +35,7 @@ version = 2
@@ -288,20 +273,20 @@ index 4d0c52fc42..83cdb4909c 100644
    snapshotter = "{{ .NodeConfig.AgentConfig.Snapshotter }}"
 -  disable_snapshot_annotations = {{ if eq .NodeConfig.AgentConfig.Snapshotter "stargz" }}false{{else}}true{{end}}
 +  disable_snapshot_annotations = {{ if or (eq .NodeConfig.AgentConfig.Snapshotter "stargz") (eq .NodeConfig.AgentConfig.Snapshotter "nix") }}false{{else}}true{{end}}
+   {{ if .NodeConfig.DefaultRuntime }}default_runtime_name = "{{ .NodeConfig.DefaultRuntime }}"{{end}}
  {{ if eq .NodeConfig.AgentConfig.Snapshotter "stargz" }}
  {{ if .NodeConfig.AgentConfig.ImageServiceSocket }}
- [plugins."io.containerd.snapshotter.v1.stargz"]
-@@ -74,6 +74,14 @@ enable_keychain = true
+@@ -75,6 +75,14 @@ enable_keychain = true
  {{end}}
  {{end}}
  {{end}}
 +{{ if eq .NodeConfig.AgentConfig.Snapshotter "nix" }}
-+[[plugins."io.containerd.transfer.v1.local".unpack_config]]
-+platform = "linux/amd64"
-+snapshotter = "nix"
 +[plugins."io.containerd.snapshotter.v1.nix"]
 +address = "{{ .NodeConfig.AgentConfig.ImageServiceSocket }}"
 +image_service.enable = true
++[[plugins."io.containerd.transfer.v1.local".unpack_config]]
++platform = "linux/amd64"
++snapshotter = "nix"
 +{{end}}
  {{end}}
  

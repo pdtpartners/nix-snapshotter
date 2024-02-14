@@ -184,7 +184,14 @@ let
     src = k3sRepo;
     vendorHash = k3sVendorHash;
 
-    patches = [ ../patches/k3s-nix-snapshotter.patch ];
+    patches = [
+      # See: https://github.com/k3s-io/k3s/pull/9309
+      ../patches/k3s-rootless-containerd-sock.patch
+      # See: https://github.com/k3s-io/k3s/pull/9308
+      ../patches/k3s-rootless-state-dir.patch
+      # See: https://github.com/k3s-io/k3s/pull/9319
+      ../patches/k3s-nix-snapshotter.patch
+    ];
 
     nativeBuildInputs = [ pkg-config ];
     buildInputs = [ libseccomp sqlite.dev ];
@@ -242,7 +249,14 @@ buildGoModule rec {
   src = k3sRepo;
   vendorHash = k3sVendorHash;
 
-  patches = [ ../patches/k3s-nix-snapshotter.patch ];
+  patches = [
+    # See: https://github.com/k3s-io/k3s/pull/9309
+    ../patches/k3s-rootless-containerd-sock.patch
+    # See: https://github.com/k3s-io/k3s/pull/9308
+    ../patches/k3s-rootless-state-dir.patch
+    # See: https://github.com/k3s-io/k3s/pull/9319
+    ../patches/k3s-nix-snapshotter.patch
+  ];
 
   postPatch = ''
     # Nix prefers dynamically linked binaries over static binary.

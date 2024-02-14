@@ -71,15 +71,25 @@ redis-cli -p 30000 ping
 Or you can try running in rootless mode:
 
 ```sh
-nix run ".#vm"
+nix run "github:pdtpartners/nix-snapshotter#vm-rootless"
 nixos login: rootless # (Ctrl-a then x to quit)
 Password: rootless
 
-# Running pkgs.hello image with nix-snapshotter
-nerdctl run ghcr.io/pdtpartners/hello
+# `nerdctl run` with rootless k3s containerd currently not supported yet
+# See: https://github.com/containerd/nerdctl/issues/2831
+#
+# If rootless kubernetes not needed, `nerdctl run` does work with rootless
+# containerd + nix-snapshotter.
 
-# Rootless kubernetes not supported yet.
-# See: https://github.com/k3s-io/k3s/pull/8279
+# Running `pkgs.redis` image with kubernetes & nix-snapshotter
+kubectl apply -f /etc/kubernetes/redis/
+
+# Wait a few seconds... 
+watch kubectl get pods
+
+# And a kubernetes service will be ready to forward port 30000 to the redis
+# pod, so you can test it out with a `ping` command
+redis-cli -p 30000 ping
 ```
 
 ## Installation
@@ -128,15 +138,18 @@ easy installation.
           }
           ({ pkgs, ... }: {
             # (1) Import home-manager module.
-            imports = [ nix-snapshotter.homeModules.nix-snapshotter-rootless ];
+            imports = [ nix-snapshotter.homeModules.default ];
 
             # (2) Add overlay.
             nixpkgs.overlays = [ nix-snapshotter.overlays.default ];
 
             # (3) Enable service.
+            virtualisation.containerd.rootless = {
+              enable = true;
+              nixSnapshotterIntegration = true;
+            };
             services.nix-snapshotter.rootless = {
               enable = true;
-              setContainerdSnapshotter = true;
             };
 
             # (4) Add a containerd CLI like nerdctl.
@@ -161,22 +174,24 @@ easy installation.
 
   in {
     imports = [
-      ./hardware-configuration.nix
       # (1) Import home-manager module.
-      nix-snapshotter.nixosModules.default
+      nix-snapshotter.homeModules.default
     ];
 
-    # (2) Add overlay.
+    // # (2) Add overlay.
     nixpkgs.overlays = [ nix-snapshotter.overlays.default ];
 
     # (3) Enable service.
-    services.nix-snapshotter = {
+    virtualisation.containerd.rootless = {
       enable = true;
-      setContainerdSnapshotter = true;
+      nixSnapshotterIntegration = true;
+    };
+    services.nix-snapshotter.rootless = {
+      enable = true;
     };
 
     # (4) Add a containerd CLI like nerdctl.
-    environment.systemPackages = [ pkgs.nerdctl ];
+    home.packages = [ pkgs.nerdctl ];
   }
   ```
   </details>
@@ -209,9 +224,12 @@ easy installation.
             nixpkgs.overlays = [ nix-snapshotter.overlays.default ];
 
             # (3) Enable service.
+            virtualisation.containerd = {
+              enable = true;
+              nixSnapshotterIntegration = true;
+            };
             services.nix-snapshotter = {
               enable = true;
-              setContainerdSnapshotter = true;
             };
 
             # (4) Add a containerd CLI like nerdctl.
@@ -245,9 +263,12 @@ easy installation.
     nixpkgs.overlays = [ nix-snapshotter.overlays.default ];
 
     # (3) Enable service.
+    virtualisation.containerd = {
+      enable = true;
+      nixSnapshotterIntegration = true;
+    };
     services.nix-snapshotter = {
       enable = true;
-      setContainerdSnapshotter = true;
     };
 
     # (4) Add a containerd CLI like nerdctl.

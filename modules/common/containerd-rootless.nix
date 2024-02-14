@@ -8,6 +8,8 @@ let
 
   cfg = config.virtualisation.containerd.rootless;
 
+  ctrd-lib = config.virtualisation.containerd.lib;
+
   settingsFormat = pkgs.formats.toml {};
 
   configFile = settingsFormat.generate "containerd.toml" cfg.settings;
@@ -40,8 +42,10 @@ let
       exec nsenter \
         --no-fork \
         --preserve-credentials \
-        -m -n -U \
-        -t "$pid" \
+        --mount \
+        --net \
+        --user \
+        --target "$pid" \
         -- "$@"
     '';
   };
@@ -54,7 +58,8 @@ let
 
   mkRootlessContainerdService = cfg:
     let
-      containerdArgs = lib.concatStringsSep " " (lib.cli.toGNUCommandLine {} cfg.args);
+      containerdArgs =
+        lib.concatStringsSep " " (lib.cli.toGNUCommandLine {} cfg.args);
 
       containerd-rootless = makeProg {
         name = "containerd-rootless";
@@ -148,7 +153,18 @@ let
     };
 
 in {
+  imports = [
+    ./containerd.nix
+  ];
+
   options.virtualisation.containerd.rootless = {
+    inherit (ctrd-lib.options)
+      nixSnapshotterIntegration
+      setAddress
+      setNamespace
+      setSnapshotter
+    ;
+
     settings = lib.mkOption {
       type = settingsFormat.type;
       default = {};
@@ -175,15 +191,6 @@ in {
 
     package = mkPackageOptionMD pkgs "containerd" { };
 
-    setSocketVariable = mkOption {
-      type = types.bool;
-      default = false;
-      description = lib.mdDoc ''
-        Point {command}`CONTAINERD_ADDRESS` to rootless containerd for normal
-        users by default.
-      '';
-    };
-
     bindMounts = lib.mkOption {
       type = types.attrsOf (types.submodule bindMountOpts);
       example = lib.literalExpression ''
@@ -208,36 +215,52 @@ in {
     };
 
     lib = mkOption {
+      type = types.attrs;
       description = lib.mdDoc "Common functions for the containerd modules.";
       default = {
-        inherit mkRootlessContainerdService;
+        inherit
+          mkRootlessContainerdService
+        ;
       };
-      type = types.attrs;
       internal = true;
     };
   };
 
-  config = lib.mkIf cfg.enable {
-    virtualisation.containerd.rootless = {
-      inherit nsenter;
+  config = lib.mkIf cfg.enable (lib.mkMerge [
+    {
+      virtualisation.containerd.rootless = {
+        inherit nsenter;
 
-      args = {
-        config = toString containerdConfigChecked;
-      };
+        args.config = toString containerdConfigChecked;
 
-      settings = {
-        version = 2;
-        plugins."io.containerd.grpc.v1.cri" = {
-         cni.bin_dir = lib.mkOptionDefault "${pkgs.cni-plugins}/bin";
+        setAddress = lib.mkDefault "$XDG_RUNTIME_DIR/containerd/containerd.sock";
+
+        settings = {
+          version = 2;
+          plugins."io.containerd.grpc.v1.cri" = {
+            cni.bin_dir = lib.mkOptionDefault "${pkgs.cni-plugins}/bin";
+          };
+        };
+
+        bindMounts = {
+          "$XDG_RUNTIME_DIR/containerd".mountPoint = "/run/containerd";
+          "$XDG_DATA_HOME/containerd".mountPoint = "/var/lib/containerd";
+          "$XDG_DATA_HOME/cni".mountPoint = "/var/lib/cni";
+          "$XDG_CONFIG_HOME/cni".mountPoint = "/etc/cni";
         };
       };
+    }
+    (lib.mkIf cfg.nixSnapshotterIntegration {
+      virtualisation.containerd.rootless = {
+        setSnapshotter = lib.mkDefault "nix";
 
-      bindMounts = {
-        "$XDG_RUNTIME_DIR/containerd".mountPoint = "/run/containerd";
-        "$XDG_DATA_HOME/containerd".mountPoint = "/var/lib/containerd";
-        "$XDG_DATA_HOME/cni".mountPoint = "/var/lib/cni";
-        "$XDG_CONFIG_HOME/cni".mountPoint = "/etc/cni";
+        settings = ctrd-lib.mkNixSnapshotterSettings;
+
+        bindMounts = {
+          "$XDG_RUNTIME_DIR/nix-snapshotter".mountPoint = "/run/nix-snapshotter";
+          "$XDG_DATA_HOME/nix-snapshotter".mountPoint = "/var/lib/containerd/io.containerd.snapshotter.v1.nix";
+        };
       };
-    };
-  };
+    })
+  ]);
 }

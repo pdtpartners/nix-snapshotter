@@ -7,17 +7,30 @@ let
   proxyEnv = config.networking.proxy.envVars;
 
 in {
-  imports = [ ../common/containerd-rootless.nix ];
+  imports = [
+    ../common/containerd-rootless.nix
+  ];
 
-  config = lib.mkIf cfg.enable {
-    environment.extraInit = lib.optionalString cfg.setSocketVariable ''
-      if [ -z "$CONTAINERD_ADDRESS" -a -n "$XDG_RUNTIME_DIR" ]; then
-        export CONTAINERD_ADDRESS="$XDG_RUNTIME_DIR/containerd/containerd.sock"
+  config = lib.mkIf cfg.enable  {
+    environment.extraInit = ''
+      if [ -z "$CONTAINERD_ADDRESS" ]; then
+        export CONTAINERD_ADDRESS="${cfg.setAddress}"
       fi
-    '';
+    '' +
+    (lib.optionalString (cfg.setNamespace != "default") ''
+      if [ -z "$CONTAINERD_NAMESPACE" ]; then
+        export CONTAINERD_NAMESPACE="${cfg.setNamespace}"
+      fi
+    '') +
+    (lib.optionalString (cfg.setSnapshotter != "") ''
+      if [ -z "$CONTAINERD_SNAPSHOTTER" ]; then
+        export CONTAINERD_SNAPSHOTTER="${cfg.setSnapshotter}"
+      fi
+    '');
 
-    systemd.user.services.containerd = lib.recursiveUpdate
+    systemd.user.services.containerd = lib.mkMerge [
       (ns-lib.convertServiceToNixOS (cfg.lib.mkRootlessContainerdService cfg))
-      { environment = proxyEnv; };
+      { environment = proxyEnv; }
+    ];
   };
 }

@@ -9,17 +9,18 @@ let
 
   ns-lib = config.services.nix-snapshotter.lib;
 
+  settingsFormat = pkgs.formats.toml {};
+
 in {
-  imports = [ ./nix-snapshotter-lib.nix ];
+  imports = [
+    ./nix-snapshotter.nix
+  ];
 
   options.services.nix-snapshotter.rootless = {
     inherit (ns-lib.options)
       configFile
       package
       path
-      preloadContainerdImages
-      setContainerdNamespace
-      setContainerdSnapshotter
       settings
     ;
 
@@ -38,19 +39,7 @@ in {
     services.nix-snapshotter.rootless = {
       configFile =
         lib.mkOptionDefault
-          (ns-lib.settingsFormat.generate "config.toml" cfg.settings);
-    };
-
-    virtualisation.containerd.rootless = {
-      enable = true;
-
-      # Configure containerd with nix-snapshotter.
-      settings = ns-lib.mkContainerdSettings;
-
-      bindMounts = {
-        "$XDG_RUNTIME_DIR/nix-snapshotter".mountPoint = "/run/nix-snapshotter";
-        "$XDG_DATA_HOME/nix-snapshotter".mountPoint = "/var/lib/containerd/io.containerd.snapshotter.v1.nix";
-      };
+          (settingsFormat.generate "config.toml" cfg.settings);
     };
   };
 }

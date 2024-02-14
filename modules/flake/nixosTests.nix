@@ -19,7 +19,7 @@ in {
     };
   };
 
-  config.perSystem = { config, pkgs, ... }:
+  config.perSystem = { config, pkgs, k8sResources, ... }:
     let
       evalTest = name: module:
         (lib.nixos.evalTest {
@@ -28,7 +28,10 @@ in {
             module
           ];
           hostPkgs = pkgs;
-          node.pkgs = pkgs;
+          node = {
+            inherit pkgs;
+            specialArgs = { inherit k8sResources; };
+          };
         }).config.result;
 
       testRigs = lib.mapAttrs (name: module: evalTest name module) config.nixosTests;
