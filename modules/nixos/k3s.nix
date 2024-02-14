@@ -1,28 +1,15 @@
 { pkgs, ... }:
-let
-  k3s-cni-plugins = pkgs.buildEnv {
-    name = "k3s-cni-plugins";
-    paths = [
-      pkgs.cni-plugins
-      pkgs.cni-plugin-flannel
+{
+  services.k3s = {
+    enable = true;
+    extraFlags = toString [
+      "--snapshotter nix"
     ];
   };
 
-in {
-  services.k3s = {
-    enable = true;
-    configPath = pkgs.writeText "k3s_config.yaml" ''
-      container-runtime-endpoint: "unix:///run/containerd/containerd.sock"
-      image-service-endpoint: "unix:///run/nix-snapshotter/nix-snapshotter.sock"
-    '';
-  };
-
-  virtualisation.containerd = {
-    settings.plugins."io.containerd.grpc.v1.cri".cni = {
-      bin_dir = "${k3s-cni-plugins}/bin";
-      conf_dir = "/var/lib/rancher/k3s/agent/etc/cni/net.d/";
-    };
-  };
+  systemd.services.k3s.path = with pkgs; [
+    nix
+  ];
 
   environment.sessionVariables = {
     KUBECONFIG = "/etc/rancher/k3s/k3s.yaml";

@@ -1,102 +1,64 @@
 { pkgs, ... }:
-let
-  registryHost = "127.0.0.1";
+{
+  nodes = {
+    kubernetes = { config, ... }:
+      let
+        cfg = config.services.kubernetes;
 
-  registryPort = 5000;
+        wrapKubectl = pkgs.runCommand "wrap-kubectl" {
+          nativeBuildInputs = [ pkgs.makeWrapper ];
+        } ''
+          mkdir -p $out/bin
+          makeWrapper ${pkgs.kubernetes}/bin/kubectl \
+            $out/bin/kubectl \
+            --set KUBECONFIG "/etc/${cfg.pki.etcClusterAdminKubeconfig}"
+        '';
 
-  redisImageName = "${registryHost}:${toString registryPort}/redis";
+      in {
+        imports = [
+          ../nix-snapshotter.nix
+          ../redis-spec.nix
+        ];
 
-  redisNodePort = 30000;
+        services.nix-snapshotter.enable = true;
 
-  redisPod = pkgs.writeText "redis-pod.json" (builtins.toJSON {
-    apiVersion = "v1";
-    kind = "Pod";
-    metadata = {
-      name = "redis";
-      labels.name = "redis";
-    };
-    spec.containers = [{
-      name = "redis";
-      image = redisImageName;
-      args = ["--protected-mode" "no"];
-      ports = [{
-        name = "client";
-        containerPort = 6379;
-      }];
-    }];
-  });
+        services.kubernetes = {
+          roles = ["master" "node"];
+          masterAddress = "localhost";
+          kubelet.extraOpts = "--image-service-endpoint unix:///run/nix-snapshotter/nix-snapshotter.sock";
+        };
 
-  redisService = pkgs.writeText "redis-service.json" (builtins.toJSON {
-    apiVersion = "v1";
-    kind = "Service";
-    metadata.name = "redis-service";
-    spec = {
-      type = "NodePort";
-      selector.name = "redis";
-      ports = [{
-        name = "client";
-        port = 6379;
-        nodePort = redisNodePort;
-      }];
-    };
-  });
-
-in {
-  nodes.machine = { config, ... }:
-    let
-      cfg = config.services.kubernetes;
-
-      wrapKubectl = pkgs.runCommand "wrap-kubectl" {
-        nativeBuildInputs = [ pkgs.makeWrapper ];
-      } ''
-        mkdir -p $out/bin
-        makeWrapper ${pkgs.kubernetes}/bin/kubectl \
-          $out/bin/kubectl \
-          --set KUBECONFIG "/etc/${cfg.pki.etcClusterAdminKubeconfig}"
-      '';
-
-      redisImage = pkgs.nix-snapshotter.buildImage {
-        name = redisImageName;
-        tag = "latest";
-        config.entrypoint = ["${pkgs.redis}/bin/redis-server"];
+        environment.systemPackages = [
+          pkgs.redis
+          wrapKubectl
+        ];
       };
 
-    in {
-      imports = [ ../nix-snapshotter.nix ];
-
-      services.nix-snapshotter.enable = true;
-
-      services.kubernetes = {
-        roles = ["master" "node"];
-        masterAddress = "localhost";
-      };
-
-      services.dockerRegistry = {
-        enable = true;
-        listenAddress = registryHost;
-        port = registryPort;
-      };
+    k3s = { ... }: {
+      imports = [
+        ../k3s.nix
+        ../redis-spec.nix
+      ];
 
       environment.systemPackages = [
-        (redisImage.copyToRegistry { plainHTTP = true; })
         pkgs.redis
-        wrapKubectl
       ];
     };
+  };
 
   testScript = ''
     start_all()
 
-    machine.wait_for_unit("docker-registry.service")
-    machine.wait_for_open_port(${toString registryPort})
-    machine.succeed("copy-to-registry")
+    def test_redis_service(machine):
+      machine.wait_until_succeeds("kubectl get node $(hostname) | grep -w Ready")
 
-    machine.wait_until_succeeds("kubectl get node machine | grep -w Ready")
+      machine.wait_until_succeeds("kubectl apply -f /etc/kubernetes/redis/")
 
-    machine.wait_until_succeeds("kubectl create -f ${redisPod}")
-    machine.wait_until_succeeds("kubectl create -f ${redisService}")
+      machine.wait_until_succeeds("kubectl get pod redis | grep Running")
+      out = machine.wait_until_succeeds("redis-cli -p 30000 ping")
+      assert "PONG" in out
 
-    machine.wait_until_succeeds("kubectl get pod redis | grep Running")
-    machine.wait_until_succeeds("redis-cli -p ${toString redisNodePort} ping")
+    # test_redis_service(kubernetes)
+    test_redis_service(k3s)
   '';
 }
