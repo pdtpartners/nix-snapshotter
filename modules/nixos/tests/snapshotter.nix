@@ -1,4 +1,4 @@
-{ lib, ... }:
+{ pkgs, lib, ... }:
 let
   registryHost = "127.0.0.1";
 
@@ -50,8 +50,11 @@ let
       base
       ../nix-snapshotter.nix
     ];
-    services.nix-snapshotter.setContainerdSnapshotter = true;
-    services.nix-snapshotter.enable = true;
+
+    services.nix-snapshotter = {
+      enable = true;
+      setContainerdSnapshotter = true;
+    };
   };
 
   rootless = {
@@ -60,8 +63,11 @@ let
       ../nix-snapshotter.nix
       ../nix-snapshotter-rootless.nix
     ];
-    services.nix-snapshotter.rootless.setContainerdSnapshotter = true;
-    services.nix-snapshotter.rootless.enable = true;
+
+    services.nix-snapshotter.rootless = {
+      enable = true;
+      setContainerdSnapshotter = true;
+    };
 
     users.users.alice = {
       uid = 1000;
@@ -71,8 +77,30 @@ let
 
   both = { imports = [ rootful rootless ]; };
 
+  external = {
+    imports = [
+      base
+      ../nix-snapshotter.nix
+    ];
+
+    services.nix-snapshotter = {
+      enable = true;
+      setContainerdSnapshotter = true;
+      settings.external_builder = pkgs.writeScript "external-builder.sh" ''
+        ${pkgs.nix}/bin/nix build --out-link $1 $2
+      '';
+    };
+  };
+
 in {
-  nodes = { inherit rootful rootless both; };
+  nodes = {
+    inherit 
+      rootful
+      rootless
+      both
+      external
+    ;
+  };
 
   testScript = { nodes, ... }:
     let
@@ -150,5 +178,8 @@ in {
       setup(both)
       test_rootful(both, "both")
       test_rootless(both, "both")
+
+      setup(external)
+      test_rootful(external)
     '';
 }

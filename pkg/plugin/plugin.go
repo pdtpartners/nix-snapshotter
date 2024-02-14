@@ -77,7 +77,13 @@ func init() {
 			}
 
 			ic.Meta.Exports["root"] = root
-			return nix.NewSnapshotter(root)
+
+			var snapshotterOpts []nix.SnapshotterOpt
+			if cfg.ExternalBuilder != "" {
+				snapshotterOpts = append(snapshotterOpts, nix.WithNixBuilder(nix.NewExternalBuilder(cfg.ExternalBuilder)))
+			}
+
+			return nix.NewSnapshotter(root, snapshotterOpts...)
 		},
 	})
 }

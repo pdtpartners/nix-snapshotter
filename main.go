@@ -131,7 +131,12 @@ func serve(ctx context.Context, cfg *config.Config) error {
 		runtime.RegisterImageServiceServer(rpc, imageService)
 	}
 
-	sn, err := nix.NewSnapshotter(cfg.Root)
+	var snapshotterOpts []nix.SnapshotterOpt
+	if cfg.ExternalBuilder != "" {
+		snapshotterOpts = append(snapshotterOpts, nix.WithNixBuilder(nix.NewExternalBuilder(cfg.ExternalBuilder)))
+	}
+
+	sn, err := nix.NewSnapshotter(cfg.Root, snapshotterOpts...)
 	if err != nil {
 		return err
 	}
