@@ -1,4 +1,4 @@
-{ lib, config, pkgs, modulesPath, examples, ... }:
+{ lib, pkgs, modulesPath, examples, ... }:
 let
   preloadContainerdImages = lib.attrValues examples;
 
@@ -8,8 +8,7 @@ in {
     # is only intended to be used as a VM. Using vmVariant will emit assertion
     # errors regarding `fileSystems."/"` and `boot.loader.grub.device`.
     (modulesPath + "/virtualisation/qemu-vm.nix")
-    ./kubernetes.nix
-    # ./k3s.nix
+    ./k3s.nix
     ./redis-spec.nix
   ];
 
