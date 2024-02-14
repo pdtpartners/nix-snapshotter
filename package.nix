@@ -9,7 +9,7 @@
 let
   nix-snapshotter = buildGoModule {
     pname = "nix-snapshotter";
-    version = "0.1.0";
+    version = "0.1.1";
     src = lib.cleanSourceWith {
       src = lib.sourceFilesBySuffices ./. [
         ".go"
@@ -18,7 +18,7 @@ let
         ".tar"
       ];
     };
-    vendorHash = "sha256-gK7FAK6RQ9hL3K4PY2f2z4nBDBJXRctUZbVHuVqOIYE=";
+    vendorHash = "sha256-QBLePOnfsr6I19ddyZNSFDih6mCaZ/NV2Qz1B1pSHxs=";
     passthru = { inherit buildImage; };
   };
 
