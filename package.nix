@@ -9,7 +9,7 @@
 let
   nix-snapshotter = buildGoModule {
     pname = "nix-snapshotter";
-    version = "0.1.1";
+    version = "0.1.2";
     src = lib.cleanSourceWith {
       src = lib.sourceFilesBySuffices ./. [
         ".go"
