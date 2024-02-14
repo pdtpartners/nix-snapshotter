@@ -19,9 +19,10 @@ var (
 
 // Config provides nix-snapshotter configuration data.
 type Config struct {
-	Address      string             `toml:"address"`
-	Root         string             `toml:"root"`
-	ImageService ImageServiceConfig `toml:"image_service"`
+	Address         string             `toml:"address"`
+	Root            string             `toml:"root"`
+	ExternalBuilder string             `toml:"external_builder"`
+	ImageService    ImageServiceConfig `toml:"image_service"`
 }
 
 type ImageServiceConfig struct {

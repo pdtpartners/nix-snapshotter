@@ -74,3 +74,17 @@ func defaultNixBuilder(ctx context.Context, outLink, nixStorePath string) error 
 	}
 	return err
 }
+
+// NewExternalBuilder returns a NixBuilder from an external executable with
+// two arguments: an out-link path, and a Nix store path.
+func NewExternalBuilder(name string) NixBuilder {
+	return func(ctx context.Context, outLink, nixStorePath string) error {
+		out, err := exec.Command(name, outLink, nixStorePath).CombinedOutput()
+		if err != nil {
+			log.G(ctx).
+				WithField("nixStorePath", nixStorePath).
+				Errorf("Failed to run external nix builder: %s\n%s", err, string(out))
+		}
+		return err
+	}
+}
