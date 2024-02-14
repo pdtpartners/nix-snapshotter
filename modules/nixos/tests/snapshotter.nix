@@ -27,7 +27,6 @@ let
       };
 
     in {
-
       # Setup local registry for testing `buildImage` and `copyToRegistry`.
       services.dockerRegistry = {
         enable = true;
@@ -48,25 +47,34 @@ let
   rootful = {
     imports = [
       base
+      ../containerd.nix
       ../nix-snapshotter.nix
     ];
 
+    virtualisation.containerd = {
+      enable = true;
+      nixSnapshotterIntegration = true;
+    };
+
     services.nix-snapshotter = {
       enable = true;
-      setContainerdSnapshotter = true;
     };
   };
 
   rootless = {
     imports = [
       base
-      ../nix-snapshotter.nix
+      ../containerd-rootless.nix
       ../nix-snapshotter-rootless.nix
     ];
 
+    virtualisation.containerd.rootless = {
+      enable = true;
+      nixSnapshotterIntegration = true;
+    };
+
     services.nix-snapshotter.rootless = {
       enable = true;
-      setContainerdSnapshotter = true;
     };
 
     users.users.alice = {
@@ -75,17 +83,12 @@ let
     };
   };
 
-  both = { imports = [ rootful rootless ]; };
-
   external = {
     imports = [
-      base
-      ../nix-snapshotter.nix
+      rootful
     ];
 
-    services.nix-snapshotter = {
-      enable = true;
-      setContainerdSnapshotter = true;
+    virtualisation.containerd = {
       settings.external_builder = pkgs.writeScript "external-builder.sh" ''
         ${pkgs.nix}/bin/nix build --out-link $1 $2
       '';
@@ -97,7 +100,6 @@ in {
     inherit 
       rootful
       rootless
-      both
       external
     ;
   };
@@ -174,10 +176,6 @@ in {
 
       setup(rootless)
       test_rootless(rootless)
-
-      setup(both)
-      test_rootful(both, "both")
-      test_rootless(both, "both")
 
       setup(external)
       test_rootful(external)

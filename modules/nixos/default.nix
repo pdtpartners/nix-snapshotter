@@ -2,8 +2,9 @@
 let
   nixosSystemFor = system: module:
     let
-      pkgs = withSystem system ({ pkgs, ...}: pkgs);
-      examples = withSystem system ({ examples, ...}: examples);
+      pkgs = withSystem system ({ pkgs, ... }: pkgs);
+      examples = withSystem system ({ examples, ... }: examples);
+      k8sResources = withSystem system ({ k8sResources, ... }: k8sResources);
 
     in lib.nixosSystem {
       inherit system;
@@ -11,7 +12,7 @@ let
       modules = [
         {
           _module.args = {
-            inherit examples;
+            inherit examples k8sResources;
             pkgs = lib.mkForce pkgs;
           };
         }
@@ -19,6 +20,11 @@ let
         module
       ];
     };
+
+  vmApp = name: {
+    type = "app";
+    program = "${self.nixosConfigurations.${name}.config.system.build.vm}/bin/run-nixos-vm";
+  };
 
 in {
   /* NixOS module to provide nix-snapshotter systemd service.
@@ -32,12 +38,23 @@ in {
       imports = [
         nix-snapshotter
         nix-snapshotter-rootless
+        containerd
+        containerd-rootless
+        preload-containerd
+        preload-containerd-rootless
+        k3s
+        k3s-rootless
       ];
     };
 
     nix-snapshotter = ./nix-snapshotter.nix;
     nix-snapshotter-rootless = ./nix-snapshotter-rootless.nix;
+    containerd = ./containerd.nix;
     containerd-rootless = ./containerd-rootless.nix;
+    preload-containerd = ./preload-containerd.nix;
+    preload-containerd-rootless = ./preload-containerd-rootless.nix;
+    k3s = ./k3s.nix;
+    k3s-rootless = ./k3s-rootless.nix;
   };
 
   /* NixOS config for a VM to quickly try out nix-snapshotter.
@@ -46,7 +63,10 @@ in {
      nixos-rebuild build-vm --flake .#vm
      ```
   */
-  flake.nixosConfigurations.vm = nixosSystemFor "x86_64-linux" ./vm.nix;
+  flake.nixosConfigurations = {
+    vm = nixosSystemFor "x86_64-linux" ./vm.nix;
+    vm-rootless = nixosSystemFor "x86_64-linux" ./vm-rootless.nix;
+  };
 
   perSystem = { system, ... }: {
     /* A convenient `apps` target to run a NixOS VM to quickly try out
@@ -56,13 +76,16 @@ in {
       nix run .#vm
       ```
     */
-    apps.vm = {
-      type = "app";
-      program = "${(nixosSystemFor system ./vm.nix).config.system.build.vm}/bin/run-nixos-vm";
+    apps = {
+      vm = vmApp "vm";
+      vm-rootless = vmApp "vm-rootless";
     };
 
     # NixOS tests for nix-snapshotter.
     nixosTests.snapshotter = import ./tests/snapshotter.nix;
-    nixosTests.kubernetes= import ./tests/kubernetes.nix;
+    nixosTests.kubernetes = import ./tests/kubernetes.nix;
+    nixosTests.k3s = import ./tests/k3s.nix;
+    nixosTests.k3s-external = import ./tests/k3s-external.nix;
+    nixosTests.k3s-rootless = import ./tests/k3s-rootless.nix;
   };
 }
