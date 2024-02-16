@@ -178,7 +178,7 @@ easy installation.
       nix-snapshotter.homeModules.default
     ];
 
-    // # (2) Add overlay.
+    # (2) Add overlay.
     nixpkgs.overlays = [ nix-snapshotter.overlays.default ];
 
     # (3) Enable service.
@@ -255,7 +255,7 @@ easy installation.
   in {
     imports = [
       ./hardware-configuration.nix
-      # (1) Import home-manager module.
+      # (1) Import nixos module.
       nix-snapshotter.nixosModules.default
     ];
 
