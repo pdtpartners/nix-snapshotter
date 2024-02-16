@@ -1,4 +1,4 @@
-{ config, pkgs, lib, ... }:
+{ pkgs, lib, ... }:
 let
   inherit (lib)
     mkEnableOption
@@ -10,8 +10,6 @@ let
     GOOS
     GOARCH
   ;
-
-  cfg = config.virtualisation.containerd;
 
   options = {
     k3sIntegration = mkEnableOption "K3s integration";
@@ -82,13 +80,6 @@ in {
         ;
       };
       internal = true;
-    };
-  };
-
-  config = lib.mkIf cfg.enable {
-    virtualisation.containerd = lib.mkIf cfg.nixSnapshotterIntegration {
-      setSnapshotter = lib.mkDefault "nix";
-      settings = mkNixSnapshotterSettings;
     };
   };
 }
