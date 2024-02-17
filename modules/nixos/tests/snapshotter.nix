@@ -1,4 +1,4 @@
-{ pkgs, lib, ... }:
+{ config, pkgs, lib, ... }:
 let
   registryHost = "127.0.0.1";
 
@@ -47,8 +47,6 @@ let
   rootful = {
     imports = [
       base
-      ../containerd.nix
-      ../nix-snapshotter.nix
     ];
 
     virtualisation.containerd = {
@@ -64,8 +62,6 @@ let
   rootless = {
     imports = [
       base
-      ../containerd-rootless.nix
-      ../nix-snapshotter-rootless.nix
     ];
 
     virtualisation.containerd.rootless = {
@@ -118,6 +114,19 @@ in {
         machine.wait_for_unit("docker-registry.service")
         machine.wait_for_open_port(${toString registryPort})
         machine.succeed("copy-to-registry")
+
+      def collect_coverage(machine):
+        coverfiles = machine.succeed("ls /tmp/go-cover").split()
+        for coverfile in coverfiles:
+          machine.copy_from_vm(f"/tmp/go-cover/{coverfile}", f"build/go-cover/${config.name}-{machine.name}")
+
+      def teardown_rootful(machine):
+        machine.succeed("systemctl stop nix-snapshotter.service")
+        collect_coverage(machine)
+
+      def teardown_rootless(machine, user = "alice"):
+        machine.succeed(f"systemctl --user --machine={user}@ stop nix-snapshotter.service")
+        collect_coverage(machine)
 
       def wait_for_user_unit(machine, service, user = "alice"):
         machine.wait_until_succeeds(f"systemctl --user --machine={user}@ is-active {service}")
@@ -173,11 +182,14 @@ in {
 
       setup(rootful)
       test_rootful(rootful)
+      teardown_rootful(rootful)
 
       setup(rootless)
       test_rootless(rootless)
+      teardown_rootless(rootless)
 
       setup(external)
       test_rootful(external)
+      teardown_rootful(external)
     '';
 }

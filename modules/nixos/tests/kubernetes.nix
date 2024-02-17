@@ -2,7 +2,7 @@
   kubernetes configures Kubernetes with containerd & nix-snapshotter.
 
 */
-{ lib, pkgs, ... }:
+{ config, lib, pkgs, ... }:
 {
   nodes.machine = { config, k8sResources, ... }:
     let
@@ -23,11 +23,6 @@
           };
 
     in {
-      imports = [
-        ../containerd.nix
-        ../nix-snapshotter.nix
-      ];
-
       virtualisation.containerd = {
         enable = true;
         nixSnapshotterIntegration = true;
@@ -69,5 +64,11 @@
     machine.wait_until_succeeds("kubectl get pod redis | grep Running")
     out = machine.wait_until_succeeds("redis-cli -p 30000 ping")
     assert "PONG" in out
+
+    # Copy out test coverage data.
+    machine.succeed("systemctl stop nix-snapshotter.service")
+    coverfiles = machine.succeed("ls /tmp/go-cover").split()
+    for coverfile in coverfiles:
+      machine.copy_from_vm(f"/tmp/go-cover/{coverfile}", f"build/go-cover/${config.name}-{machine.name}")
   '';
 }

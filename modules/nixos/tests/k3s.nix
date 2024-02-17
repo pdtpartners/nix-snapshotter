@@ -10,7 +10,6 @@
 {
   nodes.machine = {
     imports = [
-      ../k3s.nix
       ../redis-spec.nix
     ];
 
