@@ -12,13 +12,10 @@
   managed by rootlesskit.
 
 */
-{ pkgs, ... }:
+{ config, pkgs, ... }:
 {
   nodes.machine = {
     imports = [
-      ../k3s.nix
-      ../containerd.nix
-      ../nix-snapshotter.nix
       ../redis-spec.nix
     ];
 
@@ -50,5 +47,11 @@
     machine.wait_until_succeeds("kubectl get pod redis | grep Running")
     out = machine.wait_until_succeeds("redis-cli -p 30000 ping")
     assert "PONG" in out
+
+    # Copy out test coverage data.
+    machine.succeed("systemctl stop nix-snapshotter.service")
+    coverfiles = machine.succeed("ls /tmp/go-cover").split()
+    for coverfile in coverfiles:
+      machine.copy_from_vm(f"/tmp/go-cover/{coverfile}", f"build/go-cover/${config.name}-{machine.name}")
   '';
 }

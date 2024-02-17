@@ -14,7 +14,7 @@ jobs:
         linter:
           - golangci-lint
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Setup Nix
         uses: ./.github/actions/setup-nix
       - name: Run linter
@@ -30,13 +30,14 @@ jobs:
           - image-redis
           - image-redisWithShell
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Setup Nix
         uses: ./.github/actions/setup-nix
       - name: Build package
         run: nix build .#${{ matrix.package }}
 
   integration-test:
+    runs-on: nix-snapshotter-runner
     strategy:
       matrix:
         test:
@@ -45,11 +46,10 @@ jobs:
           - k3s
           - k3s-external
           - k3s-rootless
-    runs-on: nix-snapshotter-runner
     needs: [lint, build]
     if: contains(github.event.pull_request.labels.*.name, 'ok-to-test')
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Setup Nix
         uses: ./.github/actions/setup-nix
         with:
@@ -58,3 +58,30 @@ jobs:
         run: nix build
       - name: Run integration tests
         run: nix run -L .#test-${{ matrix.test }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.test }}_build
+          path: build
+          if-no-files-found: ignore
+          retention-days: 1
+
+  coverage-report:
+    runs-on: ubuntu-latest
+    needs: [integration-test]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: build
+          merge-multiple: true
+      - uses: actions/setup-go@v4
+        with: { go-version: '1.20' }
+      - name: Collect test coverage
+        run: |
+          mkdir -p "$PWD/build/go-cover/unit"
+          go test -cover ./... -args -test.gocoverdir="$PWD/build/go-cover/unit"
+          go tool covdata textfmt -i=`find ./build/go-cover -mindepth 1 -type d | paste -sd ","` -o ./build/go-cover/profile
+          echo "# Coverage report" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          go tool cover -func ./build/go-cover/profile >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
