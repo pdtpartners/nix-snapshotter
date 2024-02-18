@@ -179,6 +179,9 @@ easy installation.
             imports = [ nix-snapshotter.homeModules.default ];
 
             # (2) Add overlay.
+            #
+            # NOTE: If using NixOS & home-manager.useGlobalPkgs = true, then add
+            # the overlay at the NixOS level.
             nixpkgs.overlays = [ nix-snapshotter.overlays.default ];
 
             # (3) Enable service.
@@ -217,6 +220,9 @@ easy installation.
     ];
 
     # (2) Add overlay.
+    #
+    # NOTE: If using NixOS & home-manager.useGlobalPkgs = true, then add
+    # the overlay at the NixOS level.
     nixpkgs.overlays = [ nix-snapshotter.overlays.default ];
 
     # (3) Enable service.
@@ -407,7 +413,27 @@ limit. This means all the container content is either already in your Nix store
 or fetched from your Nix binary cache.
 </details>
 
-2. What's the difference between this and [Nixery][nixery]?
+2. When should I choose the rootful (normal) vs rootless mode?
+
+<details>
+<summary>Answer</summary>
+
+If you are running a production server, it's best to use the rootful version
+as rootless containers is still in its early stages in the container ecosystem.
+
+However, if you are running it for personal use, do try the rootless variant
+first. Although less mature, it is the more secure mode as the container
+runtime runs as an unprivileged user. It can mitigate potential
+container-breakout vulnerabilities, though its not a silver bullet.
+
+Typically, rootless mode is more complex to setup. But since it's already
+distributed as a NixOS / Home Manager module, it's simple as enabling the
+service.
+
+See https://rootlesscontaine.rs for more details.
+</details>
+
+3. What's the difference between this and [Nixery][nixery]?
 
 <details>
 <summary>Answer</summary>
@@ -423,7 +449,7 @@ the progress.
 
 </details>
 
-3. What's the difference between this and a nix-in-docker?
+4. What's the difference between this and a nix-in-docker?
 
 <details>
 <summary>Answer</summary>
@@ -439,7 +465,7 @@ the underlying packages from the same Nix store.
 
 </details>
 
-4. What's the difference between this and [nix2container][nix2container]?
+5. What's the difference between this and [nix2container][nix2container]?
 
 <details>
 <summary>Answer</summary>
