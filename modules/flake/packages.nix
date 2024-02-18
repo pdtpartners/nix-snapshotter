@@ -1,8 +1,12 @@
-{ lib, ... }:
 {
   perSystem = { pkgs, ... }: {
     packages = rec {
-      inherit (pkgs) nix-snapshotter;
+      inherit (pkgs)
+        containerd
+        k3s
+        nix-snapshotter
+      ;
+
       default = nix-snapshotter;
     };
 

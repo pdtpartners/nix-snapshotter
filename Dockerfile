@@ -1,85 +1,21 @@
-#   Copyright The containerd Authors.
+ARG FLAKE_REF=github:pdtpartners/nix-snapshotter
+FROM nixpkgs/nix-flakes AS nix
 
-#   Licensed under the Apache License, Version 2.0 (the "License");
-#   you may not use this file except in compliance with the License.
-#   You may obtain a copy of the License at
+FROM nix AS base
+RUN nix build "$FLAKE_REF#k3s"
+RUN nix build "$FLAKE_REF#containerd"
+RUN nix build "$FLAKE_REF#nix-snapshotter"
 
-#       http://www.apache.org/licenses/LICENSE-2.0
+FROM base AS vm
+RUN nix build \
+	--out-link /vm \
+	"#nixosConfigurations.vm.config.system.build.vm"
+RUN nix build \
+	--out-link /vm-rootless \
+	"$FLAKE_REF#nixosConfigurations.vm-rootless.config.system.build.vm"
 
-#   Unless required by applicable law or agreed to in writing, software
-#   distributed under the License is distributed on an "AS IS" BASIS,
-#   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-#   See the License for the specific language governing permissions and
-#   limitations under the License.
+FROM vm AS rootful
+ENTRYPOINT [ "/vm/bin/run-nixos-vm" ]
 
-ARG CONTAINERD_VERSION=feature/mount-subdirectory
-ARG CRI_TOOLS_VERSION=1.26.0
-ARG NIX_VERSION=2.12.0
-
-# Legacy builder that doesn't support TARGETARCH should set this explicitly using --build-arg.
-# If TARGETARCH isn't supported by the builder, the default value is "amd64".
-
-FROM golang:1.19.4-bullseye AS golang-base
-
-# Build containerd
-FROM golang-base AS containerd-dev
-ARG CONTAINERD_VERSION
-RUN apt-get update -y && apt-get install -y libbtrfs-dev libseccomp-dev && \
-    git clone -b ${CONTAINERD_VERSION} --depth 1 \
-      https://github.com/hinshun/containerd $GOPATH/src/github.com/containerd/containerd && \
-    cd $GOPATH/src/github.com/containerd/containerd && \
-    make && DESTDIR=/out/ PREFIX= make install
-
-# Build cri-tools
-FROM golang-base AS cri-tools-dev
-ARG CRI_TOOLS_VERSION
-RUN git clone -b v${CRI_TOOLS_VERSION} --depth 1 \
-      https://github.com/kubernetes-sigs/cri-tools $GOPATH/src/github.com/kubernetes-sigs/cri-tools && \
-    cd $GOPATH/src/github.com/kubernetes-sigs/cri-tools && \
-    make && DESTDIR=/out/ BINDIR= make install
-
-# Build nix snapshotter
-FROM golang-base AS snapshotter-dev
-ARG TARGETARCH
-ARG GOARM
-ARG SNAPSHOTTER_BUILD_FLAGS
-ARG CTR_REMOTE_BUILD_FLAGS
-COPY . $GOPATH/src/github.com/pdtpartners/nix-snapshotter
-RUN cd $GOPATH/src/github.com/pdtpartners/nix-snapshotter && \
-    PREFIX=/out/ GOARCH=${TARGETARCH:-amd64} GO_BUILD_FLAGS=${SNAPSHOTTER_BUILD_FLAGS} make nix-snapshotter
-
-# Build kind node with nix
-FROM kindest/node:v1.26.0 AS kind-nix
-ARG NIX_VERSION
-RUN apt-get update -y && apt-get install -y xz-utils \
-  && curl -fLO https://nixos.org/releases/nix/nix-${NIX_VERSION}/nix-${NIX_VERSION}-$(uname -m)-linux.tar.xz \
-  && tar xf nix-${NIX_VERSION}-$(uname -m)-linux.tar.xz \
-  && addgroup --system --gid 30000 nixbld \
-  && for i in $(seq 1 10); do useradd -c "Nix build user $i" \
-    -d /var/empty -u $((30000 + i)) -g nixbld -G nixbld \
-    -M -N -r -s "$(which nologin)" \
-    nixbld$i; done \
-  && mkdir -m 0755 /etc/nix \
-  && echo 'experimental-features = nix-command flakes' > /etc/nix/nix.conf \
-  && mkdir -m 0755 /nix && USER=root sh nix-${NIX_VERSION}-$(uname -m)-linux/install \
-  && ln -s /nix/var/nix/profiles/default/etc/profile.d/nix.sh /etc/profile.d/ \
-  && rm -r /nix-${NIX_VERSION}-$(uname -m)-linux* \
-  && /nix/var/nix/profiles/default/bin/nix-collect-garbage --delete-old \
-  && /nix/var/nix/profiles/default/bin/nix-store --optimise \
-  && /nix/var/nix/profiles/default/bin/nix-store --verify --check-contents
-ENV \
-  ENV=/etc/profile \
-  USER=root \
-  PATH=/nix/var/nix/profiles/default/bin:/nix/var/nix/profiles/default/sbin:/bin:/sbin:/usr/bin:/usr/sbin \
-  GIT_SSL_CAINFO=/etc/ssl/certs/ca-certificates.crt \
-  NIX_SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt \
-  NIX_PATH=/nix/var/nix/profiles/per-user/root/channels
-
-# Image which can be used as a node image for KinD
-FROM kind-nix
-COPY --from=containerd-dev /out/bin/containerd /out/bin/containerd-shim-runc-v2 /usr/local/bin/
-COPY --from=cri-tools-dev /out/* /usr/local/bin/
-COPY --from=snapshotter-dev /out/* /usr/local/bin/
-COPY ./script/kind/ /
-RUN systemctl enable nix-snapshotter
-ENTRYPOINT [ "/usr/local/bin/kind-entrypoint.sh", "/usr/local/bin/entrypoint", "/sbin/init" ]
+FROM vm AS rootless
+ENTRYPOINT [ "/vm-rootless/bin/run-nixos-vm" ]
