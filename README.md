@@ -6,7 +6,7 @@
 [![ci][ci-badge]][ci]
 [![Go Report Card][go-report-card-badge]][go-report-card]
 
-Brings native understanding of Nix packages to [containerd](https://github.com/containerd/containerd).
+Brings native understanding of [Nix][nix] packages to [containerd][containerd].
 
 [Key features](#key-features) •
 [Getting started](#getting-started) •
@@ -18,14 +18,52 @@ Brings native understanding of Nix packages to [containerd](https://github.com/c
 
 ## Key features
 
-- Rather than download image layers, packages come directly from the Nix store.
-- Packages can be fetched from a binary cache or built on the fly if necessary.
-- Backwards compatible with existing non-Nix images.
-- Nix layers can be interleaved with normal layers.
-- Allows Kubernetes to resolve image manifests from Nix too.
-- Enables fully-declarative Kubernetes resources, including image
-  specification.
-- Run pure Nix images without a Docker Registry at all, if you wish.
+- Instead of downloading image layers, software packages come directly from a
+  Nix store.
+- Packages can be fetched from a Nix binary cache or built on the fly.
+- Backwards-compatible with existing non-Nix images.
+- Nix-snapshotter layers can be interleaved with normal layers.
+- Provides [CRI][cri] Image Service to allow Kubernetes to "pull images" from a
+  Nix store, allowing you to run containers without a Docker Registry.
+- Fully declarative Kubernetes resources, where the image reference is a Nix
+  store path 
+
+<details>
+<summary><h2>What is Nix?</h2></summary>
+
+Nix is a package manager / build system that has a complete understanding
+of build & runtime inputs for every package. Nix packages are stored in a
+global hashed path like: `/nix/store/s66mzxpvicwk07gjbjfw9izjfa797vsw-hello-2.12.1`.
+Packages usually follow a FHS convention, so Nix packages are typically
+directories containing other directories like bin, share, etc. For example, the
+hello binary would be available via `/nix/store/s66mzxpvicwk07gjbjfw9izjfa797vsw-hello-2.12.1/bin/hello`.
+
+Runtime dependencies down to glibc are also inside `/nix/store`, so it
+really has a complete dependency graph. In the case of `hello`, the
+complete closure is following:
+
+```sh
+/nix/store/3n58xw4373jp0ljirf06d8077j15pc4j-glibc-2.37-8
+/nix/store/fz2c8qahxza5ygy4yvwdqzbck1bs3qag-libidn2-2.3.4
+/nix/store/q7hi3rvpfgc232qkdq2dacmvkmsrnldg-libunistring-1.1
+/nix/store/ryvnrp5n6kqv3fl20qy2xgcgdsza7i0m-xgcc-12.3.0-libgcc
+/nix/store/s66mzxpvicwk07gjbjfw9izjfa797vsw-hello-2.12.1
+```
+
+If you inspect its ELF data, you can indeed see its linked against that
+specific `glibc`:
+
+```sh
+$ readelf -d /nix/store/s66mzxpvicwk07gjbjfw9izjfa797vsw-hello-2.12.1/bin/hello | grep runpath
+ 0x000000000000001d (RUNPATH)            Library runpath: [/nix/store/3n58xw4373jp0ljirf06d8077j15pc4j-glibc-2.37-8/lib]
+```
+
+This means that a root filesystem containing that closure is sufficient to run
+`hello` even if it's dynamically linked. This is similar to minimal images
+containing a statically compiled go binary or like [distroless][distroless]
+which leverages [Bazel][bazel] to the same effect.
+
+</details>
 
 ## Getting started
 
@@ -365,8 +403,8 @@ duplicate common packages due to the heuristic-based layering strategy.
 
 With `pkgs.nix-snapshotter.buildImage`, containerd natively understand Nix
 packages, so everything is pulled at package granularity without the layer
-limit. This means all the container content is either already in your host nix
-store or fetched from your Nix binary cache.
+limit. This means all the container content is either already in your Nix store
+or fetched from your Nix binary cache.
 </details>
 
 2. What's the difference between this and [Nixery][nixery]?
@@ -442,8 +480,12 @@ licensed under the terms of Apache License 2.0. See [NOTICE](NOTICE) for more
 details.
 
 [architecture]: docs/architecture.md
+[bazel]: https://bazel.build/
 [ci-badge]: https://github.com/pdtpartners/nix-snapshotter/actions/workflows/ci.yml/badge.svg
 [ci]: https://github.com/pdtpartners/nix-snapshotter/actions?query=workflow%3ACI
+[cri]: https://kubernetes.io/docs/concepts/architecture/cri/
+[containerd]: https://github.com/containerd/containerd
+[distroless]: https://github.com/GoogleContainerTools/distroless
 [docker]: https://www.docker.com/
 [dockerTools]: https://nixos.org/manual/nixpkgs/stable/#ssec-pkgs-dockerTools-buildImage
 [go-reference-badge]: https://pkg.go.dev/badge/github.com/pdtpartners/nix-snapshotter.svg
@@ -459,6 +501,6 @@ details.
 [nixery-issue]: https://github.com/tazjin/nixery/issues/160
 [nixery-layers]: https://tazj.in/blog/nixery-layers
 [nix-flake]: https://zero-to-nix.com/concepts/flakes
-[nix]: https://nixos.org/
+[nix]: https://zero-to-nix.com/concepts/nix
 [nix-installer]: https://zero-to-nix.com/start/install
 [nixos]: https://zero-to-nix.com/concepts/nixos
