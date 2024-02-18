@@ -65,6 +65,12 @@ in {
         };
       };
     })
+    (lib.mkIf cfg.nixSnapshotterIntegration {
+      virtualisation.containerd = {
+        setSnapshotter = lib.mkDefault "nix";
+        settings = cfg.lib.mkNixSnapshotterSettings;
+      };
+    })
     (lib.mkIf (cfg.k3sIntegration && cfg.nixSnapshotterIntegration) {
       services.k3s.moreFlags = [
         "--image-service-endpoint unix:///run/nix-snapshotter/nix-snapshotter.sock"

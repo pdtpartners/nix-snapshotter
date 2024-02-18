@@ -9,7 +9,8 @@
       # See: https://github.com/containerd/containerd/pull/9028
       containerd = super.containerd.overrideAttrs(o: {
         src = self.fetchFromGitHub {
-          inherit (o.src) owner repo;
+          owner = "containerd";
+          repo = "containerd";
           rev = "779875a057ff98e9b754371c193fe3b0c23ae7a2";
           hash = "sha256-sXMDMX0QPbnFvRYrAP+sVFjTI9IqzOmLnmqAo8lE9pg=";
         };
