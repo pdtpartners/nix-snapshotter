@@ -46,6 +46,7 @@ jobs:
           - k3s
           - k3s-external
           - k3s-rootless
+          - gvisor
     needs: [lint, build]
     if: contains(github.event.pull_request.labels.*.name, 'ok-to-test')
     steps:

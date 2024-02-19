@@ -50,6 +50,29 @@ let
     '';
   };
 
+  runsc-rootless = pkgs.writeShellApplication {
+    name = "runsc";
+    runtimeInputs = [
+      pkgs.gvisor
+    ];
+    text = ''
+      exec runsc \
+        --ignore-cgroups \
+        "$@"
+    '';
+  };
+
+  gvisor-rootless = pkgs.buildEnv {
+    name = "gvisor-rootless";
+    paths = [
+      # Specific order matters here, since we want runsc-rootless to win over
+      # runsc.
+      runsc-rootless
+      pkgs.gvisor
+    ];
+    ignoreCollisions = true;
+  };
+
   makeProg = args: pkgs.substituteAll (args // {
     inherit (pkgs) runtimeShell;
     dir = "bin";
@@ -94,7 +117,7 @@ let
         name = "containerd-rootless-child";
         src = ./containerd-rootless-child.sh;
         inherit mountSources mountPoints;
-        path = lib.makeBinPath [
+        path = lib.makeBinPath ([
           cfg.package
           pkgs.coreutils
           pkgs.iptables
@@ -103,7 +126,7 @@ let
           # Mount only works inside user namespaces from "/run/current-system/sw"
           # See: https://github.com/NixOS/nixpkgs/issues/42117#issuecomment-872029461
           "/run/current-system/sw"
-        ];
+        ] ++ cfg.path);
       };
 
     in {
@@ -160,6 +183,9 @@ in {
   options.virtualisation.containerd.rootless = {
     inherit (ctrd-lib.options)
       nixSnapshotterIntegration
+      gVisorIntegration
+      path
+      defaultRuntime
       setAddress
       setNamespace
       setSnapshotter
@@ -235,12 +261,15 @@ in {
 
         setAddress = lib.mkDefault "$XDG_RUNTIME_DIR/containerd/containerd.sock";
 
-        settings = {
-          version = 2;
-          plugins."io.containerd.grpc.v1.cri" = {
-            cni.bin_dir = lib.mkOptionDefault "${pkgs.cni-plugins}/bin";
+        settings = lib.recursiveUpdate
+          (ctrd-lib.mkSettings cfg)
+          {
+            plugins."io.containerd.grpc.v1.cri" = {
+              disable_apparmor = true;
+              disable_cgroup = true;
+              restrict_oom_score_adj = true;
+            };
           };
-        };
 
         bindMounts = {
           "$XDG_RUNTIME_DIR/containerd".mountPoint = "/run/containerd";
@@ -260,6 +289,12 @@ in {
           "$XDG_RUNTIME_DIR/nix-snapshotter".mountPoint = "/run/nix-snapshotter";
           "$XDG_DATA_HOME/nix-snapshotter".mountPoint = "/var/lib/containerd/io.containerd.snapshotter.v1.nix";
         };
+      };
+    })
+    (lib.mkIf cfg.gVisorIntegration {
+      virtualisation.containerd.rootless = {
+        path = [ gvisor-rootless ];
+        settings = ctrd-lib.mkGVisorSettings;
       };
     })
   ]);

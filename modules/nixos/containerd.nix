@@ -18,6 +18,10 @@ in {
 
   config = lib.mkIf cfg.enable (lib.mkMerge [
     {
+      virtualisation.containerd = {
+        settings = cfg.lib.mkSettings cfg;
+      };
+
       environment.extraInit = ''
         if [ -z "$CONTAINERD_ADDRESS" ]; then
           export CONTAINERD_ADDRESS="${cfg.setAddress}"
@@ -33,6 +37,8 @@ in {
           export CONTAINERD_SNAPSHOTTER="${cfg.setSnapshotter}"
         fi
       '');
+
+      systemd.services.containerd.path = cfg.path;
     }
     (lib.mkIf cfg.k3sIntegration {
       services.k3s.moreFlags = [
@@ -42,25 +48,22 @@ in {
       virtualisation.containerd = {
         setNamespace = lib.mkDefault "k8s.io";
 
-        settings.plugins."io.containerd.grpc.v1.cri" = {
-          stream_server_address = "127.0.0.1";
-          stream_server_port = "10010";
-          enable_selinux = false;
-          enable_unprivileged_ports = true;
-          enable_unprivileged_icmp = true;
-          disable_apparmor = true;
-          disable_cgroup = true;
-          restrict_oom_score_adj = true;
-          sandbox_image = "rancher/mirrored-pause:3.6";
+        settings = {
+          plugins."io.containerd.grpc.v1.cri" = {
+            stream_server_address = "127.0.0.1";
+            stream_server_port = "10010";
+            enable_selinux = false;
+            enable_unprivileged_ports = true;
+            enable_unprivileged_icmp = true;
+            disable_apparmor = true;
+            disable_cgroup = true;
+            restrict_oom_score_adj = true;
+            sandbox_image = "rancher/mirrored-pause:3.6";
 
-          cni = {
-            conf_dir = "/var/lib/rancher/k3s/agent/etc/cni/net.d/";
-            bin_dir = "${k3s-cni-plugins}/bin";
-          };
-
-          containerd.runtimes.runc = {
-            runtime_type = "io.containerd.runc.v2";
-            options.SystemdCgroup = false;
+            cni = {
+              conf_dir = "/var/lib/rancher/k3s/agent/etc/cni/net.d/";
+              bin_dir = "${k3s-cni-plugins}/bin";
+            };
           };
         };
       };
@@ -75,6 +78,12 @@ in {
       services.k3s.moreFlags = [
         "--image-service-endpoint unix:///run/nix-snapshotter/nix-snapshotter.sock"
       ];
+    })
+    (lib.mkIf cfg.gVisorIntegration {
+      virtualisation.containerd = {
+        path = [ pkgs.gvisor ];
+        settings = cfg.lib.mkGVisorSettings;
+      };
     })
   ]);
 }
