@@ -11,7 +11,7 @@ in {
     ../common/containerd-rootless.nix
   ];
 
-  config = lib.mkIf cfg.enable  {
+  config = lib.mkIf cfg.enable {
     environment.extraInit = ''
       if [ -z "$CONTAINERD_ADDRESS" ]; then
         export CONTAINERD_ADDRESS="${cfg.setAddress}"

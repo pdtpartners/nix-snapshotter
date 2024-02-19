@@ -87,5 +87,6 @@ in {
     nixosTests.k3s = import ./tests/k3s.nix;
     nixosTests.k3s-external = import ./tests/k3s-external.nix;
     nixosTests.k3s-rootless = import ./tests/k3s-rootless.nix;
+    nixosTests.gvisor = import ./tests/gvisor.nix;
   };
 }

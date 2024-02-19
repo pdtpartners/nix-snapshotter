@@ -16,6 +16,24 @@ let
 
     nixSnapshotterIntegration = mkEnableOption "Nix snapshotter integration";
 
+    gVisorIntegration = mkEnableOption "gVisor integration";
+
+    defaultRuntime = mkOption {
+      type = types.str;
+      description = lib.mdDoc ''
+        Configures the default CRI runtime for containerd.
+      '';
+      default = "runc";
+    };
+
+    path = mkOption {
+      type = types.listOf types.path;
+      description = lib.mdDoc ''
+        Packages to be included in the PATH for containerd.
+      '';
+      default = [];
+    };
+
     setAddress = mkOption {
       type = types.str;
       default = "/run/containerd/containerd.sock";
@@ -60,11 +78,41 @@ let
     };
   };
 
+  mkSettings = cfg: {
+    version = 2;
+    plugins."io.containerd.grpc.v1.cri" = {
+      cni = {
+        conf_dir = lib.mkOptionDefault "/etc/cni/net.d";
+        bin_dir = lib.mkOptionDefault "${pkgs.cni-plugins}/bin";
+      };
+
+      containerd = {
+        default_runtime_name = cfg.defaultRuntime;
+
+        runtimes.runc = {
+          runtime_type = "io.containerd.runc.v2";
+          options.SystemdCgroup = false;
+        };
+      };
+    };
+  };
+
+  mkGVisorSettings = {
+    plugins."io.containerd.grpc.v1.cri".containerd = {
+      runtimes.runsc = {
+        runtime_type = "io.containerd.runsc.v1";
+      };
+    };
+  };
+
 in {
   options.virtualisation.containerd = {
     inherit (options)
       k3sIntegration
       nixSnapshotterIntegration
+      gVisorIntegration
+      defaultRuntime
+      path
       setAddress
       setNamespace
       setSnapshotter
@@ -76,7 +124,9 @@ in {
       default = {
         inherit
           options
+          mkGVisorSettings
           mkNixSnapshotterSettings
+          mkSettings
         ;
       };
       internal = true;
