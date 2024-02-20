@@ -2,11 +2,13 @@ ARG FLAKE_REF=github:pdtpartners/nix-snapshotter
 FROM nixpkgs/nix-flakes AS nix
 
 FROM nix AS base
+ARG FLAKE_REF
 RUN nix build "$FLAKE_REF#k3s"
 RUN nix build "$FLAKE_REF#containerd"
 RUN nix build "$FLAKE_REF#nix-snapshotter"
 
 FROM base AS vm
+ARG FLAKE_REF
 RUN nix build \
 	--out-link /vm \
 	"#nixosConfigurations.vm.config.system.build.vm"
