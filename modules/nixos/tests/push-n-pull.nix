@@ -1,32 +1,39 @@
 { config, pkgs, lib, ... }:
+
 let
-  helloDrvFile = pkgs.nix-snapshotter.buildImage {
-    name = "ghcr.io/pdtpartners/hello-world";
-    tag = "latest";
-    config.entrypoint = [
-      (pkgs.writeShellScript "hello-world" ''
-        #!${pkgs.runtimeShell}
-        echo "Hello, world!"
-      '')
-    ];
+  registryConfig = {
+    version =  "0.1";
+    storage = {
+      cache.blobdescriptor = "inmemory";
+      filesystem.rootdirectory = "/var/lib/docker-registry";
+    };
+    http.addr = "0.0.0.0:5000";
   };
 
-  redisDockerTools = pkgs.dockerTools.buildImage {
-    name = "ghcr.io/docker-tools/redis";
+  configFile =
+    pkgs.writeText
+      "docker-registry-config.yml"
+      (builtins.toJSON registryConfig);
+
+  registry = pkgs.nix-snapshotter.buildImage {
+    name = "ghcr.io/pdtpartners/registry";
     tag = "latest";
     config = {
-      Entrypoint = [ "${pkgs.redis}/bin/redis-server" ];
-      Cmd = [ "--protected-mode" "no" ];
+      entrypoint = [ "${pkgs.docker-distribution}/bin/registry" ];
+      cmd = [ "serve" configFile ];
     };
   };
 
-  redisNixSnapshotter = pkgs.nix-snapshotter.buildImage {
-    name = "ghcr.io/nix-snapshotter/redis";
+  helloDockerTools = pkgs.dockerTools.buildImage {
+    name = "localhost:5000/docker-tools/hello";
     tag = "latest";
-    config = {
-      Entrypoint = [ "${pkgs.redis}/bin/redis-server" ];
-      Cmd = [ "--protected-mode" "no" ];
-    };
+    config.entrypoint = ["${pkgs.hello}/bin/hello"];
+  };
+
+  helloNixSnapshotter = pkgs.nix-snapshotter.buildImage {
+    name = "localhost:5000/nix-snapshotter/hello";
+    tag = "latest";
+    config.entrypoint = ["${pkgs.hello}/bin/hello"];
   };
 
 in {
@@ -45,16 +52,15 @@ in {
         enable = true;
         targets = [{
           archives = [
-            helloDrvFile
-            redisDockerTools
-            redisNixSnapshotter
+            registry
+            helloDockerTools
+            helloNixSnapshotter
           ];
         }];
       };
 
-      environment.systemPackages = with pkgs; [
-        nerdctl
-        redis
+      environment.systemPackages = [
+        pkgs.nerdctl
       ];
     };
 
@@ -72,17 +78,16 @@ in {
         enable = true;
         targets = [{
           archives = [
-            helloDrvFile
-            redisDockerTools
-            redisNixSnapshotter
+            registry
+            helloDockerTools
+            helloNixSnapshotter
           ];
           address = "$XDG_RUNTIME_DIR/containerd/containerd.sock";
         }];
       };
 
-      environment.systemPackages = with pkgs; [
-        nerdctl
-        redis
+      environment.systemPackages = [
+        pkgs.nerdctl
       ];
 
       users.users.alice = {
@@ -93,20 +98,6 @@ in {
       environment.variables = {
         XDG_RUNTIME_DIR = "/run/user/1000";
       };
-    };
-
-    external = {
-      imports = [
-        rootful
-      ];
-
-      virtualisation.containerd = {
-        settings.external_builder = pkgs.writeScript "external-builder.sh" ''
-          ${pkgs.nix}/bin/nix build --out-link $1 $2
-        '';
-      };
-
-      nix.settings.experimental-features = [ "nix-command" ];
     };
   };
 
@@ -142,24 +133,28 @@ in {
         wait_for_unit(machine, "containerd.service")
         wait_for_unit(machine, "preload-containerd.service")
 
-        with subtest(f"{machine.name}: Run container with an executable outPath"):
-          out = machine.succeed(f"{sudo_su} nerdctl run --rm ghcr.io/pdtpartners/hello-world")
-          assert "Hello, world!" in out
+        machine.succeed(f"{sudo_su} nerdctl run -d -p 5000:5000 --name registry ghcr.io/pdtpartners/registry")
 
-        with subtest(f"{machine.name}: Run container with CNI built with pkgs.dockerTools.buildImage"):
-          machine.succeed(f"{sudo_su} nerdctl run -d -p 30000:6379 ghcr.io/docker-tools/redis")
-          out = machine.wait_until_succeeds(f"{sudo_su} redis-cli -p 30000 ping")
-          assert "PONG" in out
+        with subtest(f"{machine.name}: Push container built with pkgs.dockerTools.buildImage"):
+          machine.succeed(f"{sudo_su} nerdctl push localhost:5000/docker-tools/hello")
+          machine.succeed(f"{sudo_su} nerdctl rmi localhost:5000/docker-tools/hello")
 
-        with subtest(f"{machine.name}: Run container with CNI built with pkgs.nix-snapshotter.buildImage"):
-          machine.succeed(f"{sudo_su} nerdctl run -d -p 30001:6379 ghcr.io/nix-snapshotter/redis")
-          out = machine.wait_until_succeeds(f"{sudo_su} redis-cli -p 30001 ping")
-          assert "PONG" in out
+        with subtest(f"{machine.name}: Push container built with pkgs.nix-snapshotter.buildImage"):
+          machine.succeed(f"{sudo_su} nerdctl push localhost:5000/nix-snapshotter/hello")
+          machine.succeed(f"{sudo_su} nerdctl rmi localhost:5000/nix-snapshotter/hello")
+
+        with subtest(f"{machine.name}: Pull container built with pkgs.dockerTools.buildImage"):
+          machine.succeed(f"{sudo_su} nerdctl pull localhost:5000/docker-tools/hello")
+
+        with subtest(f"{machine.name}: Pull container built with pkgs.nix-snapshotter.buildImage"):
+          machine.succeed(f"{sudo_su} nerdctl pull localhost:5000/nix-snapshotter/hello")
+
+        stop_unit(machine, "nix-snapshotter")
+        collect_coverage(machine)
 
       start_all()
 
       test(rootful)
       test(rootless, "${sudo_su}")
-      test(external)
     '';
 }

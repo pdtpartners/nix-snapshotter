@@ -17,8 +17,6 @@ let
       pkgs.nerdctl
       pkgs.redis
     ];
-
-    nix.settings.experimental-features = [ "nix-command" ];
   };
 
 in {
@@ -90,16 +88,16 @@ in {
       ];
 
     in ''
-      def test(machine, sudo_su = ""):
-        if sudo_su == "":
-          machine.wait_for_unit("nix-snapshotter.service")
-          machine.wait_for_unit("containerd.service")
-          machine.wait_for_unit("preload-containerd.service")
+      def wait_for_unit(machine, service, user = "alice"):
+        if "rootless" in machine.name:
+          machine.wait_until_succeeds(f"systemctl --user --machine={user}@ is-active {service}")
         else:
-          machine.succeed("loginctl enable-linger alice")
-          wait_for_user_unit(machine, "nix-snapshotter.service")
-          wait_for_user_unit(machine, "containerd.service")
-          wait_for_user_unit(machine, "preload-containerd.service")
+          machine.wait_for_unit(service)
+
+      def test(machine, sudo_su = ""):
+        wait_for_unit(machine, "nix-snapshotter.service")
+        wait_for_unit(machine, "containerd.service")
+        wait_for_unit(machine, "preload-containerd.service")
 
         with subtest(f"{machine.name}: Run redis using runtime runsc"):
           machine.succeed(f"{sudo_su} nerdctl run -d --name redis --runtime runsc -p 30000:6379 --cap-add syslog ghcr.io/pdtpartners/redis")

@@ -57,16 +57,14 @@ func WithNixBuilder(nixBuilder NixBuilder) Opt {
 type NixBuilder func(ctx context.Context, outLink, nixStorePath string) error
 
 func defaultNixBuilder(ctx context.Context, outLink, nixStorePath string) error {
-	args := []string{"build"}
-	if outLink == "" {
-		args = append(args, "--no-link")
-	} else {
-		args = append(args, "--out-link", outLink)
+	var args []string
+	if outLink != "" {
+		args = append(args, "--add-root", outLink)
 	}
-	args = append(args, nixStorePath)
+	args = append(args, "--realise", nixStorePath)
 
-	log.G(ctx).Infof("[nix-snapshotter] Calling nix %s", strings.Join(args, " "))
-	out, err := exec.Command("nix", args...).CombinedOutput()
+	log.G(ctx).Infof("[nix-snapshotter] Calling nix-store %s", strings.Join(args, " "))
+	out, err := exec.Command("nix-store", args...).CombinedOutput()
 	if err != nil {
 		log.G(ctx).
 			WithField("nixStorePath", nixStorePath).

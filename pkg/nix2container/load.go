@@ -1,109 +1,69 @@
 package nix2container
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/containerd/containerd"
-	"github.com/containerd/containerd/content"
-	"github.com/containerd/containerd/errdefs"
-	"github.com/containerd/containerd/images"
-	"github.com/containerd/containerd/images/archive"
 	"github.com/containerd/containerd/log"
+	"github.com/containerd/containerd/pkg/transfer"
 	tarchive "github.com/containerd/containerd/pkg/transfer/archive"
 	"github.com/containerd/containerd/pkg/transfer/image"
 	"github.com/containerd/containerd/platforms"
-	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
-func Load(ctx context.Context, client *containerd.Client, store content.Store, archivePath string) (containerd.Image, error) {
-	dt, err := os.ReadFile(archivePath)
+func Load(ctx context.Context, client *containerd.Client, archivePath string) (containerd.Image, error) {
+	log.G(ctx).WithField("archive", archivePath).Info("Loading archive")
+	f, err := os.Open(archivePath)
 	if err != nil {
 		return nil, err
 	}
-	src := tarchive.NewImageImportStream(bytes.NewReader(dt), ocispec.MediaTypeImageIndex)
+	defer f.Close()
+
+	src := tarchive.NewImageImportStream(f, "")
 
 	platSpec := platforms.DefaultSpec()
+	prefix := fmt.Sprintf("import-%s", filepath.Base(archivePath))
 	storeOpts := []image.StoreOpt{
-		image.WithUnpack(platSpec, "nix"),
 		image.WithPlatforms(platSpec),
+		image.WithUnpack(platSpec, "nix"),
+		// WithNamedPrefix is necessary for containerd's Transfer service to create
+		// an image with the reference found inside the OCI tarball.
+		image.WithNamedPrefix(prefix, true),
 	}
 
-	target, err := archive.ImportIndex(ctx, store, bytes.NewReader(dt))
+	dest := image.NewStore("", storeOpts...)
+
+	var ref string
+	progressFunc := func(p transfer.Progress) {
+		if p.Event == "saved" {
+			ref = p.Name
+		}
+	}
+
+	log.G(ctx).Info("Importing image")
+	err = client.Transfer(ctx, src, dest, transfer.WithProgress(progressFunc))
 	if err != nil {
 		return nil, err
 	}
 
-	ref, err := refFromArchive(ctx, store, target)
+	img, err := client.GetImage(ctx, ref)
 	if err != nil {
 		return nil, err
 	}
 
-	dest := image.NewStore(ref, storeOpts...)
-
-	// pf, done := images.ProgressHandler(ctx, os.Stderr)
-	// defer done()
-
-	log.G(ctx).WithField("ref", ref).Info("Importing image")
-	err = client.Transfer(ctx, src, dest)
-	if err != nil {
-		return nil, err
-	}
-
-	log.G(ctx).WithField("ref", ref).Info("Creating image")
-	img := images.Image{Name: ref, Target: target}
-	_, err = createImage(ctx, client.ImageService(), img)
+	// Workaround for k8s to ensure that the reference is tied to the index
+	// descriptor.
+	//
+	// TODO: Containerd's transfer importer does call `Store` as well but has a
+	// bug that skips or has an issue with the index descriptor.
+	_, err = image.NewStore(ref).Store(ctx, img.Target(), client.ImageService())
 	if err != nil {
 		return nil, err
 	}
 
 	log.G(ctx).WithField("ref", ref).Info("Created image")
-	return client.GetImage(ctx, ref)
-}
-
-func refFromArchive(ctx context.Context, store content.Store, target ocispec.Descriptor) (ref string, err error) {
-	blob, err := content.ReadBlob(ctx, store, target)
-	if err != nil {
-		return
-	}
-
-	var idx ocispec.Index
-	if err = json.Unmarshal(blob, &idx); err != nil {
-		return
-	}
-
-	if len(idx.Manifests) != 1 {
-		return "", fmt.Errorf("OCI index had %d manifests", len(idx.Manifests))
-	}
-
-	mfst := idx.Manifests[0]
-	return mfst.Annotations[images.AnnotationImageName], nil
-}
-
-func createImage(ctx context.Context, store images.Store, img images.Image) (images.Image, error) {
-	for {
-		if created, err := store.Create(ctx, img); err != nil {
-			if !errdefs.IsAlreadyExists(err) {
-				return images.Image{}, err
-			}
-
-			updated, err := store.Update(ctx, img)
-			if err != nil {
-				// if image was removed, try create again
-				if errdefs.IsNotFound(err) {
-					continue
-				}
-				return images.Image{}, err
-			}
-
-			img = updated
-		} else {
-			img = created
-		}
-
-		return img, nil
-	}
+	return img, nil
 }

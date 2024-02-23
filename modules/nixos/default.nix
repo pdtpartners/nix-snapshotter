@@ -83,6 +83,7 @@ in {
 
     # NixOS tests for nix-snapshotter.
     nixosTests.snapshotter = import ./tests/snapshotter.nix;
+    nixosTests.push-n-pull = import ./tests/push-n-pull.nix;
     nixosTests.kubernetes = import ./tests/kubernetes.nix;
     nixosTests.k3s = import ./tests/k3s.nix;
     nixosTests.k3s-external = import ./tests/k3s-external.nix;

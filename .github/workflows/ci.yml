@@ -42,6 +42,7 @@ jobs:
       matrix:
         test:
           - snapshotter
+          - push-n-pull
           - kubernetes
           - k3s
           - k3s-external
