@@ -5,15 +5,18 @@
     let
       nix-snapshotter = self.callPackage ../../package.nix {};
 
-      # Depends on PR merged into main, but not yet in a release tag.
-      # See: https://github.com/containerd/containerd/pull/9028
-      containerd = super.containerd.overrideAttrs(o: {
+      containerd = super.containerd.overrideAttrs(o: rec {
+        version = "1.7.14";
         src = self.fetchFromGitHub {
           owner = "containerd";
           repo = "containerd";
-          rev = "779875a057ff98e9b754371c193fe3b0c23ae7a2";
-          hash = "sha256-sXMDMX0QPbnFvRYrAP+sVFjTI9IqzOmLnmqAo8lE9pg=";
+          rev = "v${version}";
+          hash = "sha256-okTz2UCF5LxOdtLDBy1pN2to6WHi+I0jtR67sn7Qrbk=";
         };
+        patches = (o.patches or []) ++ [
+          # See: https://github.com/containerd/containerd/pull/9864
+          ./patches/containerd-import-compressed.patch
+        ];
       });
 
     in {

@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/containerd/containerd"
-	"github.com/containerd/containerd/content/local"
 	"github.com/containerd/containerd/log"
 	"github.com/containerd/containerd/namespaces"
 	"github.com/pdtpartners/nix-snapshotter/pkg/nix2container"
@@ -107,7 +106,7 @@ func (is *imageService) PullImage(ctx context.Context, req *runtime.PullImageReq
 	}
 
 	ref := req.Image.Image
-	if !strings.HasPrefix(ref, "nix:0") {
+	if !strings.HasPrefix(ref, nix2container.ImageRefPrefix) {
 		log.G(ctx).WithField("ref", ref).Info("[image-service] Falling back to CRI pull image")
 		resp, err := client.PullImage(ctx, req)
 		return resp, err
@@ -128,19 +127,9 @@ func (is *imageService) PullImage(ctx context.Context, req *runtime.PullImageReq
 		return nil, err
 	}
 
-	root, err := os.MkdirTemp(nix2container.TempDir(), "nix-snapshotter-pull")
-	if err != nil {
-		return nil, err
-	}
-
-	store, err := local.NewStore(root)
-	if err != nil {
-		return nil, err
-	}
-
 	log.G(ctx).Info("[image-service] Loading nix image archive")
 	ctx = namespaces.WithNamespace(ctx, "k8s.io")
-	img, err := nix2container.Load(ctx, is.client, store, archivePath)
+	img, err := nix2container.Load(ctx, is.client, archivePath)
 	if err != nil {
 		return nil, err
 	}

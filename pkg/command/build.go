@@ -40,7 +40,7 @@ var buildCommand = &cli.Command{
 		}
 
 		outPath := c.Args().Get(0)
-		ref := "nix:0"+outPath+":latest"
+		ref := nix2container.ImageRefPrefix + outPath + ":latest"
 		if c.IsSet("ref") {
 			ref = c.String("ref")
 		}

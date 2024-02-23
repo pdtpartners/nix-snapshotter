@@ -39,6 +39,7 @@
       environment.systemPackages = with pkgs; [
         redis
         kubectl
+        nerdctl
       ];
 
       environment.sessionVariables = {
