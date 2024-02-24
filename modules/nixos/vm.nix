@@ -28,6 +28,7 @@
 
   virtualisation.containerd = {
     enable = true;
+    setNamespace = "moby";
     # k3sIntegration = true;
     nixSnapshotterIntegration = true;
   };
@@ -38,6 +39,9 @@
 
   services.preload-containerd = {
     enable = true;
-    targets = [{ archives = lib.attrValues examples; }];
+    targets = [{
+      archives = lib.attrValues examples;
+      namespace = "moby";
+    }];
   };
 }

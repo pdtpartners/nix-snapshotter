@@ -96,6 +96,7 @@ func NewSnapshotter(root string, opts ...SnapshotterOpt) (snapshots.Snapshotter,
 }
 
 func (o *nixSnapshotter) Prepare(ctx context.Context, key, parent string, opts ...snapshots.Opt) ([]mount.Mount, error) {
+	log.G(ctx).Infof("[nix-snapshotter] Prepare %q [%q]", key, parent)
 	var base snapshots.Info
 	for _, opt := range opts {
 		if err := opt(&base); err != nil {
@@ -178,6 +179,7 @@ func (o *nixSnapshotter) View(ctx context.Context, key, parent string, opts ...s
 //
 // This can be used to recover mounts after calling View or Prepare.
 func (o *nixSnapshotter) Mounts(ctx context.Context, key string) ([]mount.Mount, error) {
+	log.G(ctx).Infof("[nix-snapshotter] Mounts %q", key)
 	mounts, err := o.Snapshotter.Mounts(ctx, key)
 	if err != nil {
 		return nil, err
@@ -341,7 +343,7 @@ func (o *nixSnapshotter) withNixBindMounts(ctx context.Context, key string, moun
 			}
 			pathsSeen[nixStorePath] = struct{}{}
 
-			log.G(ctx).Debugf("[nix-snapshotter] Bind mounting nix store path %s", nixStorePath)
+			log.G(ctx).Infof("[nix-snapshotter] Bind mounting nix store path %s", nixStorePath)
 			mounts = append(mounts, mount.Mount{
 				Type:   "bind",
 				Source: nixStorePath,
