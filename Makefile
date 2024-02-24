@@ -47,5 +47,13 @@ run-redis: build/nerdctl/nerdctl.toml load-redis
 nsenter:
 	bash ./script/rootless/nsenter.sh $(ARGS)
 
+build-docker-vm:
+    mkdir -p ./build/dockerfile-context
+	nerdctl build -f Dockerfile --target rootful -t ghcr.io/pdtpartners/nix-snapshotter ./build/dockerfile-context
+
+build-docker-vm-rootless:
+    mkdir -p ./build/dockerfile-context
+	nerdctl build -f Dockerfile --target rootless -t ghcr.io/pdtpartners/nix-snapshotter:rootless ./build/dockerfile-context
+
 clean:
 	rm -rf ./build
