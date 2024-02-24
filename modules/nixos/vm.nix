@@ -12,14 +12,23 @@
     password = "root";
   };
 
-  services.k3s = {
+  virtualisation.docker = {
     enable = true;
-    setKubeConfig = true;
+    daemon.settings = {
+      storage-driver = "nix";
+      containerd = "/run/containerd/containerd.sock";
+      features.containerd-snapshotter = true;
+    };
   };
+
+  # services.k3s = {
+  #   enable = true;
+  #   setKubeConfig = true;
+  # };
 
   virtualisation.containerd = {
     enable = true;
-    k3sIntegration = true;
+    # k3sIntegration = true;
     nixSnapshotterIntegration = true;
   };
 
