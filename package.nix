@@ -30,9 +30,8 @@ let
     # The image name when exported. When resolvedByNix is enabled, this is
     # treated as just the package name to help identify the nix store path.
     name,
-    # The image tag when exported. By default, this is the hash of the
-    # derivation outPath.
-    tag ? null,
+    # The image tag when exported. By default, this mutable "latest" tag.
+    tag ? "latest",
     # If enabled, the OCI archive will be generated with a special image
     # reference in the format of "nix:0/nix/store/*.tar", which is resolvable
     # by nix-snapshotter if configured as the CRI image-service without a
@@ -72,18 +71,13 @@ let
         let
           imageName = lib.toLower name;
 
-          imageTag =
-            if tag != null then tag
-            else builtins.head (lib.strings.splitString "-" (baseNameOf image.outPath));
-
-          imageRef = if resolvedByNix then "nix:0${image.outPath}" else "${imageName}:${imageTag}";
+          imageRef = if resolvedByNix then "nix:0${image.outPath}" else "${imageName}:${tag}";
 
           refFlag = lib.optionalString (!resolvedByNix) ''--ref "${imageRef}"'';
 
         in runCommand "nix-image-${baseName}.tar" {
           passthru = {
-            inherit name;
-            tag = imageTag;
+            inherit name tag;
             # For kubernetes pod spec.
             image = imageRef;
             copyToRegistry = copyToRegistry image;

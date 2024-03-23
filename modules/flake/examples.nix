@@ -8,7 +8,6 @@
       examples = rec {
         hello = buildImage {
           name = "ghcr.io/pdtpartners/hello";
-          tag = "latest";
           config = {
             entrypoint = ["${pkgs.hello}/bin/hello"];
           };
