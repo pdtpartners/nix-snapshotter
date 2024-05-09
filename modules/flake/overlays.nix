@@ -25,9 +25,7 @@
         nix-snapshotter
       ;
 
-      k3s = (self.callPackage ./k3s {
-        buildGoModule = self.buildGo120Module;
-      }).k3s_1_27;
+      k3s = (self.callPackage ./k3s { }).k3s_1_27;
     };
 
   perSystem = { system, ... }: {
