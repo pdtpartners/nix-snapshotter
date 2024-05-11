@@ -50,6 +50,7 @@ lib:
 , fetchurl
 , fetchzip
 , fetchgit
+, fetchpatch
 , zstd
 , yq-go
 , sqlite
@@ -191,6 +192,11 @@ let
       ../patches/k3s-rootless-state-dir.patch
       # See: https://github.com/k3s-io/k3s/pull/9319
       ../patches/k3s-nix-snapshotter.patch
+      # See: https://github.com/k3s-io/k3s/pull/9064
+      (fetchpatch {
+        url = "https://patch-diff.githubusercontent.com/raw/k3s-io/k3s/pull/9064.patch";
+        sha256 = "sha256-xp9nGIalSvDLfccQ+HNQqWT8z2LKH1HfCuaYxieMT94=";
+      })
     ];
 
     nativeBuildInputs = [ pkg-config ];
