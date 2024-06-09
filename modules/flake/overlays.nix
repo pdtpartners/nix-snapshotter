@@ -3,29 +3,20 @@
   # Provide overlay to add `nix-snapshotter`.
   flake.overlays.default = self: super:
     let
-      nix-snapshotter = self.callPackage ../../package.nix {};
-
-      containerd = super.containerd.overrideAttrs(o: rec {
-        version = "1.7.14";
-        src = self.fetchFromGitHub {
-          owner = "containerd";
-          repo = "containerd";
-          rev = "v${version}";
-          hash = "sha256-okTz2UCF5LxOdtLDBy1pN2to6WHi+I0jtR67sn7Qrbk=";
-        };
-        patches = (o.patches or []) ++ [
-          # See: https://github.com/containerd/containerd/pull/9864
-          ./patches/containerd-import-compressed.patch
-        ];
-      });
 
     in {
-      inherit 
-        containerd
-        nix-snapshotter
-      ;
+      nix-snapshotter = self.callPackage ../../package.nix {};
 
-      k3s = (self.callPackage ./k3s {}).k3s_1_27;
+      k3s = super.k3s_1_30.override {
+        buildGoModule = args: super.buildGoModule (args // super.lib.optionalAttrs (args.pname != "k3s-cni-plugins" && args.pname != "k3s-containerd") {
+          vendorHash = {
+            "sha256-XtTahFaWnuHzKDI/U4d/j4C4gRxH163MCGEEM4hu/WM=" = "sha256-XuMP+ffwTdXKL9q9+ZJUQc5ghGEcdY9UdefjCD19OUE=";
+          }.${args.vendorHash};
+          patches = (args.patches or []) ++ [
+            ./patches/k3s-nix-snapshotter.patch
+          ];
+        });
+      };
     };
 
   perSystem = { system, ... }: {
