@@ -11,6 +11,7 @@
         buildGoModule = args: super.buildGoModule (args // super.lib.optionalAttrs (args.pname != "k3s-cni-plugins" && args.pname != "k3s-containerd") {
           vendorHash = {
             "sha256-XtTahFaWnuHzKDI/U4d/j4C4gRxH163MCGEEM4hu/WM=" = "sha256-XuMP+ffwTdXKL9q9+ZJUQc5ghGEcdY9UdefjCD19OUE=";
+            "sha256-Mj9Q3TgqZoJluG4/nyuw2WHnB3OJ+/mlV7duzWt1B1A=" = "sha256-9i0vY+CqrLDKYBZPooccX7OtFhS3//mpKTLntvPYDJo=";
           }.${args.vendorHash};
           patches = (args.patches or []) ++ [
             ./patches/k3s-nix-snapshotter.patch
