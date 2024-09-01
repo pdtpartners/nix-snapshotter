@@ -88,7 +88,7 @@ let
         name = "containerd-rootless";
         src = ./containerd-rootless.sh;
         inherit containerdArgs;
-        path = lib.makeBinPath [
+        path = lib.makeBinPath ([
           containerd-rootless-child
           pkgs.bash
           pkgs.iproute2
@@ -98,7 +98,7 @@ let
           pkgs.util-linux
           # Need access to newuidmap from "/run/wrappers"
           "/run/wrappers"
-        ];
+        ] ++ cfg.path);
       };
 
       mountSources = lib.concatStringsSep " " (
