@@ -70,6 +70,7 @@ in {
       users.users.alice = {
         uid = 1000;
         isNormalUser = true;
+        linger = true;
       };
 
       environment.variables = {
