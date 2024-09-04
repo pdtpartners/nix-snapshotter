@@ -1,7 +1,7 @@
 { config, pkgs, lib, ... }:
 let
   helloDrvFile = pkgs.nix-snapshotter.buildImage {
-    name = "ghcr.io/pdtpartners/hello-world";
+    name = "ghcr.io/nix-snapshotter/hello-world";
     tag = "latest";
     config.entrypoint = [
       (pkgs.writeShellScript "hello-world" ''
@@ -88,6 +88,7 @@ in {
       users.users.alice = {
         uid = 1000;
         isNormalUser = true;
+        linger = true;
       };
 
       environment.variables = {
@@ -120,22 +121,11 @@ in {
       ];
 
     in ''
-      def collect_coverage(machine):
-        coverfiles = machine.succeed("ls /tmp/go-cover").split()
-        for coverfile in coverfiles:
-          machine.copy_from_vm(f"/tmp/go-cover/{coverfile}", f"build/go-cover/${config.name}-{machine.name}")
-
       def wait_for_unit(machine, service, user = "alice"):
         if "rootless" in machine.name:
           machine.wait_until_succeeds(f"systemctl --user --machine={user}@ is-active {service}")
         else:
           machine.wait_for_unit(service)
-
-      def stop_unit(machine, service, user = "alice"):
-        if "rootless" in machine.name:
-          machine.succeed(f"systemctl --user --machine={user}@ stop {service}")
-        else:
-          machine.succeed(f"systemctl stop {service}")
 
       def test(machine, sudo_su = ""):
         wait_for_unit(machine, "nix-snapshotter.service")
@@ -143,7 +133,7 @@ in {
         wait_for_unit(machine, "preload-containerd.service")
 
         with subtest(f"{machine.name}: Run container with an executable outPath"):
-          out = machine.succeed(f"{sudo_su} nerdctl run --rm ghcr.io/pdtpartners/hello-world")
+          out = machine.succeed(f"{sudo_su} nerdctl run ghcr.io/nix-snapshotter/hello-world")
           assert "Hello, world!" in out
 
         with subtest(f"{machine.name}: Run container with CNI built with pkgs.dockerTools.buildImage"):
