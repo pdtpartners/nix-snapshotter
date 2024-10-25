@@ -1,6 +1,7 @@
 { lib
 , buildGoModule
 , closureInfo
+, globset
 , runCommand
 , writeShellScriptBin
 , writeText
@@ -9,13 +10,14 @@
 let
   nix-snapshotter = buildGoModule {
     pname = "nix-snapshotter";
-    version = "0.2.0";
-    src = lib.cleanSourceWith {
-      src = lib.sourceFilesBySuffices ./. [
-        ".go"
+    version = "0.2.1";
+    src = lib.fileset.toSource {
+      root = ./.;
+      fileset = globset.lib.globs ./. [
+        "**/*.go"
+        "**/*.tar"
         "go.mod"
         "go.sum"
-        ".tar"
       ];
     };
     vendorHash = "sha256-QBLePOnfsr6I19ddyZNSFDih6mCaZ/NV2Qz1B1pSHxs=";
