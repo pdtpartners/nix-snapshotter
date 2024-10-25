@@ -3,6 +3,10 @@
 
   inputs = {
     nixpkgs.url = "nixpkgs/nixos-24.05";
+    globset = {
+      url = "github:pdtpartners/globset";
+      inputs.nixpkgs-lib.follows = "nixpkgs";
+    };
     flake-parts = {
       url = "github:hercules-ci/flake-parts";
       inputs.nixpkgs-lib.follows = "nixpkgs";
