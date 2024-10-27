@@ -1,5 +1,10 @@
 { config, pkgs, lib, ... }:
 let
+  inherit (lib)
+    mkOption
+    types
+  ;
+
   cfg = config.virtualisation.containerd;
 
   k3s-cni-plugins = pkgs.buildEnv {
@@ -16,10 +21,29 @@ in {
     ./k3s.nix
   ];
 
+  options.virtualisation.containerd = {
+    listenOptions = mkOption {
+      type = types.listOf types.str;
+      default = [ cfg.setAddress ];
+      description = ''
+        A list of unix and tcp containerd should listen to. The format follows
+        ListenStream as described in systemd.socket(5).
+      '';
+    };
+  };
+
   config = lib.mkIf cfg.enable (lib.mkMerge [
     {
+      ids.gids.containerd = 888; # unused gid.
+
+      users.groups.containerd.gid = config.ids.gids.containerd;
+
       virtualisation.containerd = {
-        settings = cfg.lib.mkSettings cfg;
+        settings = lib.recursiveUpdate
+          (cfg.lib.mkSettings cfg)
+          {
+            grpc.gid = config.ids.gids.containerd;
+          };
       };
 
       environment.extraInit = ''
@@ -37,6 +61,17 @@ in {
           export CONTAINERD_SNAPSHOTTER="${cfg.setSnapshotter}"
         fi
       '');
+
+      systemd.sockets.contianerd = {
+        description = "Containerd Socket for the API";
+        wantedBy = [ "sockets.target" ];
+        socketConfig = {
+          ListenStream = cfg.listenOptions;
+          SocketMode = "0660";
+          SocketUser = "root";
+          SocketGroup = "containerd";
+        };
+      };
 
       systemd.services.containerd.path = cfg.path;
     }
