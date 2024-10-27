@@ -44,6 +44,7 @@ in {
         preload-containerd-rootless
         k3s
         k3s-rootless
+        buildkitd
       ];
     };
 
@@ -55,6 +56,7 @@ in {
     preload-containerd-rootless = ./preload-containerd-rootless.nix;
     k3s = ./k3s.nix;
     k3s-rootless = ./k3s-rootless.nix;
+    buildkitd = ./buildkitd.nix;
   };
 
   /* NixOS config for a VM to quickly try out nix-snapshotter.

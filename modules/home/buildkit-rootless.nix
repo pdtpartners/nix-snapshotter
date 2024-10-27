@@ -78,6 +78,12 @@ in {
   };
 
   config = lib.mkIf cfg.enable {
+    home.sessionVariablesExtra = ''
+      if [ -z "$BUILDKIT_HOST" ]; then
+        export BUILDKIT_HOST="unix://$XDG_RUNTIME_DIR/buildkit/buildkitd.sock"
+      fi
+    '';
+
     services.buildkit.rootless = {
       configFile =
         lib.mkOptionDefault
