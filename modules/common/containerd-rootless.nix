@@ -2,7 +2,7 @@
 let
   inherit (lib)
     mkOption
-    mkPackageOptionMD
+    mkPackageOption
     types
   ;
 
@@ -215,7 +215,7 @@ in {
       '';
     };
 
-    package = mkPackageOptionMD pkgs "containerd" { };
+    package = mkPackageOption pkgs "containerd" { };
 
     bindMounts = lib.mkOption {
       type = types.attrsOf (types.submodule bindMountOpts);

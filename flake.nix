@@ -2,7 +2,7 @@
   description = "Containerd snapshotter that understands nix store paths natively.";
 
   inputs = {
-    nixpkgs.url = "nixpkgs/nixos-24.05";
+    nixpkgs.url = "nixpkgs/nixos-24.11";
     globset = {
       url = "github:pdtpartners/globset";
       inputs.nixpkgs-lib.follows = "nixpkgs";

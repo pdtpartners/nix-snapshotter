@@ -135,6 +135,7 @@ in {
         wait_for_unit(machine, "preload-containerd.service")
 
         machine.succeed(f"{sudo_su} nerdctl run -d -p 5000:5000 --name registry ghcr.io/pdtpartners/registry")
+        machine.wait_until_succeeds("curl -s -o /dev/null -w '%{http_code}' http://localhost:5000/v2/", timeout=60)
 
         with subtest(f"{machine.name}: Push container built with pkgs.dockerTools.buildImage"):
           machine.succeed(f"{sudo_su} nerdctl push localhost:5000/docker-tools/hello")
