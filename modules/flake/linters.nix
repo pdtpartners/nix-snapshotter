@@ -6,6 +6,9 @@
         golangci-lint = pkgs.writeScriptBin "golangci-lint" ''
           ${pkgs.golangci-lint}/bin/golangci-lint run -v
         '';
+        shellcheck = pkgs.writeScriptBin "shellcheck" ''
+          ${pkgs.shellcheck}/bin/shellcheck -x $(find . -name "*.sh" -type f)
+        '';
       };
 
       apps =
