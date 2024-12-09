@@ -1,4 +1,8 @@
-export REPO_DIR=$(git rev-parse --show-toplevel)
+#!/bin/bash
+set -euo pipefail
+
+REPO_DIR="$(git rev-parse --show-toplevel)"
+export REPO_DIR
 
 export BIN_DIR="${REPO_DIR}/build/bin"
 export CONTAINERD_ADDRESS="${REPO_DIR}/build/containerd/containerd.sock"

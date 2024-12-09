@@ -30,4 +30,4 @@ if [ -f /sys/fs/cgroup/cgroup.controllers ]; then
                > /sys/fs/cgroup/cgroup.subtree_control
 fi
 
-exec $@
+exec "$@"

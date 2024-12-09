@@ -1,9 +1,10 @@
 #!/bin/bash
 
+# shellcheck disable=SC1091
 source "${BASH_SOURCE%/*}/common.sh"
 
-mkdir -p $(dirname $NIX_SNAPSHOTTER_CONFIG_FILE)
-cat <<EOM > $NIX_SNAPSHOTTER_CONFIG_FILE
+mkdir -p "$(dirname "$NIX_SNAPSHOTTER_CONFIG_FILE")"
+cat <<EOM > "$NIX_SNAPSHOTTER_CONFIG_FILE"
 address = "${REPO_DIR}/build/nix-snapshotter/nix-snapshotter.sock"
 root    = "${REPO_DIR}/build/containerd/root/io.containerd.snapshotter.v1.nix"
 
