@@ -1,9 +1,10 @@
 #!/bin/bash
 
+# shellcheck disable=SC1091
 source "${BASH_SOURCE%/*}/common.sh"
 
-mkdir -p $(dirname $CONTAINERD_CONFIG_FILE)
-cat <<EOM > $CONTAINERD_CONFIG_FILE
+mkdir -p "$(dirname "$CONTAINERD_CONFIG_FILE")"
+cat <<EOM > "$CONTAINERD_CONFIG_FILE"
 version = 2
 root = "$REPO_DIR/build/containerd/root"
 state = "$REPO_DIR/build/containerd/state"

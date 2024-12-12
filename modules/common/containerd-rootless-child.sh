@@ -12,7 +12,7 @@ set -e
 export PATH="@path@"
 
 
-if ! [ -w $HOME ]; then
+if ! [ -w "$HOME" ]; then
     echo "HOME needs to be set and writable"
     exit 1
 fi
@@ -43,7 +43,7 @@ for i in "${!mountSources[@]}"; do
   # The actual files in the parent namespace are *not removed* by this rm command.
   rm -rf "$mountPoint"
 
-  echo >&2 Bind mounting ${mountSource} to ${mountPoint} inside mount namespace
+  echo >&2 Bind mounting "${mountSource}" to "${mountPoint}" inside mount namespace
   mkdir -p "$mountSource" "$mountPoint"
   mount --bind "$mountSource" "$mountPoint"
 done

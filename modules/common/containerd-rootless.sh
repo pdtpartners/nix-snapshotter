@@ -12,7 +12,7 @@ set -e
 export PATH="@path@"
 
 
-if ! [ -w $XDG_RUNTIME_DIR ]; then
+if ! [ -w "$XDG_RUNTIME_DIR" ]; then
     echo "XDG_RUNTIME_DIR needs to be set and writable"
     exit 1
 fi

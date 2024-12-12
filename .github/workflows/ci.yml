@@ -13,6 +13,7 @@ jobs:
       matrix:
         linter:
           - golangci-lint
+          - shellcheck
     steps:
       - uses: actions/checkout@v4
       # - name: Setup Nix

@@ -1,9 +1,10 @@
 #!/bin/bash
 
+# shellcheck disable=SC1091
 source "${BASH_SOURCE%/*}/common.sh"
 
-mkdir -p $(dirname $NERDCTL_TOML)
-cat <<EOM > $NERDCTL_TOML
+mkdir -p "$(dirname "$NERDCTL_TOML")"
+cat <<EOM > "$NERDCTL_TOML"
 address         = "${REPO_DIR}/build/containerd/containerd.sock"
 snapshotter     = "nix"
 data_root       = "${REPO_DIR}/build/nerdctl/root/"
