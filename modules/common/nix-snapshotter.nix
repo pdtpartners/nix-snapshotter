@@ -2,7 +2,7 @@
 let
   inherit (lib)
     mkOption
-    mkPackageOptionMD
+    mkPackageOption
     types
   ;
 
@@ -22,7 +22,7 @@ let
       '';
     };
 
-    package = mkPackageOptionMD pkgs "nix-snapshotter" { };
+    package = mkPackageOption pkgs "nix-snapshotter" { };
 
     path = mkOption {
       type = types.listOf types.package;
