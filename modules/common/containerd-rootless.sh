@@ -33,4 +33,4 @@ rootlesskit \
     --copy-up=/var/lib \
     --port-driver=slirp4netns \
     --state-dir="${XDG_RUNTIME_DIR}/containerd-rootless" \
-    sh -c "containerd-rootless-child @containerdArgs@"
+    sh -c "containerd-rootless-child.sh @containerdArgs@"

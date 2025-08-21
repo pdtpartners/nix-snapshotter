@@ -73,8 +73,7 @@ let
     ignoreCollisions = true;
   };
 
-  makeProg = args: pkgs.substituteAll (args // {
-    inherit (pkgs) runtimeShell;
+  makeProg = args: pkgs.replaceVarsWith (args // {
     dir = "bin";
     isExecutable = true;
   });
@@ -85,20 +84,22 @@ let
         lib.concatStringsSep " " (lib.cli.toGNUCommandLine {} cfg.args);
 
       containerd-rootless = makeProg {
-        name = "containerd-rootless";
         src = ./containerd-rootless.sh;
-        inherit containerdArgs;
-        path = lib.makeBinPath ([
-          containerd-rootless-child
-          pkgs.bash
-          pkgs.iproute2
-          pkgs.libselinux
-          pkgs.rootlesskit
-          pkgs.slirp4netns
-          pkgs.util-linux
-          # Need access to newuidmap from "/run/wrappers"
-          "/run/wrappers"
-        ] ++ cfg.path);
+        replacements = {
+          inherit (pkgs) runtimeShell;
+          inherit containerdArgs;
+          path = lib.makeBinPath ([
+            containerd-rootless-child
+            pkgs.bash
+            pkgs.iproute2
+            pkgs.libselinux
+            pkgs.rootlesskit
+            pkgs.slirp4netns
+            pkgs.util-linux
+            # Need access to newuidmap from "/run/wrappers"
+            "/run/wrappers"
+          ] ++ cfg.path);
+        };
       };
 
       mountSources = lib.concatStringsSep " " (
@@ -114,19 +115,21 @@ let
       );
 
       containerd-rootless-child = makeProg {
-        name = "containerd-rootless-child";
         src = ./containerd-rootless-child.sh;
-        inherit mountSources mountPoints;
-        path = lib.makeBinPath ([
-          cfg.package
-          pkgs.coreutils
-          pkgs.iptables
-          pkgs.kmod
-          pkgs.runc
-          # Mount only works inside user namespaces from "/run/current-system/sw"
-          # See: https://github.com/NixOS/nixpkgs/issues/42117#issuecomment-872029461
-          "/run/current-system/sw"
-        ] ++ cfg.path);
+        replacements = {
+          inherit (pkgs) runtimeShell;
+          inherit mountSources mountPoints;
+          path = lib.makeBinPath ([
+            cfg.package
+            pkgs.coreutils
+            pkgs.iptables
+            pkgs.kmod
+            pkgs.runc
+            # Mount only works inside user namespaces from "/run/current-system/sw"
+            # See: https://github.com/NixOS/nixpkgs/issues/42117#issuecomment-872029461
+            "/run/current-system/sw"
+          ] ++ cfg.path);
+        };
       };
 
     in {
@@ -148,7 +151,7 @@ let
         Delegate = "yes";
         Restart = "always";
         RestartSec = "10";
-        ExecStart = "${containerd-rootless}/bin/containerd-rootless";
+        ExecStart = "${containerd-rootless}/bin/containerd-rootless.sh";
         ExecReload = "${pkgs.procps}/bin/kill -s HUP $MAINPID";
 
         StateDirectory = "containerd";

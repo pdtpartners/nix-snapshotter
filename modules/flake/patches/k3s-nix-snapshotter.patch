@@ -1,38 +1,28 @@
-From ab340f4d64e95aee51d8805ed1666134a558b0dd Mon Sep 17 00:00:00 2001
-From: Edgar Lee <edgarhinshunlee@gmail.com>
-Date: Wed, 14 Feb 2024 05:27:28 -0500
-Subject: [PATCH] Add nix-snapshotter support to the embedded containerd
+commit 63f2f8b715b74da4aaf08a02ea29643147b5d173
+Author: Edgar Lee <edgarhinshunlee@gmail.com>
+Date:   Wed Feb 14 05:27:28 2024 -0500
 
-Signed-off-by: Edgar Lee <edgarhinshunlee@gmail.com>
----
- go.mod                                 |  1 +
- go.sum                                 |  5 ++++-
- pkg/agent/config/config.go             |  6 ++++++
- pkg/agent/containerd/config_linux.go   |  5 +++++
- pkg/agent/containerd/config_windows.go |  4 ++++
- pkg/agent/templates/templates_linux.go | 10 +++++++++-
- pkg/containerd/builtins_linux.go       |  1 +
- pkg/containerd/utility_linux.go        |  5 +++++
- pkg/containerd/utility_windows.go      |  4 ++++
- 9 files changed, 39 insertions(+), 2 deletions(-)
+    Add nix-snapshotter support to the embedded containerd
+    
+    Signed-off-by: Edgar Lee <edgarhinshunlee@gmail.com>
 
 diff --git a/go.mod b/go.mod
-index f32eedf0581c..73979f08ed09 100644
+index e9a5585fb2..ba49c832c4 100644
 --- a/go.mod
 +++ b/go.mod
-@@ -115,6 +115,7 @@ require (
- 	github.com/opencontainers/runc v1.1.13
- 	github.com/opencontainers/selinux v1.11.0
+@@ -128,6 +128,7 @@ require (
+ 	github.com/opencontainers/runc v1.2.6
+ 	github.com/opencontainers/selinux v1.12.0
  	github.com/otiai10/copy v1.7.0
 +	github.com/pdtpartners/nix-snapshotter v0.2.1
  	github.com/pkg/errors v0.9.1
- 	github.com/prometheus/client_golang v1.20.1
- 	github.com/prometheus/common v0.55.0
+ 	github.com/prometheus/client_golang v1.22.0
+ 	github.com/prometheus/common v0.63.0
 diff --git a/go.sum b/go.sum
-index bd68b1b1548a..ef8d051a6ed5 100644
+index 6c71df26ce..50e5640744 100644
 --- a/go.sum
 +++ b/go.sum
-@@ -1388,6 +1388,8 @@ github.com/otiai10/mint v1.3.3/go.mod h1:/yxELlJQ0ufhjUwhshSj+wFjZ78CnZ48/1wtmBH
+@@ -1454,6 +1454,8 @@ github.com/otiai10/mint v1.3.3/go.mod h1:/yxELlJQ0ufhjUwhshSj+wFjZ78CnZ48/1wtmBH
  github.com/pascaldekloe/goe v0.0.0-20180627143212-57f6aae5913c/go.mod h1:lzWF7FIEvWOWxwDKqyGYQf6ZUaNfKdP144TG7ZOy1lc=
  github.com/pbnjay/memory v0.0.0-20210728143218-7b4eea64cf58 h1:onHthvaw9LFnH4t2DcNVpwGmV9E1BkGknEliJkfwQj0=
  github.com/pbnjay/memory v0.0.0-20210728143218-7b4eea64cf58/go.mod h1:DXv8WO4yhMYhSNPKjeNKa5WY9YCIEBRbNzFFPJbWO6Y=
@@ -41,7 +31,7 @@ index bd68b1b1548a..ef8d051a6ed5 100644
  github.com/pelletier/go-toml v1.2.0/go.mod h1:5z9KED0ma1S8pY6P1sdut58dfprrGBbd/94hg7ilaic=
  github.com/pelletier/go-toml v1.9.5 h1:4yBQzkHv+7BHq2PQUZF3Mx0IYxG7LsP222s7Agd3ve8=
  github.com/pelletier/go-toml v1.9.5/go.mod h1:u1nR/EPcESfeI/szUZKdtJ0xRNbUoANCkoOuaOx1Y+c=
-@@ -2229,8 +2231,9 @@ gopkg.in/yaml.v3 v3.0.1 h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=
+@@ -2440,8 +2442,9 @@ gopkg.in/yaml.v3 v3.0.1 h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=
  gopkg.in/yaml.v3 v3.0.1/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
  gotest.tools/v3 v3.0.2/go.mod h1:3SzNCllyD9/Y+b5r9JIKQ474KzkZyqLqEfYqMsX94Bk=
  gotest.tools/v3 v3.0.3/go.mod h1:Z7Lb0S5l+klDB31fvDQX8ss/FlKDxtlFlw3Oa8Ymbl8=
@@ -52,36 +42,36 @@ index bd68b1b1548a..ef8d051a6ed5 100644
  grpc.go4.org v0.0.0-20170609214715-11d0a25b4919/go.mod h1:77eQGdRu53HpSqPFJFmuJdjuHRquDANNeA4x7B8WQ9o=
  honnef.co/go/tools v0.0.0-20190102054323-c2f93a96b099/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
  honnef.co/go/tools v0.0.0-20190106161140-3f1c8253044a/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
-diff --git a/pkg/agent/config/config.go b/pkg/agent/config/config.go
-index 795618b03b83..9eed5d4c82de 100644
---- a/pkg/agent/config/config.go
-+++ b/pkg/agent/config/config.go
-@@ -594,6 +594,12 @@ func get(ctx context.Context, envInfo *cmds.Agent, proxy proxy.Proxy) (*config.N
- 						nodeConfig.Containerd.Root)
- 				}
- 				nodeConfig.AgentConfig.ImageServiceSocket = "/run/containerd-stargz-grpc/containerd-stargz-grpc.sock"
-+			case "nix":
-+				if err := containerd.NixSupported(nodeConfig.Containerd.Root); err != nil {
-+					return nil, errors.Wrapf(err, "\"nix\" snapshotter cannot be enabled for %q, try using \"overlayfs\" or \"native\"",
-+						nodeConfig.Containerd.Root)
-+				}
-+				nodeConfig.AgentConfig.ImageServiceSocket = "/run/k3s/nix-snapshotter/nix-snapshotter.sock"
- 			}
- 		} else {
- 			nodeConfig.AgentConfig.ImageServiceSocket = nodeConfig.ContainerRuntimeEndpoint
+diff --git a/pkg/agent/config/config_linux.go b/pkg/agent/config/config_linux.go
+index 34d8216c03..6ea8de8b87 100644
+--- a/pkg/agent/config/config_linux.go
++++ b/pkg/agent/config/config_linux.go
+@@ -39,6 +39,12 @@ func applyContainerdOSSpecificConfig(nodeConfig *config.Node) error {
+ 				nodeConfig.Containerd.Root)
+ 		}
+ 		nodeConfig.AgentConfig.ImageServiceSocket = "/run/containerd-stargz-grpc/containerd-stargz-grpc.sock"
++	case "nix":
++		if err := containerd.NixSupported(nodeConfig.Containerd.Root); err != nil {
++			return pkgerrors.WithMessagef(err, "\"nix\" snapshotter cannot be enabled for %q, try using \"overlayfs\" or \"native\"",
++				nodeConfig.Containerd.Root)
++		}
++		nodeConfig.AgentConfig.ImageServiceSocket = "/run/k3s/nix-snapshotter/nix-snapshotter.sock"
+ 	}
+ 
+ 	return nil
 diff --git a/pkg/agent/containerd/config_linux.go b/pkg/agent/containerd/config_linux.go
-index 5bd7df655a62..c3f3afefcf52 100644
+index b05a697f3e..c854ac603e 100644
 --- a/pkg/agent/containerd/config_linux.go
 +++ b/pkg/agent/containerd/config_linux.go
-@@ -16,6 +16,7 @@ import (
+@@ -17,6 +17,7 @@ import (
  	"github.com/k3s-io/k3s/pkg/daemons/config"
  	"github.com/k3s-io/k3s/pkg/version"
  	"github.com/opencontainers/runc/libcontainer/userns"
 +	"github.com/pdtpartners/nix-snapshotter/pkg/nix"
- 	"github.com/pkg/errors"
+ 	pkgerrors "github.com/pkg/errors"
  	"github.com/sirupsen/logrus"
  	"golang.org/x/sys/unix"
-@@ -117,3 +118,7 @@ func FuseoverlayfsSupported(root string) error {
+@@ -125,3 +126,7 @@ func FuseoverlayfsSupported(root string) error {
  func StargzSupported(root string) error {
  	return stargz.Supported(root)
  }
@@ -90,22 +80,22 @@ index 5bd7df655a62..c3f3afefcf52 100644
 +	return nix.Supported(root)
 +}
 diff --git a/pkg/agent/containerd/config_windows.go b/pkg/agent/containerd/config_windows.go
-index 5e102401e5eb..6074f5f07536 100644
+index 4ca7ec1156..2a9f2dbd4b 100644
 --- a/pkg/agent/containerd/config_windows.go
 +++ b/pkg/agent/containerd/config_windows.go
-@@ -64,3 +64,7 @@ func FuseoverlayfsSupported(root string) error {
+@@ -74,3 +74,7 @@ func FuseoverlayfsSupported(root string) error {
  func StargzSupported(root string) error {
- 	return errors.Wrapf(util3.ErrUnsupportedPlatform, "stargz is not supported")
+ 	return pkgerrors.WithMessagef(util3.ErrUnsupportedPlatform, "stargz is not supported")
  }
 +
 +func NixSupported(root string) error {
 +	return errors.Wrapf(util3.ErrUnsupportedPlatform, "nix is not supported")
 +}
-diff --git a/pkg/agent/templates/templates_linux.go b/pkg/agent/templates/templates_linux.go
-index c064f6fcb4cd..1ded3238947d 100644
---- a/pkg/agent/templates/templates_linux.go
-+++ b/pkg/agent/templates/templates_linux.go
-@@ -35,7 +35,7 @@ version = 2
+diff --git a/pkg/agent/templates/templates.go b/pkg/agent/templates/templates.go
+index a46efa8852..0604d9fffe 100644
+--- a/pkg/agent/templates/templates.go
++++ b/pkg/agent/templates/templates.go
+@@ -75,7 +75,7 @@ state = {{ printf "%q" .NodeConfig.Containerd.State }}
  {{- if .NodeConfig.AgentConfig.Snapshotter }}
  [plugins."io.containerd.grpc.v1.cri".containerd]
    snapshotter = "{{ .NodeConfig.AgentConfig.Snapshotter }}"
@@ -114,7 +104,7 @@ index c064f6fcb4cd..1ded3238947d 100644
    {{ if .NodeConfig.DefaultRuntime }}default_runtime_name = "{{ .NodeConfig.DefaultRuntime }}"{{end}}
  {{ if eq .NodeConfig.AgentConfig.Snapshotter "stargz" }}
  {{ if .NodeConfig.AgentConfig.ImageServiceSocket }}
-@@ -60,6 +60,14 @@ enable_keychain = true
+@@ -100,6 +100,14 @@ enable_keychain = true
  {{end}}
  {{end}}
  {{end}}
@@ -128,9 +118,9 @@ index c064f6fcb4cd..1ded3238947d 100644
 +{{end}}
  {{end}}
  
- {{- if not .NodeConfig.NoFlannel }}
+ {{- if or .NodeConfig.AgentConfig.CNIBinDir .NodeConfig.AgentConfig.CNIConfDir }}
 diff --git a/pkg/containerd/builtins_linux.go b/pkg/containerd/builtins_linux.go
-index a0ea4dc49613..98c443625da5 100644
+index a0ea4dc496..98c443625d 100644
 --- a/pkg/containerd/builtins_linux.go
 +++ b/pkg/containerd/builtins_linux.go
 @@ -32,4 +32,5 @@ import (
@@ -140,7 +130,7 @@ index a0ea4dc49613..98c443625da5 100644
 +	_ "github.com/pdtpartners/nix-snapshotter/pkg/plugin"
  )
 diff --git a/pkg/containerd/utility_linux.go b/pkg/containerd/utility_linux.go
-index 76ff569b41c0..b6f2d0cfebb4 100644
+index 76ff569b41..b6f2d0cfeb 100644
 --- a/pkg/containerd/utility_linux.go
 +++ b/pkg/containerd/utility_linux.go
 @@ -6,6 +6,7 @@ import (
@@ -160,12 +150,12 @@ index 76ff569b41c0..b6f2d0cfebb4 100644
 +	return nix.Supported(root)
 +}
 diff --git a/pkg/containerd/utility_windows.go b/pkg/containerd/utility_windows.go
-index 13a58e55bfdb..6f6833177fa2 100644
+index ecb741b98f..065e640442 100644
 --- a/pkg/containerd/utility_windows.go
 +++ b/pkg/containerd/utility_windows.go
 @@ -19,3 +19,7 @@ func FuseoverlayfsSupported(root string) error {
  func StargzSupported(root string) error {
- 	return errors.Wrapf(util2.ErrUnsupportedPlatform, "stargz is not supported")
+ 	return pkgerrors.WithMessagef(util2.ErrUnsupportedPlatform, "stargz is not supported")
  }
 +
 +func NixSupported(root string) error {

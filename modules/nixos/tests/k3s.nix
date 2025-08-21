@@ -13,10 +13,18 @@
       ../redis-spec.nix
     ];
 
+    # Runs out of space on default 1024.
+    virtualisation.diskSize = 2048;
+
     services.k3s = {
       enable = true;
       setKubeConfig = true;
       snapshotter = "nix";
+      # Force k3s listen on IPv4 localhost otherwise it'll bind on a IPv6
+      # address.
+      moreFlags = [
+        "--node-ip=127.0.0.1"
+      ];
     };
 
     environment.systemPackages = with pkgs; [
