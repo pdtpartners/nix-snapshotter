@@ -11,7 +11,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -29,6 +28,14 @@ import (
 )
 
 const (
+	// NixClosureAnnotation is an annotation with a store path pointing to a
+	// closure file that has all the Nix store paths this layer depends on in a
+	// newline delimited file.
+	//
+	// This supersedes the need for individual nix store paths in the layer
+	// annotations which speeds up substitution / gc root creation significantly.
+	NixClosureAnnotation = "containerd.io/snapshot/nix-closure"
+
 	// NixLayerAnnotation is a remote snapshot OCI annotation to indicate that
 	// it will also contain annotations with NixStorePrefixAnnotation.
 	NixLayerAnnotation = "containerd.io/snapshot/nix-layer"
@@ -75,11 +82,7 @@ func Generate(ctx context.Context, image *types.Image, store content.Store) (des
 	}
 
 	layerDesc.Annotations = map[string]string{
-		NixLayerAnnotation: "true",
-	}
-	for i, nixStorePath := range image.NixStorePaths {
-		key := NixStorePrefixAnnotation + strconv.Itoa(i)
-		layerDesc.Annotations[key] = nixStorePath
+		NixClosureAnnotation: image.ClosurePath,
 	}
 	mfst.Layers = append(mfst.Layers, layerDesc)
 

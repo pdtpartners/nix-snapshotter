@@ -10,7 +10,7 @@
 let
   nix-snapshotter = buildGoModule {
     pname = "nix-snapshotter";
-    version = "0.2.1";
+    version = "0.3.0";
     src = lib.fileset.toSource {
       root = ./.;
       fileset = globset.lib.globs ./. [
