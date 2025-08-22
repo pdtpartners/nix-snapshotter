@@ -1,4 +1,4 @@
-commit 63f2f8b715b74da4aaf08a02ea29643147b5d173
+commit 8f9b84dbc6e881237a1a58b31cfa880c7688485b
 Author: Edgar Lee <edgarhinshunlee@gmail.com>
 Date:   Wed Feb 14 05:27:28 2024 -0500
 
@@ -7,27 +7,27 @@ Date:   Wed Feb 14 05:27:28 2024 -0500
     Signed-off-by: Edgar Lee <edgarhinshunlee@gmail.com>
 
 diff --git a/go.mod b/go.mod
-index e9a5585fb2..ba49c832c4 100644
+index e9a5585fb2..7ff6cabb87 100644
 --- a/go.mod
 +++ b/go.mod
 @@ -128,6 +128,7 @@ require (
  	github.com/opencontainers/runc v1.2.6
  	github.com/opencontainers/selinux v1.12.0
  	github.com/otiai10/copy v1.7.0
-+	github.com/pdtpartners/nix-snapshotter v0.2.1
++	github.com/pdtpartners/nix-snapshotter v0.2.3-0.20250822015441-4ad7763d5600
  	github.com/pkg/errors v0.9.1
  	github.com/prometheus/client_golang v1.22.0
  	github.com/prometheus/common v0.63.0
 diff --git a/go.sum b/go.sum
-index 6c71df26ce..50e5640744 100644
+index 6c71df26ce..c65fb8774d 100644
 --- a/go.sum
 +++ b/go.sum
 @@ -1454,6 +1454,8 @@ github.com/otiai10/mint v1.3.3/go.mod h1:/yxELlJQ0ufhjUwhshSj+wFjZ78CnZ48/1wtmBH
  github.com/pascaldekloe/goe v0.0.0-20180627143212-57f6aae5913c/go.mod h1:lzWF7FIEvWOWxwDKqyGYQf6ZUaNfKdP144TG7ZOy1lc=
  github.com/pbnjay/memory v0.0.0-20210728143218-7b4eea64cf58 h1:onHthvaw9LFnH4t2DcNVpwGmV9E1BkGknEliJkfwQj0=
  github.com/pbnjay/memory v0.0.0-20210728143218-7b4eea64cf58/go.mod h1:DXv8WO4yhMYhSNPKjeNKa5WY9YCIEBRbNzFFPJbWO6Y=
-+github.com/pdtpartners/nix-snapshotter v0.2.1 h1:NVmZbcDvD5UWNs4oF4vMmhRTlcf596+/fSPb6koiGKs=
-+github.com/pdtpartners/nix-snapshotter v0.2.1/go.mod h1:MKa+V5fH15XmLCDt+s8qRQeIAaadaJ3/4+/oD7f0K0k=
++github.com/pdtpartners/nix-snapshotter v0.2.3-0.20250822015441-4ad7763d5600 h1:FW03Hve1dHVoYuUgodgvBxlqzaMZQUREtAdxfgx4zvI=
++github.com/pdtpartners/nix-snapshotter v0.2.3-0.20250822015441-4ad7763d5600/go.mod h1:MKa+V5fH15XmLCDt+s8qRQeIAaadaJ3/4+/oD7f0K0k=
  github.com/pelletier/go-toml v1.2.0/go.mod h1:5z9KED0ma1S8pY6P1sdut58dfprrGBbd/94hg7ilaic=
  github.com/pelletier/go-toml v1.9.5 h1:4yBQzkHv+7BHq2PQUZF3Mx0IYxG7LsP222s7Agd3ve8=
  github.com/pelletier/go-toml v1.9.5/go.mod h1:u1nR/EPcESfeI/szUZKdtJ0xRNbUoANCkoOuaOx1Y+c=

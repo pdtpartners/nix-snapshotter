@@ -117,15 +117,42 @@ func (o *nixSnapshotter) Prepare(ctx context.Context, key, parent string, opts .
 	// to retrieve and unpack the layer tarball containing the nix store
 	// mountpoints and copyToRoot symlinks. Returning nix bind mounts will error
 	// due to the paths being read only.
+	if closurePath, ok := base.Labels[nix2container.NixClosureAnnotation]; ok {
+		err = o.prepareNixGCRoot(ctx, key, closurePath)
+		return mounts, err
+	}
+
+	// If image doesn't NixClosureAnnotation, we maintain backwards-compat with
+	// older nix-snapshotter images that have an annotation per store path in its
+	// closure.
 	if _, ok := base.Labels[nix2container.NixLayerAnnotation]; ok {
-		err = o.prepareNixGCRoots(ctx, key, base.Labels)
+		err = o.prepareNixGCRootsLegacy(ctx, key, base.Labels)
 		return mounts, err
 	}
 
 	return o.withNixBindMounts(ctx, key, mounts)
 }
 
-func (o *nixSnapshotter) prepareNixGCRoots(ctx context.Context, key string, labels map[string]string) (err error) {
+func (o *nixSnapshotter) prepareNixGCRoot(ctx context.Context, key, closurePath string) (err error) {
+	ctx, t, err := o.ms.TransactionContext(ctx, false)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		err = t.Rollback()
+	}()
+	id, _, _, err := storage.GetInfo(ctx, key)
+	if err != nil {
+		return err
+	}
+
+	gcRootsDir := filepath.Join(o.root, "gcroots", id)
+	outLink := filepath.Join(gcRootsDir, filepath.Base(closurePath))
+	log.G(ctx).Infof("[nix-snapshotter] Preparing nix gc roots for %s at %s", key, closurePath)
+	return o.nixBuilder(ctx, outLink, closurePath)
+}
+
+func (o *nixSnapshotter) prepareNixGCRootsLegacy(ctx context.Context, key string, labels map[string]string) (err error) {
 	ctx, t, err := o.ms.TransactionContext(ctx, false)
 	if err != nil {
 		return err
@@ -321,20 +348,34 @@ func (o *nixSnapshotter) withNixBindMounts(ctx context.Context, key string, moun
 			return nil, err
 		}
 
-		// Make the order of the bind mounts deterministic
-		sortedLabels := []string{}
-		for label := range info.Labels {
-			sortedLabels = append(sortedLabels, label)
-		}
-		sort.Strings(sortedLabels)
-
-		for _, labelKey := range sortedLabels {
-			if !strings.HasPrefix(labelKey, nix2container.NixStorePrefixAnnotation) {
-				continue
+		var nixStorePaths []string
+		closurePath, ok := info.Labels[nix2container.NixClosureAnnotation]
+		if ok {
+			nixStorePaths, err = nix2container.ReadClosure(filepath.Join(closurePath, "store-paths"))
+			if err != nil {
+				return nil, err
 			}
+		} else if _, ok := info.Labels[nix2container.NixLayerAnnotation]; ok {
+			// Maintain backwards-compat support for NixLayerAnnotation.
 
+			// Make the order of the bind mounts deterministic
+			sortedLabels := []string{}
+			for label := range info.Labels {
+				sortedLabels = append(sortedLabels, label)
+			}
+			sort.Strings(sortedLabels)
+
+			for _, labelKey := range sortedLabels {
+				if !strings.HasPrefix(labelKey, nix2container.NixStorePrefixAnnotation) {
+					continue
+				}
+				nixStorePath := info.Labels[labelKey]
+				nixStorePaths = append(nixStorePaths, nixStorePath)
+			}
+		}
+
+		for _, nixStorePath := range nixStorePaths {
 			// Avoid duplicate mounts.
-			nixStorePath := info.Labels[labelKey]
 			_, ok := pathsSeen[nixStorePath]
 			if ok {
 				continue

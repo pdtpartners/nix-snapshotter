@@ -9,6 +9,7 @@ type Image struct {
 	BaseImage     string              `json:"base-image,omitempty"`
 	Architecture  string              `json:"architecture"`
 	OS            string              `json:"os"`
+	ClosurePath   string              `json:"closure-path"`
 	NixStorePaths []string            `json:"nix-store-paths,omitempty"`
 	CopyToRoots   []string            `json:"copy-to-roots,omitempty"`
 }

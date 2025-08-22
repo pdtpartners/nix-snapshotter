@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"os"
+	"path"
 	"runtime"
 
 	"github.com/containerd/log"
@@ -37,6 +38,7 @@ func Build(ctx context.Context, configPath, closurePath, copyToRootPath string, 
 		Architecture: runtime.GOARCH,
 		OS:           runtime.GOOS,
 		BaseImage:    bOpts.FromImage,
+		ClosurePath:  path.Dir(closurePath),
 	}
 	log.G(ctx).
 		WithField("arch", image.Architecture).
@@ -54,10 +56,11 @@ func Build(ctx context.Context, configPath, closurePath, copyToRootPath string, 
 		return nil, err
 	}
 
-	image.NixStorePaths, err = readClosure(configPath, closurePath)
+	image.NixStorePaths, err = ReadClosure(closurePath)
 	if err != nil {
 		return nil, err
 	}
+
 	log.G(ctx).
 		WithField("closure-count", len(image.NixStorePaths)).
 		Infof("Read runtime inputs from closure file")
@@ -75,7 +78,7 @@ func Build(ctx context.Context, configPath, closurePath, copyToRootPath string, 
 	return image, nil
 }
 
-func readClosure(configPath, closurePath string) ([]string, error) {
+func ReadClosure(closurePath string) ([]string, error) {
 	f, err := os.Open(closurePath)
 	if err != nil {
 		return nil, err
@@ -86,9 +89,6 @@ func readClosure(configPath, closurePath string) ([]string, error) {
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
 		nixStorePath := scanner.Text()
-		if nixStorePath == configPath {
-			continue
-		}
 		nixStorePaths = append(nixStorePaths, nixStorePath)
 	}
 	if scanner.Err() != nil {

@@ -2,8 +2,10 @@ package nix
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/containerd/containerd/v2/core/mount"
@@ -45,6 +47,48 @@ func TestNixSnapshotter(t *testing.T) {
 				"/nix/store/5mh5019jigj0k14rdnjam1xwk5avn1id-libidn2-2.3.2",
 				"/nix/store/g2m8kfw7kpgpph05v2fxcx4d5an09hl3-hello-2.12.1",
 			},
+		},
+		{
+			name: "custom nix store dir",
+			nixStorePaths: []string{
+				"/other/nix/store/34xlpp3j3vy7ksn09zh44f1c04w77khf-libunistring-1.0",
+				"/other/nix/store/4nlgxhb09sdr51nc9hdm8az5b08vzkgx-glibc-2.35-163",
+				"/other/nix/store/5mh5019jigj0k14rdnjam1xwk5avn1id-libidn2-2.3.2",
+				"/other/nix/store/g2m8kfw7kpgpph05v2fxcx4d5an09hl3-hello-2.12.1",
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := context.Background()
+
+			testDir := t.TempDir()
+			labels := map[string]string{
+				nix2container.NixClosureAnnotation: testDir,
+			}
+
+			closure := strings.Join(tc.nixStorePaths, "\n")
+			err := os.WriteFile(filepath.Join(testDir, "store-paths"), []byte(closure), 0o755)
+			require.NoError(t, err)
+
+			testBindMounts(ctx, t, tc, labels)
+			testGCRoots(ctx, t, tc, labels)
+		})
+	}
+}
+
+func TestNixSnapshotterLegacy(t *testing.T) {
+	for _, tc := range []testCase{
+		{
+			name: "empty",
+		},
+		{
+			name: "basic",
+			nixStorePaths: []string{
+				"/nix/store/34xlpp3j3vy7ksn09zh44f1c04w77khf-libunistring-1.0",
+				"/nix/store/4nlgxhb09sdr51nc9hdm8az5b08vzkgx-glibc-2.35-163",
+				"/nix/store/5mh5019jigj0k14rdnjam1xwk5avn1id-libidn2-2.3.2",
+				"/nix/store/g2m8kfw7kpgpph05v2fxcx4d5an09hl3-hello-2.12.1",
+			},
 			extraLabels: map[string]string{
 				nix2container.NixLayerAnnotation: "true",
 			},
@@ -59,15 +103,6 @@ func TestNixSnapshotter(t *testing.T) {
 			},
 			extraLabels: map[string]string{
 				nix2container.NixLayerAnnotation: "true",
-			},
-		},
-		{
-			name: "with no nix layer annotation",
-			nixStorePaths: []string{
-				"/nix/store/34xlpp3j3vy7ksn09zh44f1c04w77khf-libunistring-1.0",
-				"/nix/store/4nlgxhb09sdr51nc9hdm8az5b08vzkgx-glibc-2.35-163",
-				"/nix/store/5mh5019jigj0k14rdnjam1xwk5avn1id-libidn2-2.3.2",
-				"/nix/store/g2m8kfw7kpgpph05v2fxcx4d5an09hl3-hello-2.12.1",
 			},
 		},
 		{
@@ -159,7 +194,9 @@ func testGCRoots(ctx context.Context, t *testing.T, tc testCase, labels map[stri
 	})
 	require.NoError(t, err)
 
-	if labels[nix2container.NixLayerAnnotation] == "true" {
+	if labels[nix2container.NixClosureAnnotation] != "" {
+		require.Equal(t, 1, len(outLinks))
+	} else if labels[nix2container.NixLayerAnnotation] == "true" {
 		require.Equal(t, len(tc.nixStorePaths), len(outLinks))
 		for idx := 0; idx < len(tc.nixStorePaths); idx += 1 {
 			outLink := filepath.Join(root, "gcroots", id, filepath.Base(tc.nixStorePaths[idx]))
