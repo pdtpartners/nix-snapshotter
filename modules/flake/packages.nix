@@ -3,6 +3,7 @@
     packages = rec {
       inherit (pkgs)
         containerd
+        containerd-1_7
         k3s
         nix-snapshotter
       ;

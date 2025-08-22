@@ -5,8 +5,8 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/containerd/containerd/log"
-	"github.com/containerd/containerd/snapshots/overlay/overlayutils"
+	"github.com/containerd/containerd/v2/plugins/snapshots/overlay/overlayutils"
+	"github.com/containerd/log"
 )
 
 // Supported returns nil when the remote snapshotter is functional on the system with the root directory.

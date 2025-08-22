@@ -8,10 +8,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/containerd/containerd"
-	"github.com/containerd/containerd/log"
-	"github.com/containerd/containerd/namespaces"
+	"github.com/containerd/containerd/v2/client"
+	"github.com/containerd/containerd/v2/pkg/namespaces"
+	"github.com/containerd/log"
 	"github.com/pdtpartners/nix-snapshotter/pkg/nix2container"
+	"google.golang.org/grpc"
 	runtime "k8s.io/cri-api/pkg/apis/runtime/v1"
 )
 
@@ -31,7 +32,7 @@ type ImageServiceOpt interface {
 
 type imageService struct {
 	mu                 sync.Mutex
-	client             *containerd.Client
+	client             *client.Client
 	imageServiceClient runtime.ImageServiceClient
 	nixBuilder         NixBuilder
 }
@@ -53,11 +54,11 @@ func NewImageService(ctx context.Context, containerdAddr string, opts ...ImageSe
 	go func() {
 		log.G(ctx).Debugf("Waiting for CRI service is started...")
 		for i := 0; i < 100; i++ {
-			client, err := containerd.New(containerdAddr)
+			client, err := client.New(containerdAddr)
 			if err == nil {
 				service.mu.Lock()
 				service.client = client
-				service.imageServiceClient = runtime.NewImageServiceClient(client.Conn())
+				service.imageServiceClient = runtime.NewImageServiceClient(client.Conn().(*grpc.ClientConn))
 				service.mu.Unlock()
 				log.G(ctx).Info("Connected to backend CRI service")
 				return

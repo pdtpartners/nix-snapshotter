@@ -3,7 +3,7 @@ package command
 import (
 	"context"
 
-	"github.com/containerd/containerd/log"
+	"github.com/containerd/log"
 	"github.com/sirupsen/logrus"
 	cli "github.com/urfave/cli/v2"
 )

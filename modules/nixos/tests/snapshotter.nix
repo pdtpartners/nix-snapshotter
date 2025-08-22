@@ -1,5 +1,10 @@
-{ config, pkgs, lib, ... }:
+{ lib
+, pkgs
+, ...
+}@args:
 let
+  common = if args ? common then args.common else {};
+
   helloDrvFile = pkgs.nix-snapshotter.buildImage {
     name = "ghcr.io/nix-snapshotter/hello-world";
     tag = "latest";
@@ -32,6 +37,8 @@ let
 in {
   nodes = rec {
     rootful = {
+      imports = [ common ];
+
       virtualisation.containerd = {
         enable = true;
         nixSnapshotterIntegration = true;
@@ -59,6 +66,8 @@ in {
     };
 
     rootless = {
+      imports = [ common ];
+
       virtualisation.containerd.rootless = {
         enable = true;
         nixSnapshotterIntegration = true;
@@ -109,6 +118,7 @@ in {
 
       nix.settings.experimental-features = [ "nix-command" ];
     };
+
   };
 
   testScript =

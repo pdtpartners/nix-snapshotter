@@ -3,7 +3,7 @@ package testutil
 import (
 	"testing"
 
-	"github.com/containerd/containerd/pkg/testutil"
+	"github.com/containerd/containerd/v2/pkg/testutil"
 	"github.com/google/go-cmp/cmp"
 )
 

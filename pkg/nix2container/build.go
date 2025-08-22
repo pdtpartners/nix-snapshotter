@@ -7,7 +7,7 @@ import (
 	"os"
 	"runtime"
 
-	"github.com/containerd/containerd/log"
+	"github.com/containerd/log"
 	"github.com/pdtpartners/nix-snapshotter/types"
 )
 

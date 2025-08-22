@@ -43,6 +43,7 @@ jobs:
       matrix:
         test:
           - snapshotter
+          - snapshotter-1_7
           - push-n-pull
           - kubernetes
           - k3s
@@ -78,7 +79,7 @@ jobs:
           path: build
           merge-multiple: true
       - uses: actions/setup-go@v4
-        with: { go-version: '1.20' }
+        with: { go-version: '1.23' }
       - name: Collect test coverage
         run: |
           mkdir -p "$PWD/build/go-cover/unit"

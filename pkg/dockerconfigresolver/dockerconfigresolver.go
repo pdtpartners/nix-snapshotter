@@ -13,9 +13,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/containerd/containerd/remotes"
-	"github.com/containerd/containerd/remotes/docker"
-	dockerconfig "github.com/containerd/containerd/remotes/docker/config"
+	"github.com/containerd/containerd/v2/core/remotes"
+	"github.com/containerd/containerd/v2/core/remotes/docker"
+	dockerconfig "github.com/containerd/containerd/v2/core/remotes/docker/config"
 	dockercliconfig "github.com/docker/cli/cli/config"
 	"github.com/docker/cli/cli/config/credentials"
 	dockercliconfigtypes "github.com/docker/cli/cli/config/types"
@@ -147,7 +147,7 @@ func New(ctx context.Context, refHostname string, optFuncs ...Opt) (remotes.Reso
 		// When pushing an image where most or all layers are the same, image push
 		// may fail due to MANIFEST_BLOB_UNKNOWN or the image repository isn't
 		// created. Using a push tracker circumvents this issue.
-		// 
+		//
 		// See: https://github.com/containerd/nerdctl/pull/2404
 		Tracker: PushTracker,
 		Hosts:   dockerconfig.ConfigureHosts(ctx, *ho),

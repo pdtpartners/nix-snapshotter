@@ -4,8 +4,8 @@ import (
 	"context"
 	"io"
 
-	"github.com/containerd/containerd/content"
-	"github.com/containerd/containerd/images/archive"
+	"github.com/containerd/containerd/v2/core/content"
+	"github.com/containerd/containerd/v2/core/images/archive"
 	"github.com/pdtpartners/nix-snapshotter/types"
 )
 

@@ -6,9 +6,11 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/containerd/containerd/log"
-	"github.com/containerd/containerd/platforms"
-	"github.com/containerd/containerd/plugin"
+	"github.com/containerd/containerd/v2/plugins"
+	"github.com/containerd/log"
+	"github.com/containerd/platforms"
+	"github.com/containerd/plugin"
+	"github.com/containerd/plugin/registry"
 	"github.com/pdtpartners/nix-snapshotter/pkg/config"
 	"github.com/pdtpartners/nix-snapshotter/pkg/nix"
 	"google.golang.org/grpc"
@@ -16,8 +18,8 @@ import (
 )
 
 func init() {
-	plugin.Register(&plugin.Registration{
-		Type:   plugin.SnapshotPlugin,
+	registry.Register(&plugin.Registration{
+		Type:   plugins.SnapshotPlugin,
 		ID:     "nix",
 		Config: &config.Config{},
 		InitFn: func(ic *plugin.InitContext) (interface{}, error) {
@@ -28,13 +30,13 @@ func init() {
 				return nil, errors.New("invalid nix configuration")
 			}
 
-			root := ic.Root
+			root := ic.Properties[plugins.PropertyRootDir]
 			if cfg.Root != "" {
 				root = cfg.Root
 			}
 
 			if cfg.ImageService.Enable {
-				criAddr := ic.Address
+				criAddr := ic.Properties[plugins.PropertyGRPCAddress]
 				if containerdAddr := cfg.ImageService.ContainerdAddress; containerdAddr != "" {
 					criAddr = containerdAddr
 				}

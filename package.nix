@@ -10,7 +10,7 @@
 let
   nix-snapshotter = buildGoModule {
     pname = "nix-snapshotter";
-    version = "0.2.1";
+    version = "0.3.0";
     src = lib.fileset.toSource {
       root = ./.;
       fileset = globset.lib.globs ./. [
@@ -20,7 +20,7 @@ let
         "go.sum"
       ];
     };
-    vendorHash = "sha256-QBLePOnfsr6I19ddyZNSFDih6mCaZ/NV2Qz1B1pSHxs=";
+    vendorHash = "sha256-mWMkDALQ3QvDxgw1Nf0bgWYqeOFDUYKg3UNurNJdD9I=";
     passthru = { inherit buildImage; };
   };
 

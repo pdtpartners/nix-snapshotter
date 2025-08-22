@@ -1,7 +1,7 @@
-// Forked from https://github.com/containerd/containerd/blob/v1.7.2/snapshots/overlay/overlay_test.go
+// Forked from https://github.com/containerd/containerd/v2/blob/v1.7.2/snapshots/overlay/overlay_test.go
 // Copyright The containerd Authors.
 // Licensed under the Apache License, Version 2.0
-// NOTICE: https://github.com/containerd/containerd/blob/v1.7.2/NOTICE
+// NOTICE: https://github.com/containerd/containerd/v2/blob/v1.7.2/NOTICE
 
 package nix
 
@@ -14,13 +14,13 @@ import (
 	"syscall"
 	"testing"
 
-	"github.com/containerd/containerd/mount"
-	"github.com/containerd/containerd/pkg/testutil"
-	"github.com/containerd/containerd/snapshots"
-	"github.com/containerd/containerd/snapshots/overlay"
-	"github.com/containerd/containerd/snapshots/overlay/overlayutils"
-	"github.com/containerd/containerd/snapshots/storage"
-	"github.com/containerd/containerd/snapshots/testsuite"
+	"github.com/containerd/containerd/v2/core/mount"
+	"github.com/containerd/containerd/v2/core/snapshots"
+	"github.com/containerd/containerd/v2/core/snapshots/storage"
+	"github.com/containerd/containerd/v2/core/snapshots/testsuite"
+	"github.com/containerd/containerd/v2/pkg/testutil"
+	"github.com/containerd/containerd/v2/plugins/snapshots/overlay"
+	"github.com/containerd/containerd/v2/plugins/snapshots/overlay/overlayutils"
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
 )

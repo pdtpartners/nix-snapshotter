@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/containerd/containerd/content/local"
+	"github.com/containerd/containerd/v2/plugins/content/local"
 	"github.com/pdtpartners/nix-snapshotter/pkg/nix2container"
 	cli "github.com/urfave/cli/v2"
 )

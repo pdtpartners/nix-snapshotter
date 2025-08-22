@@ -4,12 +4,12 @@ import (
 	"context"
 	"os"
 
-	"github.com/containerd/containerd/content"
-	"github.com/containerd/containerd/images/archive"
-	"github.com/containerd/containerd/log"
-	"github.com/containerd/containerd/platforms"
-	"github.com/containerd/containerd/reference/docker"
-	"github.com/containerd/containerd/remotes"
+	"github.com/containerd/containerd/v2/core/content"
+	"github.com/containerd/containerd/v2/core/images/archive"
+	"github.com/containerd/containerd/v2/core/remotes"
+	"github.com/containerd/log"
+	"github.com/containerd/platforms"
+	reference "github.com/distribution/reference"
 	"github.com/pdtpartners/nix-snapshotter/pkg/dockerconfigresolver"
 )
 
@@ -56,11 +56,11 @@ func Push(ctx context.Context, store content.Store, archivePath, ref string, opt
 // newPusher returns a remotes.Pusher that automatically authenticates
 // using docker login credentials.
 func newPusher(ctx context.Context, cfg *PushConfig, ref string) (remotes.Pusher, error) {
-	named, err := docker.ParseDockerRef(ref)
+	named, err := reference.ParseDockerRef(ref)
 	if err != nil {
 		return nil, err
 	}
-	domain := docker.Domain(named)
+	domain := reference.Domain(named)
 
 	var dockerconfigOpts []dockerconfigresolver.Opt
 	if cfg.PlainHTTP {

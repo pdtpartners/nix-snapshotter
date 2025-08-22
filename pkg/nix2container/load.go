@@ -6,15 +6,15 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/containerd/containerd"
-	"github.com/containerd/containerd/log"
-	"github.com/containerd/containerd/pkg/transfer"
-	tarchive "github.com/containerd/containerd/pkg/transfer/archive"
-	"github.com/containerd/containerd/pkg/transfer/image"
-	"github.com/containerd/containerd/platforms"
+	"github.com/containerd/containerd/v2/client"
+	"github.com/containerd/containerd/v2/core/transfer"
+	tarchive "github.com/containerd/containerd/v2/core/transfer/archive"
+	"github.com/containerd/containerd/v2/core/transfer/image"
+	"github.com/containerd/log"
+	"github.com/containerd/platforms"
 )
 
-func Load(ctx context.Context, client *containerd.Client, archivePath string) (containerd.Image, error) {
+func Load(ctx context.Context, client *client.Client, archivePath string) (client.Image, error) {
 	log.G(ctx).WithField("archive", archivePath).Info("Loading archive")
 	f, err := os.Open(archivePath)
 	if err != nil {

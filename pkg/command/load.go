@@ -3,8 +3,8 @@ package command
 import (
 	"fmt"
 
-	"github.com/containerd/containerd"
-	"github.com/containerd/containerd/namespaces"
+	"github.com/containerd/containerd/v2/client"
+	"github.com/containerd/containerd/v2/pkg/namespaces"
 	"github.com/pdtpartners/nix-snapshotter/pkg/nix2container"
 	cli "github.com/urfave/cli/v2"
 )
@@ -18,7 +18,7 @@ var loadCommand = &cli.Command{
 			return fmt.Errorf("must provide exactly 1 args")
 		}
 
-		client, err := containerd.New(c.String("address"))
+		client, err := client.New(c.String("address"))
 		if err != nil {
 			return err
 		}

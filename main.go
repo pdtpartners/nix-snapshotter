@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 
 	snapshotsapi "github.com/containerd/containerd/api/services/snapshots/v1"
-	"github.com/containerd/containerd/contrib/snapshotservice"
-	"github.com/containerd/containerd/log"
+	"github.com/containerd/containerd/v2/contrib/snapshotservice"
+	"github.com/containerd/log"
 	"github.com/coreos/go-systemd/v22/daemon"
 	"github.com/pdtpartners/nix-snapshotter/pkg/config"
 	"github.com/pdtpartners/nix-snapshotter/pkg/nix"
