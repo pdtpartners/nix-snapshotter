@@ -49,13 +49,15 @@ let
 
   mkPreloadContainerdService = cfg:
     let
-      preload = pkgs.writeShellScriptBin "preload" (
-        lib.concatStringsSep "\n"
+      preload = pkgs.writeShellApplication {
+        name = "preload";
+        runtimeInputs = [ pkgs.nix-snapshotter ];
+        text = lib.concatStringsSep "\n"
           (lib.concatMap
             (target:
               builtins.map
                 (archive: ''
-                  ${pkgs.nix-snapshotter}/bin/nix2container \
+                  nix2container \
                     -a "${target.address}" \
                     -n "${target.namespace}" \
                     load ${archive}
@@ -63,8 +65,8 @@ let
                 target.archives
             )
             cfg.targets
-          )
-      );
+          );
+      };
 
     in {
       Unit = {
@@ -76,6 +78,8 @@ let
       Service = {
         Type = "oneshot";
         ExecStart = "${preload}/bin/preload";
+        Restart = "on-failure";
+        RestartSec = "1s";
         RemainAfterExit = true;
       };
     };
