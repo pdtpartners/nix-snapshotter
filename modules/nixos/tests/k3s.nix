@@ -22,7 +22,7 @@
       snapshotter = "nix";
       # Force k3s listen on IPv4 localhost otherwise it'll bind on a IPv6
       # address.
-      moreFlags = [
+      extraFlags = [
         "--node-ip=127.0.0.1"
       ];
     };

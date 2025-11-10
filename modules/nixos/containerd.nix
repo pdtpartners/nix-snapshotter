@@ -41,7 +41,7 @@ in {
       systemd.services.containerd.path = cfg.path;
     }
     (lib.mkIf cfg.k3sIntegration {
-      services.k3s.moreFlags = [
+      services.k3s.extraFlags = [
         "--container-runtime-endpoint unix:///run/containerd/containerd.sock"
       ];
 
@@ -75,7 +75,7 @@ in {
       };
     })
     (lib.mkIf (cfg.k3sIntegration && cfg.nixSnapshotterIntegration) {
-      services.k3s.moreFlags = [
+      services.k3s.extraFlags = [
         "--image-service-endpoint unix:///run/nix-snapshotter/nix-snapshotter.sock"
       ];
     })
