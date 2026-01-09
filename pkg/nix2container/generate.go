@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
 	"strings"
@@ -153,9 +154,59 @@ func initializeManifest(ctx context.Context, image *types.Image, store content.S
 			mfst.Annotations[k] = v
 		}
 		cfg.RootFS.DiffIDs = append(cfg.RootFS.DiffIDs, baseCfg.RootFS.DiffIDs...)
+		cfg.Config = mergeImageConfig(baseCfg.Config, cfg.Config)
 	}
 
 	return mfst, cfg, nil
+}
+
+func mergeImageConfig(base, over ocispec.ImageConfig) ocispec.ImageConfig {
+	// Env is appended
+	base.Env = append(base.Env, over.Env...)
+
+	// Overwritten if present in 'over'
+	if over.User != "" {
+		base.User = over.User
+	}
+	if over.WorkingDir != "" {
+		base.WorkingDir = over.WorkingDir
+	}
+	if len(over.Entrypoint) > 0 {
+		base.Entrypoint = over.Entrypoint
+	}
+	if len(over.Cmd) > 0 {
+		base.Cmd = over.Cmd
+	}
+	if over.StopSignal != "" {
+		base.StopSignal = over.StopSignal
+	}
+	if over.ArgsEscaped {
+		base.ArgsEscaped = over.ArgsEscaped
+	}
+
+	// Merged
+	if len(over.ExposedPorts) > 0 {
+		if base.ExposedPorts == nil {
+			base.ExposedPorts = make(map[string]struct{})
+		}
+		maps.Copy(base.ExposedPorts, over.ExposedPorts)
+	}
+
+	if len(over.Volumes) > 0 {
+		if base.Volumes == nil {
+			base.Volumes = make(map[string]struct{})
+		}
+		maps.Copy(base.Volumes, over.Volumes)
+	}
+
+	if len(over.Labels) > 0 {
+		if base.Labels == nil {
+			base.Labels = make(map[string]string)
+		}
+		maps.Copy(base.Labels, over.Labels)
+	}
+
+	return base
 }
 
 // parseOCITarball extracts a ocispec.Manifest and ocispec.Image from an OCI
