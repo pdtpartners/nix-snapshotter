@@ -11,6 +11,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"syscall"
 	"time"
@@ -271,6 +272,12 @@ func writeNixClosureLayer(ctx context.Context, w io.Writer, nixStorePaths, copyT
 
 	}
 
+	nixStoreDir := os.Getenv("NIX_STORE")
+	if nixStoreDir == "" {
+		nixStoreDir = "/nix/store"
+	}
+	storePathRegex := regexp.MustCompile(fmt.Sprintf("%s/[0-9a-z]{32}-[-.+_0-9a-zA-Z]+", nixStoreDir))
+
 	// For each copyToRoot, walk the store path locally and create a symlink for
 	// each file from the store path to a path relative to the rootfs' root.
 	//
@@ -279,7 +286,9 @@ func writeNixClosureLayer(ctx context.Context, w io.Writer, nixStorePaths, copyT
 	// =>
 	// /bin/hello
 	for _, copyToRoot := range copyToRoots {
-		err = filepath.WalkDir(copyToRoot, func(path string, dentry fs.DirEntry, err error) error {
+		var walkFunc func(path string, dentry fs.DirEntry, err error) error
+
+		walkFunc = func(path string, dentry fs.DirEntry, err error) error {
 			if err != nil {
 				return err
 			}
@@ -290,11 +299,29 @@ func writeNixClosureLayer(ctx context.Context, w io.Writer, nixStorePaths, copyT
 			}
 
 			if rootPath == root {
-				return fmt.Errorf("copyToRoot expected to be directory but got %s", copyToRoot)
+				// If the copyToRoot store path is a symlink
+				// to another (top-level) store path, run
+				// this function for that store path
+				if dentry.Type()&fs.ModeSymlink != 0 {
+					var symlinkPath string
+
+					symlinkPath, err = filepath.EvalSymlinks(path)
+					if err != nil {
+						return err
+					}
+
+					if storePathRegex.Match([]byte(symlinkPath)) {
+						return filepath.WalkDir(symlinkPath, walkFunc)
+					}
+				} else {
+					return fmt.Errorf("copyToRoot expected to be directory but got %s", copyToRoot)
+				}
 			}
 
 			return os.Symlink(path, rootPath)
-		})
+		}
+
+		err = filepath.WalkDir(copyToRoot, walkFunc)
 		if err != nil {
 			return "", err
 		}
