@@ -64,8 +64,10 @@ in {
      ```
   */
   flake.nixosConfigurations = {
-    vm = nixosSystemFor "x86_64-linux" ./vm.nix;
-    vm-rootless = nixosSystemFor "x86_64-linux" ./vm-rootless.nix;
+    vm-x86_64-linux = nixosSystemFor "x86_64-linux" ./vm.nix;
+    vm-rootless-x86_64-linux = nixosSystemFor "x86_64-linux" ./vm-rootless.nix;
+    vm-aarch64-linux = nixosSystemFor "aarch64-linux" ./vm.nix;
+    vm-rootless-aarch64-linux = nixosSystemFor "aarch64-linux" ./vm-rootless.nix;
   };
 
   perSystem = { system, ... }: {
@@ -77,8 +79,8 @@ in {
       ```
     */
     apps = {
-      vm = vmApp "vm";
-      vm-rootless = vmApp "vm-rootless";
+      vm = vmApp "vm-${system}";
+      vm-rootless = vmApp "vm-rootless-${system}";
     };
 
     # NixOS tests for nix-snapshotter.

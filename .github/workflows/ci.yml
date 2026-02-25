@@ -22,7 +22,6 @@ jobs:
       #   run: nix run .#lint-${{ matrix.linter }}
 
   build:
-    runs-on: ubuntu-latest
     strategy:
       matrix:
         package:
@@ -30,6 +29,10 @@ jobs:
           - image-hello
           - image-redis
           - image-redisWithShell
+        runs-on:
+          - ubuntu-latest
+          - ubuntu-24.04-arm
+    runs-on: "${{ matrix.runs-on }}"
     steps:
       - uses: actions/checkout@v4
       - name: Setup Nix
