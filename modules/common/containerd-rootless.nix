@@ -26,7 +26,7 @@ let
       mountPoint = mkOption {
         type = types.str;
         example = "/run/containerd";
-        description = lib.mdDoc "Mount point in the rootless mount namespace.";
+        description = "Mount point in the rootless mount namespace.";
       };
     };
   };
@@ -159,7 +159,7 @@ let
         RuntimeDirectoryPreserve = "yes";
 
         # Don't kill child processes like containerd-shim.
-        KillMode = "process"; 
+        KillMode = "process";
 
         # Allow process in pid namespace to notify systemd.
         NotifyAccess = "all";
@@ -197,7 +197,7 @@ in {
     settings = lib.mkOption {
       type = settingsFormat.type;
       default = {};
-      description = lib.mdDoc ''
+      description = ''
         Verbatim lines to add to containerd.toml
       '';
     };
@@ -205,13 +205,13 @@ in {
     args = lib.mkOption {
       type = types.attrsOf types.str;
       default = {};
-      description = lib.mdDoc "extra args to append to the containerd cmdline";
+      description = "extra args to append to the containerd cmdline";
     };
 
     enable = mkOption {
       type = types.bool;
       default = false;
-      description = lib.mdDoc ''
+      description = ''
         This option enables containerd in a rootless mode, a daemon that
         manages linux containers. To interact with the daemon, one needs to set
         {command}`CONTAINERD_ADDRESS=unix://$XDG_RUNTIME_DIR/containerd/containerd.sock`.
@@ -227,7 +227,7 @@ in {
           "$XDG_RUNTIME_DIR/containerd".mountPoint = "/run/containerd";
         }
       '';
-      description = lib.mdDoc ''
+      description = ''
         A list of bind mounts inside the mount namespace. Since paths like
         `/run` are copied up by rootlesskit, this allows sockets inside the
         mount namespace to be exposed in host directories like
@@ -237,7 +237,7 @@ in {
 
     nsenter = mkOption {
       type = types.package;
-      description = lib.mdDoc ''
+      description = ''
         Defines a package to nsenter into containerd's fakeroot setup by
         rootlesskit.
       '';
@@ -245,7 +245,7 @@ in {
 
     lib = mkOption {
       type = types.attrs;
-      description = lib.mdDoc "Common functions for the containerd modules.";
+      description = "Common functions for the containerd modules.";
       default = {
         inherit
           mkRootlessContainerdService

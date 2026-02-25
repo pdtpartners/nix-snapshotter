@@ -1,14 +1,20 @@
-{ config, lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 let
   cfg = config.services.k3s;
 
-in {
+in
+{
   imports = [
     ../common/k3s.nix
   ];
 
   config = lib.mkIf cfg.enable {
-    environment.extraInit = 
+    environment.extraInit =
       (lib.optionalString cfg.setEmbeddedContainerd ''
         if [ -z "$CONTAINERD_ADDRESS" ]; then
           export CONTAINERD_ADDRESS="/run/k3s/containerd/containerd.sock"
@@ -19,8 +25,8 @@ in {
         if [ -z "$CONTAINERD_SNAPSHOTTER" ]; then
           export CONTAINERD_SNAPSHOTTER="${cfg.snapshotter}"
         fi
-      '') +
-      (lib.optionalString cfg.setKubeConfig ''
+      '')
+      + (lib.optionalString cfg.setKubeConfig ''
         if [ -z "$KUBECONFIG" ]; then
           export KUBECONFIG="/etc/rancher/k3s/k3s.yaml"
         fi
