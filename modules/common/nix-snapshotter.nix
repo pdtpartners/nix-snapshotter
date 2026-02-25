@@ -33,6 +33,14 @@ let
       '';
     };
 
+    extraFlags = mkOption {
+      type = types.listOf types.str;
+      default = [ ];
+      description = lib.mkDoc ''
+        Additional command line flags to pass to nix-snapshotter
+      '';
+    };
+
     settings = mkOption {
       type = settingsFormat.type;
       default = {};
@@ -93,7 +101,11 @@ let
         WantedBy = [ "default.target" ];
       };
 
-      Service.ExecStart = "${nsenter}/bin/containerd-nsenter ${cfg.package}/bin/nix-snapshotter --config ${cfg.configFile}";
+      Service.ExecStart = builtins.concatStringsSep " " ([
+        "${nsenter}/bin/containerd-nsenter"
+        "${cfg.package}/bin/nix-snapshotter"
+        "--config ${cfg.configFile}"
+      ] ++ cfg.extraFlags);
     };
 
 in {

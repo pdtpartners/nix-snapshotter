@@ -21,6 +21,7 @@ in {
       configFile
       package
       path
+      extraFlags
       settings
     ;
 
@@ -40,7 +41,10 @@ in {
         wantedBy = [ "multi-user.target" ];
         after = [ "network.target" ];
         partOf = [ "containerd.service" ];
-        serviceConfig.ExecStart = "${cfg.package}/bin/nix-snapshotter --config ${cfg.configFile}";
+        serviceConfig.ExecStart = builtins.concatStringsSep " " ([
+          "${cfg.package}/bin/nix-snapshotter"
+          "--config ${cfg.configFile}"
+        ] ++ cfg.extraFlags);
       }
     ];
   };

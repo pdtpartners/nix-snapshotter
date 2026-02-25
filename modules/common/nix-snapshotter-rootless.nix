@@ -21,6 +21,7 @@ in {
       configFile
       package
       path
+      extraFlags
       settings
     ;
 
