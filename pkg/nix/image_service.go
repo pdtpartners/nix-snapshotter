@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"github.com/pdtpartners/nix-snapshotter/pkg/nix2container"
 	"google.golang.org/grpc"
 	runtime "k8s.io/cri-api/pkg/apis/runtime/v1"
+	goruntime "runtime"
 )
 
 var (
@@ -36,6 +38,7 @@ type imageService struct {
 	client             *client.Client
 	imageServiceClient runtime.ImageServiceClient
 	nixBuilder         NixBuilder
+	nixSystem          string
 }
 
 func NewImageService(ctx context.Context, containerdAddr string, opts ...ImageServiceOpt) (runtime.ImageServiceServer, error) {
@@ -48,8 +51,18 @@ func NewImageService(ctx context.Context, containerdAddr string, opts ...ImageSe
 		opt.SetImageServiceOpt(&cfg)
 	}
 
+	var system string
+	if goruntime.GOOS == "linux" && goruntime.GOARCH == "amd64" {
+		system = "x86_64-linux"
+	} else if goruntime.GOOS == "linux" && goruntime.GOARCH == "arm64" {
+		system = "aarch64-linux"
+	} else {
+		log.G(ctx).Fatalf("Cannot derive Nix platform from Go runtime")
+	}
+
 	service := &imageService{
 		nixBuilder: cfg.nixBuilder,
+		nixSystem:  system,
 	}
 
 	go func() {
@@ -113,10 +126,7 @@ func (is *imageService) PullImage(ctx context.Context, req *runtime.PullImageReq
 		resp, err := client.PullImage(ctx, req)
 		return resp, err
 	}
-	archivePath := strings.TrimSuffix(
-		strings.TrimPrefix(ref, nix2container.ImageRefPrefix),
-		":latest",
-	)
+	archivePath := getNixStorePath(ctx, ref, is.nixSystem)
 
 	_, err := os.Stat(archivePath)
 	if errors.Is(err, os.ErrNotExist) {
@@ -166,4 +176,44 @@ func (is *imageService) ImageFsInfo(ctx context.Context, req *runtime.ImageFsInf
 		return nil, ErrNotInitialized
 	}
 	return client.ImageFsInfo(ctx, req)
+}
+
+// getNixStorePath extracts the store path from the image ref.
+func getNixStorePath(ctx context.Context, ref string, system string) string {
+	path := strings.TrimSuffix(
+		strings.TrimPrefix(ref, nix2container.ImageRefPrefix),
+		":latest",
+	)
+
+	if strings.HasPrefix(path, "/multiarch/") {
+		path, _ = strings.CutPrefix(path, "/multiarch/")
+
+		pathsPerSystem := map[string]string{}
+
+		storePathRegex := regexp.MustCompile("/nix/store/[0-9a-z]{32}-[-.+_0-9a-zA-Z]+")
+
+		for path != "" {
+			// Extract and remove leading <system>
+			// from <system>/nix/store/<hash>/<other_system>/nix/store/<hash>
+			system := strings.Split(path, "/")[0]
+			path, _ = strings.CutPrefix(path, system)
+
+			// Extract and remove store path
+			// from </nix/store/<hash>>/<system>/nix/store/<hash>
+			systemPath := string(storePathRegex.Find([]byte(path)))
+			path, _ = strings.CutPrefix(path, systemPath)
+			path, _ = strings.CutPrefix(path, "/") // remove leading "/"
+
+			pathsPerSystem[system] = systemPath
+		}
+
+		var ok bool
+		path, ok = pathsPerSystem[system]
+		if !ok {
+			log.G(ctx).Errorf("Failed to extract path from %s", ref)
+		}
+
+	}
+
+	return path
 }
