@@ -37,11 +37,16 @@ let
     # If enabled, the OCI archive will be generated with a special image
     # reference in the format of "nix:0/nix/store/*.tar", which is resolvable
     # by nix-snapshotter if configured as the CRI image-service without a
-    # Docker Registry.
+    # Docker Registry. In this case, the resulting image cannot be imported
+    # with `nerdctl load`. Instead, `passthru.copyToContainerd` can be used
+    # to import the image, and `services.preload-containerd.rootless` can be
+    # configured to preload the images during NixOS / home-manager activation.
     resolvedByNix ? false,
     # An image that is used as base image of this image. Any image can be used
     # as a fromImage, including non-nix images and images built with
-    # pkgs.dockerTools.buildImage.
+    # pkgs.dockerTools.buildImage. Note that compressed images are
+    # not yet supported, so one should set `compressor = "none"` in
+    # `pkgs.dockerTools.buildImage` before passing it to `fromImage`.
     fromImage ? null,
     # A derivation (or list of derivation) to include in the layer
     # root. The store path prefix /nix/store/hash-path is removed. The

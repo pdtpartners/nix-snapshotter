@@ -188,6 +188,10 @@ easy installation.
             virtualisation.containerd.rootless = {
               enable = true;
               nixSnapshotterIntegration = true;
+              # This may be necessary for non-NixOS systems, as rootless containerd
+              # depends on host commands such as `newuidmap`, which is located under
+              # `/usr/bin` in most linux systems:
+              path = [ "/usr" ];
             };
             services.nix-snapshotter.rootless = {
               enable = true;
@@ -229,6 +233,10 @@ easy installation.
     virtualisation.containerd.rootless = {
       enable = true;
       nixSnapshotterIntegration = true;
+      # This may be necessary for non-NixOS systems, as rootless containerd
+      # depends on host commands such as `newuidmap`, which is located under
+      # `/usr/bin` in most linux systems:
+      path = [ "/usr" ];
     };
     services.nix-snapshotter.rootless = {
       enable = true;
