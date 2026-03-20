@@ -486,10 +486,9 @@ with the digest which is computed from the layer tarball which is thrown away.
 This lets the tool `skopeo` to only copy non-existing layers, which then builds
 the requested layer tarballs again JIT.
 
-nix2container is a great improvement, but still suffers same problems pointed
-out in the `pkgs.dockerTools.buildImage` section. It duplicates data between
-Nix binary cache and Docker Registry, and it duplicates packages between layers
-due to using a similar heuristic-based strategy.
+nix2container is a great improvement, but still suffers a problem pointed
+out in the `pkgs.dockerTools.buildImage` section: it duplicates data between
+Nix binary cache and Docker Registry.
 
 `pkgs.nix-snapshotter.buildImage` has all the same improvements, except that
 we do write the final image back to the Nix store since it's tiny and allows us
