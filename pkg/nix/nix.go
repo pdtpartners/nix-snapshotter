@@ -2,6 +2,7 @@ package nix
 
 import (
 	"context"
+	"fmt"
 	"os/exec"
 	"strings"
 
@@ -13,6 +14,9 @@ import (
 // Supported is not called during plugin initialization, but exposed for downstream projects which uses
 // this snapshotter as a library.
 func Supported(root string) error {
+	if _, err := exec.LookPath("nix-store"); err != nil {
+		return fmt.Errorf("nix-store not found in PATH: the nix package manager is required, see https://nixos.org/download")
+	}
 	return overlayutils.Supported(root)
 }
 

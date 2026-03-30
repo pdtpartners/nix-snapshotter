@@ -8,7 +8,7 @@ let
   options = {
     setEmbeddedContainerd = mkOption {
       type = types.bool;
-      description = lib.mdDoc ''
+      description = ''
         Configures CONTAINERD_ADDRESS, CONTAINERD_NAMESPACE,
         CONTAINERD_SNAPSHOTTER to target k3s' embedded containerd.
       '';
@@ -17,7 +17,7 @@ let
 
     setKubeConfig = mkOption {
       type = types.bool;
-      description = lib.mdDoc ''
+      description = ''
         Configures KUBECONFIG environment variable to default kubectl to point
         to k3s.
       '';
@@ -31,7 +31,7 @@ let
         "stargz"
         "nix"
       ];
-      description = lib.mdDoc ''
+      description = ''
         Specifies the containerd snapshotter for k3s' embedded containerd.
       '';
       default = "overlayfs";
@@ -48,7 +48,7 @@ in {
 
     lib = mkOption {
       type = types.attrs;
-      description = lib.mdDoc "Common functions for k3s.";
+      description = "Common functions for k3s.";
       default = {
         inherit options;
       };

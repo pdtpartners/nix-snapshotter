@@ -31,7 +31,8 @@ let
       EnvironmentFile = cfg.environmentFile;
       ExecStart = lib.concatStringsSep " \\\n " (
         [
-          "${pkgs.k3s}/bin/k3s server --rootless"
+          # The wrapper swallows PATH for some reason
+          "${pkgs.k3s}/bin/.k3s-wrapped server --rootless"
         ]
         ++ (lib.optional (cfg.configPath != null) "--config ${cfg.configPath}")
         ++ cfg.extraFlags
@@ -60,27 +61,27 @@ in {
       snapshotter
     ;
 
-    enable = mkEnableOption (lib.mdDoc "k3s");
+    enable = mkEnableOption ("k3s");
 
     package = mkPackageOption pkgs "k3s" { };
 
     extraFlags = mkOption {
       type = types.listOf types.str;
-      description = lib.mdDoc "Extra flags to pass to the k3s command.";
+      description = "Extra flags to pass to the k3s command.";
       default = [];
       example = [ "--no-deploy traefik" "--cluster-cidr 10.24.0.0/16" ];
     };
 
     path = mkOption {
       type = types.listOf types.path;
-      description = lib.mdDoc ''
+      description = ''
         Packages to be included in the PATH for k3s.
       '';
     };
 
     environmentFile = mkOption {
       type = types.nullOr types.path;
-      description = lib.mdDoc ''
+      description = ''
         File path containing environment variables for configuring the k3s
         service in the format of an EnvironmentFile. See systemd.exec(5).
       '';
@@ -90,7 +91,7 @@ in {
     configPath = mkOption {
       type = types.nullOr types.path;
       default = null;
-      description = lib.mdDoc ''
+      description = ''
         File path containing the k3s YAML config. This is useful when the config is
         generated (for example on boot).
       '';
@@ -98,7 +99,7 @@ in {
 
     lib = mkOption {
       type = types.attrs;
-      description = lib.mdDoc "Common functions for the k3s modules.";
+      description = "Common functions for the k3s modules.";
       default = {
         inherit mkRootlessK3sService;
       };
@@ -111,8 +112,12 @@ in {
       {
         path = with pkgs; [
           nerdctl
+          runc         # OCI runtime (wrapper adds it, but we bypass wrapper)
           slirp4netns
-          # Need access to newuidmap from "/run/wrappers"
+          util-linux   # for nsenter
+          iproute2     # for ip
+          iptables     # for firewalling
+          # Need access to newuidmap from "/run/wrappers/bin"
           "/run/wrappers"
         ];
 
