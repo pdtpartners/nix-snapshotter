@@ -59,7 +59,7 @@ let
       copyToRootList = lib.toList (args.copyToRoot or []);
 
       runtimeClosureInfo = closureInfo {
-        rootPaths = [ configFile ] ++ copyToRootList;
+        rootPaths = copyToRootList;
       };
 
       copyToRootFile =
