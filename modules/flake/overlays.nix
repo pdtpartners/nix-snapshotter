@@ -56,32 +56,28 @@
           };
           needsSrcPatch = isK3s && patchedVendorHash ? ${args.vendorHash};
 
-          patchedSrc = super.runCommand "k3s-patched-src" {} ''
-            cp -r ${args.src} $out
-            chmod -R u+w $out
-            cd $out
-            patch -p1 < ${./patches/k3s-nix-snapshotter.patch}
-          '';
-
           checkpointFile = "vendor/github.com/containerd/containerd/v2/internal/cri/server/container_checkpoint_linux.go";
         in
           if isK3s then
             super.buildGoModule (args // super.lib.optionalAttrs needsSrcPatch {
-              src = patchedSrc;
+              # goModules inherits `patches`, so `go mod vendor` sees the
+              # patched go.mod/go.sum.
+              patches = (args.patches or [ ]) ++ [ ./patches/k3s-nix-snapshotter.patch ];
               vendorHash = patchedVendorHash.${args.vendorHash};
             } // {
               # Patch vendored containerd: treat ErrNotFound in checkpoint
               # detection as "not a checkpoint image" instead of a hard error.
               # This fixes a race where the CRI image store hasn't been
-              # populated yet when CreateContainer runs. Fails the build if
-              # the fix ends up in neither the patched nor the upstream file.
-              preBuild = (args.preBuild or "") + ''
-                # vendor/ is copied read-only from the go-modules derivation
+              # populated yet when CreateContainer runs.
+              #
+              # vendor/ doesn't exist at patchPhase (configurePhase copies it,
+              # read-only, from goModules), so this runs in postConfigure:
+              # unlike preBuild, goModules doesn't inherit it, and the vendor
+              # hash stays upstream's. No `|| true`: a patch that stops
+              # applying (or is already upstream) fails the build.
+              postConfigure = (args.postConfigure or "") + ''
                 chmod u+w ${checkpointFile} "$(dirname ${checkpointFile})"
-                patch --forward -p1 < ${./patches/containerd-checkpoint-not-found.patch} || true
-                grep -A3 'image, err := c.LocalResolve(input)' ${checkpointFile} \
-                  | grep -q 'errdefs.IsNotFound(err)' \
-                  || { echo "containerd checkpoint ErrNotFound fix missing"; exit 1; }
+                patch --forward -p1 < ${./patches/containerd-checkpoint-not-found.patch}
               '';
             })
           else
