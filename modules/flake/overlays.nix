@@ -32,7 +32,9 @@
       inherit (inputs) globset;
     };
 
-    k3s = super.k3s_1_34.override {
+    # k3s 1.35 ships nix-snapshotter support (the snapshotter plugin and
+    # the containerd config templates) itself, so its source is unpatched.
+    k3s = super.k3s_1_35.override {
       buildGoModule = args:
         let
           isFunc = builtins.isFunction args;
@@ -40,31 +42,10 @@
                   args.pname != "k3s-cni-plugins" &&
                   args.pname != "k3s-containerd";
 
-          # Upstream k3s vendorHash -> vendorHash with the nix-snapshotter
-          # patch applied. k3s releases without an entry (1.34.11 on) ship
-          # nix-snapshotter support themselves and build from unpatched
-          # source with their own vendorHash.
-          patchedVendorHash = {
-            # k3s 1.34.2+k3s1
-            "sha256-IJi5gVxBsAjeQHi5rQpNRvWOXuNPx2Rtsy18VL+2Yxo=" = "sha256-Y3Dc/aWNpiNxDaJb3RAudwN7Ep6WdhSCQmtjt1pNk1w=";
-            # k3s 1.34.3+k3s3
-            "sha256-R8QXwXmTKsONsbWaedFNDPdYZ82jaQ/T8S9sllqKPjk=" = "sha256-IaWUzoMAye85cNkjE5ISJkDujO6PsSsKy8l1CH7SimY=";
-            # k3s 1.34.4+k3s1
-            "sha256-ZTRcv28rgKslrDRr5y8SnQJpo2ErbURa22l1nv+4QHw=" = "sha256-OK79hUWRJ8MvvMyy0vts6Bu8gudEANHQ9YAemZfXrsw=";
-            # k3s 1.34.5+k3s1
-            "sha256-q3/KylcuuhUMC3ggpR8DsLjdWgtPnhCqa1HjM2sgHuo=" = "sha256-ybfcn5VAqhRd9CavOMBsfgzqhgOVIt/P2NOE/wgRn2k=";
-          };
-          needsSrcPatch = isK3s && patchedVendorHash ? ${args.vendorHash};
-
           checkpointFile = "vendor/github.com/containerd/containerd/v2/internal/cri/server/container_checkpoint_linux.go";
         in
           if isK3s then
-            super.buildGoModule (args // super.lib.optionalAttrs needsSrcPatch {
-              # goModules inherits `patches`, so `go mod vendor` sees the
-              # patched go.mod/go.sum.
-              patches = (args.patches or [ ]) ++ [ ./patches/k3s-nix-snapshotter.patch ];
-              vendorHash = patchedVendorHash.${args.vendorHash};
-            } // {
+            super.buildGoModule (args // {
               # Patch vendored containerd: treat ErrNotFound in checkpoint
               # detection as "not a checkpoint image" instead of a hard error.
               # This fixes a race where the CRI image store hasn't been
