@@ -76,6 +76,8 @@
               # populated yet when CreateContainer runs. Fails the build if
               # the fix ends up in neither the patched nor the upstream file.
               preBuild = (args.preBuild or "") + ''
+                # vendor/ is copied read-only from the go-modules derivation
+                chmod u+w ${checkpointFile} "$(dirname ${checkpointFile})"
                 patch --forward -p1 < ${./patches/containerd-checkpoint-not-found.patch} || true
                 grep -A3 'image, err := c.LocalResolve(input)' ${checkpointFile} \
                   | grep -q 'errdefs.IsNotFound(err)' \
