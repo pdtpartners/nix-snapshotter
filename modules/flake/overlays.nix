@@ -36,9 +36,25 @@
       buildGoModule = args:
         let
           isFunc = builtins.isFunction args;
-          shouldPatch = !isFunc &&
-                        args.pname != "k3s-cni-plugins" &&
-                        args.pname != "k3s-containerd";
+          isK3s = !isFunc &&
+                  args.pname != "k3s-cni-plugins" &&
+                  args.pname != "k3s-containerd";
+
+          # Upstream k3s vendorHash -> vendorHash with the nix-snapshotter
+          # patch applied. k3s releases without an entry (1.34.11 on) ship
+          # nix-snapshotter support themselves and build from unpatched
+          # source with their own vendorHash.
+          patchedVendorHash = {
+            # k3s 1.34.2+k3s1
+            "sha256-IJi5gVxBsAjeQHi5rQpNRvWOXuNPx2Rtsy18VL+2Yxo=" = "sha256-Y3Dc/aWNpiNxDaJb3RAudwN7Ep6WdhSCQmtjt1pNk1w=";
+            # k3s 1.34.3+k3s3
+            "sha256-R8QXwXmTKsONsbWaedFNDPdYZ82jaQ/T8S9sllqKPjk=" = "sha256-IaWUzoMAye85cNkjE5ISJkDujO6PsSsKy8l1CH7SimY=";
+            # k3s 1.34.4+k3s1
+            "sha256-ZTRcv28rgKslrDRr5y8SnQJpo2ErbURa22l1nv+4QHw=" = "sha256-OK79hUWRJ8MvvMyy0vts6Bu8gudEANHQ9YAemZfXrsw=";
+            # k3s 1.34.5+k3s1
+            "sha256-q3/KylcuuhUMC3ggpR8DsLjdWgtPnhCqa1HjM2sgHuo=" = "sha256-ybfcn5VAqhRd9CavOMBsfgzqhgOVIt/P2NOE/wgRn2k=";
+          };
+          needsSrcPatch = isK3s && patchedVendorHash ? ${args.vendorHash};
 
           patchedSrc = super.runCommand "k3s-patched-src" {} ''
             cp -r ${args.src} $out
@@ -46,26 +62,24 @@
             cd $out
             patch -p1 < ${./patches/k3s-nix-snapshotter.patch}
           '';
+
+          checkpointFile = "vendor/github.com/containerd/containerd/v2/internal/cri/server/container_checkpoint_linux.go";
         in
-          if shouldPatch then
-            super.buildGoModule (args // {
+          if isK3s then
+            super.buildGoModule (args // super.lib.optionalAttrs needsSrcPatch {
               src = patchedSrc;
-              vendorHash = {
-                # k3s 1.34.2+k3s1
-                "sha256-IJi5gVxBsAjeQHi5rQpNRvWOXuNPx2Rtsy18VL+2Yxo=" = "sha256-Y3Dc/aWNpiNxDaJb3RAudwN7Ep6WdhSCQmtjt1pNk1w=";
-                # k3s 1.34.3+k3s3
-                "sha256-R8QXwXmTKsONsbWaedFNDPdYZ82jaQ/T8S9sllqKPjk=" = "sha256-IaWUzoMAye85cNkjE5ISJkDujO6PsSsKy8l1CH7SimY=";
-                # k3s 1.34.4+k3s1
-                "sha256-ZTRcv28rgKslrDRr5y8SnQJpo2ErbURa22l1nv+4QHw=" = "sha256-OK79hUWRJ8MvvMyy0vts6Bu8gudEANHQ9YAemZfXrsw=";
-                # k3s 1.34.5+k3s1
-                "sha256-q3/KylcuuhUMC3ggpR8DsLjdWgtPnhCqa1HjM2sgHuo=" = "sha256-ybfcn5VAqhRd9CavOMBsfgzqhgOVIt/P2NOE/wgRn2k=";
-              }.${args.vendorHash};
+              vendorHash = patchedVendorHash.${args.vendorHash};
+            } // {
               # Patch vendored containerd: treat ErrNotFound in checkpoint
               # detection as "not a checkpoint image" instead of a hard error.
               # This fixes a race where the CRI image store hasn't been
-              # populated yet when CreateContainer runs.
+              # populated yet when CreateContainer runs. Fails the build if
+              # the fix ends up in neither the patched nor the upstream file.
               preBuild = (args.preBuild or "") + ''
                 patch --forward -p1 < ${./patches/containerd-checkpoint-not-found.patch} || true
+                grep -A3 'image, err := c.LocalResolve(input)' ${checkpointFile} \
+                  | grep -q 'errdefs.IsNotFound(err)' \
+                  || { echo "containerd checkpoint ErrNotFound fix missing"; exit 1; }
               '';
             })
           else
