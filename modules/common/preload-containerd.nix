@@ -12,7 +12,7 @@ let
     targets = mkOption {
       type = types.listOf targetType;
       default = [];
-      description = lib.mdDoc ''
+      description = ''
         Specify a list of containerd targets to preload image tar archives.
         Each target can specify a different address and namespace.
       '';
@@ -24,7 +24,7 @@ let
       archives = mkOption {
         type = types.listOf types.package;
         default = [];
-        description = lib.mdDoc ''
+        description = ''
           Specify image tar archives to be preloaded to this containerd target.
         '';
       };
@@ -32,7 +32,7 @@ let
       address = mkOption {
         type = types.str;
         default = "/run/containerd/containerd.sock";
-        description = lib.mdDoc ''
+        description = ''
           Set the containerd address for preloading.
         '';
       };
@@ -40,7 +40,7 @@ let
       namespace = mkOption {
         type = types.str;
         default = "default";
-        description = lib.mdDoc ''
+        description = ''
           Set the containerd namespace for preloading.
         '';
       };
@@ -105,7 +105,7 @@ in {
 
     lib = mkOption {
       type = types.attrs;
-      description = lib.mdDoc "Common functions for preload-containerd.";
+      description = "Common functions for preload-containerd.";
       default = {
         inherit
           options

@@ -15,7 +15,7 @@ let
   options = {
     configFile = mkOption {
       type = types.nullOr types.path;
-      description = lib.mdDoc ''
+      description = ''
        Path to nix-snapshotter config file.
        Setting this option will override any configuration applied by the
        settings option.
@@ -27,7 +27,7 @@ let
     path = mkOption {
       type = types.listOf types.package;
       default = [ pkgs.nix ];
-      description = lib.mdDoc ''
+      description = ''
         Set the path of the nix-snapshotter service, if it requires access to
         alternative nix binaries.
       '';
@@ -36,7 +36,7 @@ let
     settings = mkOption {
       type = settingsFormat.type;
       default = {};
-      description = lib.mdDoc ''
+      description = ''
         Verbatim lines to add to config.toml
       '';
     };
@@ -100,7 +100,7 @@ in {
   options.services.nix-snapshotter = {
     lib = mkOption {
       type = types.attrs;
-      description = lib.mdDoc "Common functions for the nix-snapshotter modules.";
+      description = "Common functions for the nix-snapshotter modules.";
       default = {
         inherit
           options

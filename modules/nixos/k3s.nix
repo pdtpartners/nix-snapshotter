@@ -8,7 +8,7 @@ in {
   ];
 
   config = lib.mkIf cfg.enable {
-    environment.extraInit = 
+    environment.extraInit =
       (lib.optionalString cfg.setEmbeddedContainerd ''
         if [ -z "$CONTAINERD_ADDRESS" ]; then
           export CONTAINERD_ADDRESS="/run/k3s/containerd/containerd.sock"

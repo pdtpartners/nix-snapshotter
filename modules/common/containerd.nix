@@ -20,7 +20,7 @@ let
 
     defaultRuntime = mkOption {
       type = types.str;
-      description = lib.mdDoc ''
+      description = ''
         Configures the default CRI runtime for containerd.
       '';
       default = "runc";
@@ -28,7 +28,7 @@ let
 
     path = mkOption {
       type = types.listOf types.path;
-      description = lib.mdDoc ''
+      description = ''
         Packages to be included in the PATH for containerd.
       '';
       default = [];
@@ -37,7 +37,7 @@ let
     setAddress = mkOption {
       type = types.str;
       default = "/run/containerd/containerd.sock";
-      description = lib.mdDoc ''
+      description = ''
         Set the default containerd address via environment variable
         `CONTAINERD_ADDRESS`.
       '';
@@ -46,7 +46,7 @@ let
     setNamespace = mkOption {
       type = types.str;
       default = "default";
-      description = lib.mdDoc ''
+      description = ''
         Set the default containerd namespace via environment variable
         `CONTAINERD_NAMESPACE`.
       '';
@@ -55,7 +55,7 @@ let
     setSnapshotter = mkOption {
       type = types.str;
       default = "";
-      description = lib.mdDoc ''
+      description = ''
         Set the default containerd snapshotter via environment variable
         `CONTAINERD_SNAPSHOTTER`.
       '';
@@ -120,7 +120,7 @@ in {
 
     lib = mkOption {
       type = types.attrs;
-      description = lib.mdDoc "Common functions for containerd.";
+      description = "Common functions for containerd.";
       default = {
         inherit
           options

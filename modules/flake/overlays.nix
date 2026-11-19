@@ -2,7 +2,7 @@
 {
   # Provide overlay to add `nix-snapshotter`.
   flake.overlays.default = self: super: {
-    containerd-1_7 = super.containerd.overrideAttrs(_: rec {
+    containerd-1_7 = super.containerd.overrideAttrs (_: rec {
       version = "1.7.28";
 
       src = self.fetchFromGitHub {
@@ -32,26 +32,67 @@
       inherit (inputs) globset;
     };
 
-    k3s = super.k3s_1_30.override {
-      buildGoModule = args: super.buildGoModule (args // super.lib.optionalAttrs (args.pname != "k3s-cni-plugins" && args.pname != "k3s-containerd") {
-        vendorHash = {
-          "sha256-qEvdBT3noOtKdIdHDJZChowXzQMpVpY/l1ioTJCGVJ4=" = "sha256-fwhwoK+ID4BZtI6cRUQjkR9w2IVpaCrYLrfy8+irq5w=";
-        }.${args.vendorHash};
-        # Source https://patch-diff.githubusercontent.com/raw/k3s-io/k3s/pull/9319.patch
-        # Remove when merged
-        patches = (args.patches or []) ++ [
-          ./patches/k3s-nix-snapshotter.patch
-        ];
-      });
+    k3s = super.k3s_1_34.override {
+      buildGoModule = args:
+        let
+          isFunc = builtins.isFunction args;
+          isK3s = !isFunc &&
+                  args.pname != "k3s-cni-plugins" &&
+                  args.pname != "k3s-containerd";
+
+          # Upstream k3s vendorHash -> vendorHash with the nix-snapshotter
+          # patch applied. k3s releases without an entry (1.34.11 on) ship
+          # nix-snapshotter support themselves and build from unpatched
+          # source with their own vendorHash.
+          patchedVendorHash = {
+            # k3s 1.34.2+k3s1
+            "sha256-IJi5gVxBsAjeQHi5rQpNRvWOXuNPx2Rtsy18VL+2Yxo=" = "sha256-Y3Dc/aWNpiNxDaJb3RAudwN7Ep6WdhSCQmtjt1pNk1w=";
+            # k3s 1.34.3+k3s3
+            "sha256-R8QXwXmTKsONsbWaedFNDPdYZ82jaQ/T8S9sllqKPjk=" = "sha256-IaWUzoMAye85cNkjE5ISJkDujO6PsSsKy8l1CH7SimY=";
+            # k3s 1.34.4+k3s1
+            "sha256-ZTRcv28rgKslrDRr5y8SnQJpo2ErbURa22l1nv+4QHw=" = "sha256-OK79hUWRJ8MvvMyy0vts6Bu8gudEANHQ9YAemZfXrsw=";
+            # k3s 1.34.5+k3s1
+            "sha256-q3/KylcuuhUMC3ggpR8DsLjdWgtPnhCqa1HjM2sgHuo=" = "sha256-ybfcn5VAqhRd9CavOMBsfgzqhgOVIt/P2NOE/wgRn2k=";
+          };
+          needsSrcPatch = isK3s && patchedVendorHash ? ${args.vendorHash};
+
+          checkpointFile = "vendor/github.com/containerd/containerd/v2/internal/cri/server/container_checkpoint_linux.go";
+        in
+          if isK3s then
+            super.buildGoModule (args // super.lib.optionalAttrs needsSrcPatch {
+              # goModules inherits `patches`, so `go mod vendor` sees the
+              # patched go.mod/go.sum.
+              patches = (args.patches or [ ]) ++ [ ./patches/k3s-nix-snapshotter.patch ];
+              vendorHash = patchedVendorHash.${args.vendorHash};
+            } // {
+              # Patch vendored containerd: treat ErrNotFound in checkpoint
+              # detection as "not a checkpoint image" instead of a hard error.
+              # This fixes a race where the CRI image store hasn't been
+              # populated yet when CreateContainer runs.
+              #
+              # vendor/ doesn't exist at patchPhase (configurePhase copies it,
+              # read-only, from goModules), so this runs in postConfigure:
+              # unlike preBuild, goModules doesn't inherit it, and the vendor
+              # hash stays upstream's. No `|| true`: a patch that stops
+              # applying (or is already upstream) fails the build.
+              postConfigure = (args.postConfigure or "") + ''
+                chmod u+w ${checkpointFile} "$(dirname ${checkpointFile})"
+                patch --forward -p1 < ${./patches/containerd-checkpoint-not-found.patch}
+              '';
+            })
+          else
+            super.buildGoModule args;
     };
   };
 
-  perSystem = { system, ... }: {
-    _module.args.pkgs = import inputs.nixpkgs {
-      inherit system;
-      # Apply default overlay to provide nix-snapshotter for NixOS tests &
-      # configurations.
-      overlays = [ self.overlays.default ];
+  perSystem =
+    { system, ... }:
+    {
+      _module.args.pkgs = import inputs.nixpkgs {
+        inherit system;
+        # Apply default overlay to provide nix-snapshotter for NixOS tests &
+        # configurations.
+        overlays = [ self.overlays.default ];
+      };
     };
-  };
 }
