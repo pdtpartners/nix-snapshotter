@@ -58,7 +58,7 @@ in {
             disable_apparmor = true;
             disable_cgroup = true;
             restrict_oom_score_adj = true;
-            sandbox_image = "rancher/mirrored-pause:3.6";
+            sandbox_image = config.services.k3s.pauseImage;
 
             cni = {
               conf_dir = "/var/lib/rancher/k3s/agent/etc/cni/net.d/";
@@ -78,6 +78,25 @@ in {
       services.k3s.extraFlags = [
         "--image-service-endpoint unix:///run/nix-snapshotter/nix-snapshotter.sock"
       ];
+
+      # containerd pulls its sandbox image itself, bypassing nix-snapshotter's
+      # image service, so a nix:0 pause image has to be loaded beforehand.
+      # containerd 2.3 looks it up by exact name, and nix2container load
+      # stores nix:0 images with a ":latest" tag.
+      services.k3s.pauseImage = lib.mkDefault "${pkgs.nix-snapshotter-pause.image}:latest";
+
+      services.preload-containerd = {
+        enable = true;
+        targets = [{
+          archives = [ pkgs.nix-snapshotter-pause ];
+          namespace = "k8s.io";
+        }];
+      };
+
+      systemd.services.k3s = {
+        wants = [ "preload-containerd.service" ];
+        after = [ "preload-containerd.service" ];
+      };
     })
     (lib.mkIf cfg.gVisorIntegration {
       virtualisation.containerd = {

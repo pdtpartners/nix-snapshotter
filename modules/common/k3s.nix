@@ -36,6 +36,19 @@ let
       '';
       default = "overlayfs";
     };
+
+    pauseImage = mkOption {
+      type = types.str;
+      description = ''
+        Sandbox (pause) image. Passed to k3s as --pause-image and, with
+        virtualisation.containerd.k3sIntegration, used as the external
+        containerd's sandbox image, so both use the same one. Must be fully
+        qualified: containerd 2.3 looks the sandbox image up by exact name.
+        The default is k3s' own, which its airgap images archive provides;
+        with nix-snapshotter integration it's a preloaded nix:0 image.
+      '';
+      default = "docker.io/" + import ./k3s-pause-image.nix;
+    };
   };
 
 in {
@@ -44,6 +57,7 @@ in {
       setEmbeddedContainerd
       setKubeConfig
       snapshotter
+      pauseImage
     ;
 
     lib = mkOption {

@@ -32,6 +32,15 @@
       inherit (inputs) globset;
     };
 
+    # Sandbox (pause) image as a nix:0 image. containerd fetches its sandbox
+    # image itself, not through nix-snapshotter's image service, so the
+    # modules preload it (see modules/nixos/containerd.nix).
+    nix-snapshotter-pause = self.nix-snapshotter.buildImage {
+      name = "pause";
+      resolvedByNix = true;
+      config.entrypoint = [ "${self.kubernetes.pause}/bin/pause" ];
+    };
+
     # k3s 1.35 ships nix-snapshotter support (the snapshotter plugin and
     # the containerd config templates) itself, so its source is unpatched.
     k3s = super.k3s_1_35.override {

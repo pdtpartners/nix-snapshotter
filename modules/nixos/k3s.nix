@@ -27,7 +27,10 @@ in {
       '');
 
     services.k3s = {
-      extraFlags = [ "--snapshotter ${cfg.snapshotter}" ];
+      extraFlags = [
+        "--snapshotter ${cfg.snapshotter}"
+        "--pause-image ${cfg.pauseImage}"
+      ];
     };
 
     systemd.services.k3s.path = lib.mkIf (cfg.snapshotter == "nix") [
