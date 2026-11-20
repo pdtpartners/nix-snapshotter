@@ -28,6 +28,25 @@
       '';
     });
 
+    # containerd 2.3's withReadonlyFS (oci.WithUser, WithAdditionalGIDs)
+    # views the last mount as the rootfs, which for nix-snapshotter is a
+    # store path bind mount: a single-file path fails with ENOTDIR and a
+    # directory is silently read as /. Drop once containerd/containerd#14199
+    # is in a release. The daemon's CRI uses it, nerdctl vendors it.
+    containerd = super.containerd.overrideAttrs (old: {
+      patches = (old.patches or []) ++ [ ./patches/containerd-fsview-child-target.patch ];
+    });
+
+    nerdctl = super.nerdctl.overrideAttrs (old: {
+      # vendor/ is copied in (read-only) at configurePhase; see k3s below.
+      postConfigure = (old.postConfigure or "") + ''
+        fsview=vendor/github.com/containerd/containerd/v2/internal/fsview
+        chmod u+w $fsview/mount.go $fsview
+        patch --forward -p1 -d vendor/github.com/containerd/containerd/v2 \
+          < ${./patches/containerd-fsview-child-target.patch}
+      '';
+    });
+
     nix-snapshotter = self.callPackage ../../package.nix {
       inherit (inputs) globset;
     };
