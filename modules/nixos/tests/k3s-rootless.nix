@@ -13,6 +13,13 @@
       ../redis-spec.nix
     ];
 
+    # Runs out of space on default 1024 (kubelet evicts redis for
+    # DiskPressure), and with 1 GiB / 1 vCPU kine times out under
+    # rootlesskit.
+    virtualisation.diskSize = 2048;
+    virtualisation.memorySize = 2048;
+    virtualisation.cores = 2;
+
     services.k3s.rootless = {
       enable = true;
       snapshotter = "nix";
