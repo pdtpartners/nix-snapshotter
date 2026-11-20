@@ -8,7 +8,7 @@ in {
   ];
 
   config = lib.mkIf cfg.enable {
-    environment.extraInit = 
+    environment.extraInit =
       (lib.optionalString cfg.setEmbeddedContainerd ''
         if [ -z "$CONTAINERD_ADDRESS" ]; then
           export CONTAINERD_ADDRESS="/run/k3s/containerd/containerd.sock"
@@ -27,7 +27,10 @@ in {
       '');
 
     services.k3s = {
-      extraFlags = [ "--snapshotter ${cfg.snapshotter}" ];
+      extraFlags = [
+        "--snapshotter ${cfg.snapshotter}"
+        "--pause-image ${cfg.pauseImage}"
+      ];
     };
 
     systemd.services.k3s.path = lib.mkIf (cfg.snapshotter == "nix") [

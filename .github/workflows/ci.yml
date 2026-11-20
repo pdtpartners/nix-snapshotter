@@ -30,6 +30,7 @@ jobs:
           - image-hello
           - image-redis
           - image-redisWithShell
+          - checks.x86_64-linux.k3s-pause-image
     steps:
       - uses: actions/checkout@v4
       - name: Setup Nix

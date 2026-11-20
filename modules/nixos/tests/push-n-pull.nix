@@ -19,7 +19,7 @@ let
     name = "ghcr.io/pdtpartners/registry";
     tag = "latest";
     config = {
-      entrypoint = [ "${pkgs.docker-distribution}/bin/registry" ];
+      entrypoint = [ "${pkgs.distribution}/bin/registry" ];
       cmd = [ "serve" configFile ];
     };
   };

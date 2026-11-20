@@ -27,7 +27,7 @@ in {
     enable = mkOption {
       type = types.bool;
       default = false;
-      description = lib.mdDoc ''
+      description = ''
         This option enables nix-snapshotter and containerd in rootless mode.
         To interact with the containerd daemon, one needs to set
         {command}`CONTAINERD_ADDRESS=$XDG_RUNTIME_DIR/containerd/containerd.sock`.
